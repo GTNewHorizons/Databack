@@ -1,11 +1,7 @@
 package databack.mixins;
 
-import com.gtnewhorizon.gtnhlib.GTNHLibConfig;
-import com.gtnewhorizon.gtnhlib.mixin.Phase;
-import com.gtnewhorizon.gtnhlib.mixins.TargetMods;
 import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
-
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
@@ -16,6 +12,7 @@ public enum Mixins implements IMixins {
 
     DATAPACK(Side.COMMON, "MixinWorldInfo_Datapacks"),
     NBT_ACCESSOR(Side.COMMON, "AccessorNBTTagList", "AccessorNBTTagCompound"),
+    HEIGHTMAPS(Side.COMMON, "MixinWorld_HeightmapExt"),
     //
     ;
 
