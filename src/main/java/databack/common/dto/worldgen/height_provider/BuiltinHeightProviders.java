@@ -1,5 +1,6 @@
 package databack.common.dto.worldgen.height_provider;
 
+import java.util.List;
 import java.util.Random;
 
 import org.jetbrains.annotations.Nullable;
@@ -19,6 +20,7 @@ public class BuiltinHeightProviders {
         loader.addVariant("biased_to_bottom", BiasedToBottomHeight.class);
         loader.addVariant("very_biased_to_bottom", VeryBiasedToBottomHeight.class);
         loader.addVariant("trapezoid", TrapezoidHeight.class);
+        loader.addVariant("weighted_list", WeightedListHeight.class);
 
         // Bare VerticalAnchor objects (no "type" field) resolve to a constant height.
         loader.setFallback((json, typeOfT, context) -> {
@@ -27,20 +29,6 @@ public class BuiltinHeightProviders {
             int y = anchor.resolve();
             return random -> y;
         });
-    }
-
-    static class VerticalAnchor {
-
-        @Nullable Integer absolute;
-        @Nullable Integer above_bottom;
-        @Nullable Integer below_top;
-
-        int resolve() {
-            if (absolute != null) return absolute;
-            if (above_bottom != null) return above_bottom;
-            if (below_top != null) return 255 - below_top;
-            throw new IllegalStateException("Empty VerticalAnchor");
-        }
     }
 
     private static class ConstantHeight implements IHeightProvider {
@@ -108,6 +96,32 @@ public class BuiltinHeightProviders {
         }
     }
 
+    private static class WeightedEntry {
+        public int weight;
+        public IHeightProvider data;
+    }
+
+    private static class WeightedListHeight implements IHeightProvider {
+
+        public List<WeightedEntry> distribution;
+
+        @Override
+        public int get(Random random) {
+            int totalWeight = 0;
+            for (WeightedEntry entry : distribution) {
+                totalWeight += entry.weight;
+            }
+
+            int roll = random.nextInt(totalWeight);
+            for (WeightedEntry entry : distribution) {
+                roll -= entry.weight;
+                if (roll < 0) return entry.data.get(random);
+            }
+
+            return distribution.get(distribution.size() - 1).data.get(random);
+        }
+    }
+
     private static class TrapezoidHeight implements IHeightProvider {
 
         public VerticalAnchor min_inclusive;
@@ -116,7 +130,13 @@ public class BuiltinHeightProviders {
 
         @Override
         public int get(Random random) {
-            return 0; // TODO
+            int minY = min_inclusive.resolve();
+            int maxY = max_inclusive.resolve();
+            int plat = plateau != null ? plateau : 0;
+            float f = (float)(maxY - minY);
+            float g = (float)plat;
+            float h = (f - g) / 2.0f;
+            return minY + (int)Math.floor(h + Math.abs(random.nextFloat() * f - h - g / 2.0f));
         }
     }
 }

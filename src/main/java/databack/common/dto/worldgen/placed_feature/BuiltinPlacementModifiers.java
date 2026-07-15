@@ -6,6 +6,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 
 import databack.common.collection.Pos3DArrayList;
+import databack.common.dto.worldgen.carver.CarveStep;
 import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
 import databack.common.dto.worldgen.height_provider.IHeightProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
@@ -54,7 +55,7 @@ public class BuiltinPlacementModifiers {
 
     private static class CarvingMaskMod implements IPlacementModifier {
 
-        public String step;
+        public CarveStep step;
 
         @Override
         public Pos3DArrayList apply(World world, Pos3DArrayList positions) {
@@ -100,9 +101,9 @@ public class BuiltinPlacementModifiers {
 
     private static class NoiseThresholdCountMod implements IPlacementModifier {
 
-        public double noise_level;
-        public double below_noise;
-        public double above_noise;
+        public float noise_level;
+        public int below_noise;
+        public int above_noise;
 
         @Override
         public Pos3DArrayList apply(World world, Pos3DArrayList positions) {
@@ -112,9 +113,9 @@ public class BuiltinPlacementModifiers {
 
     private static class NoiseBasedCountMod implements IPlacementModifier {
 
-        public double noise_to_count_ratio;
-        public double noise_factor;
-        @Nullable public Double noise_offset;
+        public int noise_to_count_ratio;
+        public float noise_factor;
+        @Nullable public Float noise_offset;
 
         @Override
         public Pos3DArrayList apply(World world, Pos3DArrayList positions) {

@@ -1,5 +1,8 @@
 package databack.common.handlers;
 
+import java.util.List;
+import java.util.Set;
+
 import net.minecraft.entity.player.EntityPlayerMP;
 
 import org.jetbrains.annotations.NotNull;
@@ -25,6 +28,21 @@ public interface IDatapackTypeHandler {
      *                   {@link DatapackLoadException}
      */
     void handle(@NotNull ResourceId id, byte @NotNull [] content) throws Exception;
+
+    /**
+     * Called by {@link DatapackLoader#enumerateAndDispatch(List, Set)} when datapacks are loaded, prior to the
+     * handling of any resources.
+     *
+     * <p>Must not throw. Any exception is caught, logged, and suppressed by the loader.
+     */
+    default void onLoadStart() {}
+
+    /**
+     * Called by {@link DatapackLoader#enumerateAndDispatch(List, Set)} after all datapack resources have been handled.
+     *
+     * <p>Must not throw. Any exception is caught, logged, and suppressed by the loader.
+     */
+    default void onLoadFinished() {}
 
     /**
      * Called by {@link DatapackLoader#unload()} when the server-side overworld unloads.

@@ -291,6 +291,15 @@ public final class DatapackLoader {
         @Nonnull List<Datapack> orderedPacks,
         @Nonnull Set<String> warnedTypes) throws DatapackLoadException {
 
+        for (Entry<String, IDatapackTypeHandler> e : DatapackHandlerRegistry.entrySet(Side.SERVER)) {
+            try {
+                e.getValue().onLoadStart();
+            } catch (Exception ex) {
+                throw new DatapackLoadException(
+                    "Error in IDatapackTypeHandler.onLoadStart ('" + e + "')", ex);
+            }
+        }
+
         // Claimed resources are tracked across all packs
         Set<ResourceId> claimed = new HashSet<>();
 
@@ -344,6 +353,15 @@ public final class DatapackLoader {
                 }
 
                 dispatchEntry(pack, entryPath, id, source, warnedTypes);
+            }
+        }
+
+        for (Entry<String, IDatapackTypeHandler> e : DatapackHandlerRegistry.entrySet(Side.SERVER)) {
+            try {
+                e.getValue().onLoadFinished();
+            } catch (Exception ex) {
+                throw new DatapackLoadException(
+                    "Error in IDatapackTypeHandler.onLoadStart ('" + e + "')", ex);
             }
         }
     }

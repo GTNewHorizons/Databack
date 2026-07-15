@@ -38,13 +38,20 @@ public class JsonDatapackTypeHandler<T> implements IDatapackTypeHandler {
 
         T obj = DatapackSerialization.getGson().fromJson(tree, type);
 
-        objects.put(id.id(), obj);
-        rawObjectData.put(id.id(), tree);
+        objects.put(id.fqid(), obj);
+        rawObjectData.put(id.fqid(), tree);
+    }
+
+    @Override
+    public void onLoadStart() {
+        objects.clear();
+        rawObjectData.clear();
     }
 
     @Override
     public void onWorldUnload() {
         objects.clear();
+        rawObjectData.clear();
     }
 
     protected T getObject(String name) {

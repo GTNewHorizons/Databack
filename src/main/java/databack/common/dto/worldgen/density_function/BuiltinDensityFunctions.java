@@ -10,6 +10,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import databack.common.handlers.DatapackNoiseList;
 import databack.common.handlers.DensityFunctionList;
 import databack.common.noise.NoiseSampler;
 import databack.common.serde.DatapackSerialization;
@@ -53,11 +54,12 @@ public class BuiltinDensityFunctions {
         densityFunctions.addVariant("minecraft:weird_scaled_sampler", WeirdScaledSampler.class);
         densityFunctions.addVariant("minecraft:y_clamped_gradient", YClampedGradientFunc.class);
         densityFunctions.addVariant("minecraft:noise", NoiseFunc.class);
+        densityFunctions.addVariant("minecraft:old_blended_noise", OldBlendedNoise.class);
+        densityFunctions.addVariant("minecraft:terrain_shaper_spline", TerrainShaperSpline.class);
 
         DatapackSerialization.getBuilder().registerTypeAdapter(ISpline.class, new SplineAdapter());
         densityFunctions.addVariant("minecraft:spline", SplineFunc.class);
 
-        densityFunctions.addVariant("minecraft:density-function", DensityFunctionRef.class);
         densityFunctions.setFallback((json, typeOfT, context) -> {
             String str = context.deserialize(json, String.class);
 
@@ -338,9 +340,18 @@ public class BuiltinDensityFunctions {
     }
 
     private static class ShiftedNoiseFunc implements IDensityFunction {
-        public NoiseSampler noise;
+        public String noise;
         public float xz_scale, y_scale;
         public IDensityFunction shift_x, shift_y, shift_z;
+
+        private transient NoiseSampler resolvedNoise;
+
+        private NoiseSampler resolveNoise() {
+            if (resolvedNoise == null) {
+                resolvedNoise = DatapackNoiseList.INSTANCE.createSampler(noise);
+            }
+            return resolvedNoise;
+        }
 
         @Override
         public float compute(float blockX, float blockY, float blockZ) {
@@ -348,41 +359,77 @@ public class BuiltinDensityFunctions {
             int sy = (int) shift_y.compute(blockX, blockY, blockZ);
             int sz = (int) shift_z.compute(blockX, blockY, blockZ);
 
-            return noise.sample((blockX + sx) * xz_scale, (blockY + sy) * y_scale, (blockZ + sz) * xz_scale);
+            return resolveNoise().sample((blockX + sx) * xz_scale, (blockY + sy) * y_scale, (blockZ + sz) * xz_scale);
         }
     }
 
     private static class ShiftFunc implements IDensityFunction {
-        public NoiseSampler argument;
+        public String argument;
+
+        private transient NoiseSampler resolvedArgument;
+
+        private NoiseSampler resolveArgument() {
+            if (resolvedArgument == null) {
+                resolvedArgument = DatapackNoiseList.INSTANCE.createSampler(argument);
+            }
+            return resolvedArgument;
+        }
 
         @Override
         public float compute(float blockX, float blockY, float blockZ) {
-            return argument.sample(blockX / 4, blockY / 4, blockZ / 4) * 4;
+            return resolveArgument().sample(blockX / 4, blockY / 4, blockZ / 4) * 4;
         }
     }
 
     private static class ShiftAFunc implements IDensityFunction {
-        public NoiseSampler argument;
+        public String argument;
+
+        private transient NoiseSampler resolvedArgument;
+
+        private NoiseSampler resolveArgument() {
+            if (resolvedArgument == null) {
+                resolvedArgument = DatapackNoiseList.INSTANCE.createSampler(argument);
+            }
+            return resolvedArgument;
+        }
 
         @Override
         public float compute(float blockX, float blockY, float blockZ) {
-            return argument.sample(blockX / 4, 0, blockZ / 4) * 4;
+            return resolveArgument().sample(blockX / 4, 0, blockZ / 4) * 4;
         }
     }
 
     private static class ShiftBFunc implements IDensityFunction {
-        public NoiseSampler argument;
+        public String argument;
+
+        private transient NoiseSampler resolvedArgument;
+
+        private NoiseSampler resolveArgument() {
+            if (resolvedArgument == null) {
+                resolvedArgument = DatapackNoiseList.INSTANCE.createSampler(argument);
+            }
+            return resolvedArgument;
+        }
 
         @Override
         public float compute(float blockX, float blockY, float blockZ) {
-            return argument.sample(blockZ / 4, blockX / 4, 0) * 4;
+            return resolveArgument().sample(blockZ / 4, blockX / 4, 0) * 4;
         }
     }
 
     private static class WeirdScaledSampler implements IDensityFunction {
         public RarityType rarity_value_mapper;
-        public NoiseSampler noise;
+        public String noise;
         public IDensityFunction input;
+
+        private transient NoiseSampler resolvedNoise;
+
+        private NoiseSampler resolveNoise() {
+            if (resolvedNoise == null) {
+                resolvedNoise = DatapackNoiseList.INSTANCE.createSampler(noise);
+            }
+            return resolvedNoise;
+        }
 
         @Override
         public float compute(float blockX, float blockY, float blockZ) {
@@ -439,7 +486,7 @@ public class BuiltinDensityFunctions {
                 }
             }
 
-            return rarity * noise.sample(blockX * rarityInv, blockY * rarityInv, blockZ * rarityInv);
+            return rarity * resolveNoise().sample(blockX * rarityInv, blockY * rarityInv, blockZ * rarityInv);
         }
     }
 
@@ -466,14 +513,52 @@ public class BuiltinDensityFunctions {
 
     private static class NoiseFunc implements IDensityFunction {
 
-        public NoiseSampler noise;
+        public String noise;
         public float xz_scale, y_scale;
+
+        private transient NoiseSampler resolvedNoise;
+
+        private NoiseSampler resolveNoise() {
+            if (resolvedNoise == null) {
+                resolvedNoise = DatapackNoiseList.INSTANCE.createSampler(noise);
+            }
+            return resolvedNoise;
+        }
 
         @Override
         public float compute(float blockX, float blockY, float blockZ) {
-            return noise.sample(blockX * xz_scale, blockY * y_scale, blockZ * xz_scale);
+            return resolveNoise().sample(blockX * xz_scale, blockY * y_scale, blockZ * xz_scale);
         }
     }
+
+    private static class OldBlendedNoise implements IDensityFunction {
+
+        public float xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier;
+
+        @Override
+        public float compute(float blockX, float blockY, float blockZ) {
+            return 0; // TODO
+        }
+    }
+
+    private static class TerrainShaperSpline implements IDensityFunction {
+
+        public SplineType spline;
+        public float min_value, max_value;
+        public IDensityFunction continentalness, erosion, weirdness;
+
+        @Override
+        public float compute(float blockX, float blockY, float blockZ) {
+            return 0; // TODO
+        }
+
+        private enum SplineType {
+            offset,
+            factor,
+            jaggedness
+        }
+    }
+
     private static class SplineFunc implements IDensityFunction {
         public ISpline spline;
 

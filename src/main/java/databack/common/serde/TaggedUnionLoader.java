@@ -22,11 +22,21 @@ public class TaggedUnionLoader<Union> implements JsonSerializer<Union>, JsonDese
 
     private final BiMap<String, Class<? extends Union>> variants = HashBiMap.create();
 
-    @Setter
     private JsonDeserializer<Union> fallback;
 
     public TaggedUnionLoader<Union> addVariant(String name, Class<? extends Union> clazz) {
         variants.put(name, clazz);
+
+        return this;
+    }
+
+    public TaggedUnionLoader<Union> setFallback(JsonDeserializer<Union> fallback) {
+        this.fallback = fallback;
+        return this;
+    }
+
+    public TaggedUnionLoader<Union> setFallback(Class<? extends Union> fallback) {
+        this.fallback = (json, typeOfT, context) -> context.deserialize(json, fallback);
 
         return this;
     }

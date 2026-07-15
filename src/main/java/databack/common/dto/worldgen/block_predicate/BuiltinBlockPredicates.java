@@ -3,7 +3,6 @@ package databack.common.dto.worldgen.block_predicate;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 import net.minecraft.block.Block;
 import net.minecraft.util.AxisAlignedBB;
@@ -18,6 +17,7 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+import databack.common.dto.worldgen.BlockState;
 import databack.common.dto.worldgen.BlockWhitelist;
 import databack.common.interop.BiomeIds;
 import databack.common.interop.BlockTags;
@@ -150,12 +150,6 @@ public class BuiltinBlockPredicates {
                 default: throw new IllegalStateException("Unexpected direction: " + this);
             }
         }
-    }
-
-    private static class BlockStateDTO {
-
-        public String Name;
-        @Nullable public Map<String, String> Properties;
     }
 
     private static class AllOfPredicate implements IBlockPredicate {
@@ -301,7 +295,7 @@ public class BuiltinBlockPredicates {
     private static class WouldSurvivePredicate implements IBlockPredicate {
 
         @Nullable public int[] offset;
-        public BlockStateDTO state;
+        public BlockState state;
 
         @Override
         public boolean test(World world, int x, int y, int z) {

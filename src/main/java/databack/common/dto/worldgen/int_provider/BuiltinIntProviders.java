@@ -1,5 +1,6 @@
 package databack.common.dto.worldgen.int_provider;
 
+import java.util.List;
 import java.util.Random;
 
 import com.google.gson.JsonParseException;
@@ -17,6 +18,7 @@ public class BuiltinIntProviders {
         loader.addVariant("clamped", ClampedInt.class);
         loader.addVariant("clamped_normal", ClampedNormalInt.class);
         loader.addVariant("trapezoid", TrapezoidInt.class);
+        loader.addVariant("weighted_list", WeightedListInt.class);
 
         loader.setFallback((json, typeOfT, context) -> {
             if (!json.isJsonPrimitive()) throw new JsonParseException("Expected int or typed IntProvider: " + json);
@@ -74,13 +76,39 @@ public class BuiltinIntProviders {
 
         public int min_inclusive;
         public int max_inclusive;
-        public double mean;
-        public double deviation;
+        public float mean;
+        public float deviation;
 
         @Override
         public int get(Random random) {
-            int value = (int) Math.round(random.nextGaussian() * deviation + mean);
+            int value = (int) Math.round(random.nextGaussian() * (double) deviation + (double) mean);
             return Math.max(min_inclusive, Math.min(max_inclusive, value));
+        }
+    }
+
+    private static class WeightedEntry {
+        public int weight;
+        public IIntProvider data;
+    }
+
+    private static class WeightedListInt implements IIntProvider {
+
+        public List<WeightedEntry> distribution;
+
+        @Override
+        public int get(Random random) {
+            int totalWeight = 0;
+            for (WeightedEntry entry : distribution) {
+                totalWeight += entry.weight;
+            }
+
+            int roll = random.nextInt(totalWeight);
+            for (WeightedEntry entry : distribution) {
+                roll -= entry.weight;
+                if (roll < 0) return entry.data.get(random);
+            }
+
+            return distribution.get(distribution.size() - 1).data.get(random);
         }
     }
 
@@ -92,7 +120,10 @@ public class BuiltinIntProviders {
 
         @Override
         public int get(Random random) {
-            return 0; // TODO
+            float f = (float)(max - min);
+            float g = (float)plateau;
+            float h = (f - g) / 2.0f;
+            return min + (int)Math.floor(h + Math.abs(random.nextFloat() * f - h - g / 2.0f));
         }
     }
 }
