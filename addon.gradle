@@ -1,0 +1,55 @@
+import groovy.json.JsonSlurper
+
+def MC_VERSION = "26.1"
+def modernDataDir = layout.buildDirectory.dir("modernData").get().asFile
+
+tasks.register('downloadVanillaDatapack') {
+    description = "Downloads and extracts the vanilla Minecraft ${MC_VERSION} data directory"
+    group = "databack"
+    outputs.dir(modernDataDir)
+
+    doLast {
+        def slurper = new JsonSlurper()
+
+        // Step 1: Fetch version manifest
+        logger.lifecycle("Fetching Minecraft version manifest...")
+        def manifest = slurper.parse(new URL("https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"))
+
+        // Step 2: Find 26.1 entry
+        def entry = manifest.versions.find { it.id == MC_VERSION }
+        if (!entry) {
+            def available = manifest.versions.collect { it.id }.join(", ")
+            throw new GradleException("Could not find Minecraft version '${MC_VERSION}'. Available: ${available}")
+        }
+
+        // Step 3: Fetch version-specific JSON for the jar URL
+        logger.lifecycle("Fetching version info for ${MC_VERSION}...")
+        def versionJson = slurper.parse(new URL(entry.url as String))
+        def clientUrl = versionJson.downloads.client.url as String
+
+        // Step 4: Cache the client jar under .gradle/caches to avoid re-downloading
+        def cacheDir = new File(gradle.gradleUserHomeDir, "caches/minecraft-client-jars")
+        cacheDir.mkdirs()
+        def jarFile = new File(cacheDir, "minecraft-${MC_VERSION}-client.jar")
+
+        if (!jarFile.exists()) {
+            logger.lifecycle("Downloading Minecraft ${MC_VERSION} client jar (~300MB)...")
+            new URL(clientUrl).withInputStream { input ->
+                jarFile.withOutputStream { it << input }
+            }
+        } else {
+            logger.lifecycle("Using cached jar: ${jarFile}")
+        }
+
+        // Step 5: Extract data/ into build/modernData/
+        logger.lifecycle("Extracting data/ from jar...")
+        modernDataDir.mkdirs()
+        ant.unzip(src: jarFile, dest: modernDataDir, overwrite: true) {
+            patternset(includes: "data/**", excludes: "data/.mcassetsroot")
+        }
+
+        logger.lifecycle("Done. Data extracted to: ${modernDataDir}")
+    }
+}
+
+tasks.compileJava.dependsOn(tasks.downloadVanillaDatapack)
