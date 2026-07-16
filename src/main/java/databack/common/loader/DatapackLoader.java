@@ -26,6 +26,7 @@ import org.apache.logging.log4j.Logger;
 
 import cpw.mods.fml.relauncher.Side;
 import databack.common.command.StandardDatapackOwners;
+import databack.common.dto.tag.TagFile;
 import databack.common.handlers.IDatapackTypeHandler;
 import databack.common.loader.DatapackEvent.DatapackFinishedLoadingEvent;
 import databack.common.loader.DatapackEvent.DatapackGatherEvent;
@@ -39,6 +40,7 @@ import databack.common.meta.OverlayEntry;
 import databack.common.meta.PackMetadata;
 import databack.common.meta.PackMetadataParser;
 import databack.common.handlers.DatapackHandlerRegistry;
+import databack.common.tags.TagRegistry;
 
 /**
  * The single entry point for loading all datapacks in a world.
@@ -311,6 +313,8 @@ public final class DatapackLoader {
             }
         }
 
+        TagRegistry.INSTANCE.clearDynamic();
+
         // Claimed resources are tracked across all packs
         Set<ResourceId> claimed = new HashSet<>();
 
@@ -342,12 +346,16 @@ public final class DatapackLoader {
                     String relativePath = entryPath.substring(overlayDataPrefix.length());
                     ResourceId id = deriveResourceLocation(pack.getName(), relativePath);
 
-                    if (!claimed.add(id)) {
-                        // Already claimed by a higher-priority pack or earlier overlay
-                        continue;
+                    if ("tags".equals(id.resourceType())) {
+                        // Tags are additive — bypass the claimed set entirely
+                        routeTagEntry(pack, entryPath, id, source);
+                    } else {
+                        if (!claimed.add(id)) {
+                            // Already claimed by a higher-priority pack or earlier overlay
+                            continue;
+                        }
+                        dispatchEntry(pack, entryPath, id, source, warnedTypes);
                     }
-
-                    dispatchEntry(pack, entryPath, id, source, warnedTypes);
                 }
             }
 
@@ -359,13 +367,18 @@ public final class DatapackLoader {
                 String relativePath = entryPath.substring(baseDataPrefix.length());
                 ResourceId id = deriveResourceLocation(pack.getName(), relativePath);
 
-                if (!claimed.add(id)) {
-                    continue;
+                if ("tags".equals(id.resourceType())) {
+                    routeTagEntry(pack, entryPath, id, source);
+                } else {
+                    if (!claimed.add(id)) {
+                        continue;
+                    }
+                    dispatchEntry(pack, entryPath, id, source, warnedTypes);
                 }
-
-                dispatchEntry(pack, entryPath, id, source, warnedTypes);
             }
         }
+
+        TagRegistry.INSTANCE.resolve();
 
         for (Entry<String, IDatapackTypeHandler> e : DatapackHandlerRegistry.entrySet(Side.SERVER)) {
             try {
@@ -401,6 +414,53 @@ public final class DatapackLoader {
         // the spec checks for ".." as a segment, which is only possible if "/" were present —
         // already caught above. This check covers the case where dir itself equals "..".
         // Since "/" is already excluded, the only "segment" is the full string itself.
+    }
+
+    /**
+     * Routes a tag entry (resourceType == "tags") to {@link TagRegistry}.
+     *
+     * <p>The {@code id.id()} field encodes both the tag type and tag name separated by the last
+     * {@code /}. For example, {@code "blocks/logs"} yields tagType {@code "blocks"} and
+     * tagId {@code "<namespace>:logs"}.
+     */
+    private static void routeTagEntry(
+        @Nonnull Datapack pack,
+        @Nonnull String entryPath,
+        @Nonnull ResourceId id,
+        @Nonnull IDatapackSource source) throws DatapackLoadException {
+
+        int lastSlash = id.id().lastIndexOf('/');
+        if (lastSlash < 0) {
+            LOGGER.warn(
+                "Tag resource '{}' has no type segment in id '{}'; skipping.",
+                entryPath,
+                id.id());
+            return;
+        }
+
+        String tagType = id.id().substring(0, lastSlash);  // e.g. "blocks", "worldgen/biome"
+        String tagName = id.id().substring(lastSlash + 1); // e.g. "logs"
+        String tagId   = id.namespace() + ":" + tagName;   // e.g. "minecraft:logs"
+
+        byte[] content;
+        try {
+            content = source.readEntry(entryPath);
+        } catch (IOException e) {
+            throw new DatapackLoadException(
+                "Failed to read tag entry '" + entryPath + "' from datapack '" + pack.getName() + "'",
+                e);
+        }
+
+        TagFile tagFile;
+        try {
+            tagFile = TagFile.GSON.fromJson(
+                new String(content, StandardCharsets.UTF_8), TagFile.class);
+        } catch (Exception e) {
+            throw new DatapackLoadException(
+                "Failed to parse tag '" + entryPath + "' in pack '" + pack.getName() + "'", e);
+        }
+
+        TagRegistry.INSTANCE.accumulate(tagType, tagId, tagFile);
     }
 
     /**
