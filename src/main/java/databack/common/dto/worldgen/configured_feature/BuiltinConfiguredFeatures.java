@@ -94,19 +94,19 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:waterlogged_vegetation_patch", VegetationPatchFeature.class);
         loader.addVariant("minecraft:weighted_random_selector", WeightedRandomSelectorFeature.class);
         loader.addVariant("minecraft:tree", TreeFeature.class);
-        loader.addVariant("minecraft:basalt_pillar", NoConfigFeature.class);
-        loader.addVariant("minecraft:blue_ice", NoConfigFeature.class);
-        loader.addVariant("minecraft:bonus_chest", NoConfigFeature.class);
-        loader.addVariant("minecraft:chorus_plant", NoConfigFeature.class);
-        loader.addVariant("minecraft:end_island", NoConfigFeature.class);
-        loader.addVariant("minecraft:end_platform", NoConfigFeature.class);
-        loader.addVariant("minecraft:freeze_top_layer", NoConfigFeature.class);
-        loader.addVariant("minecraft:glowstone_blob", NoConfigFeature.class);
-        loader.addVariant("minecraft:kelp", NoConfigFeature.class);
-        loader.addVariant("minecraft:monster_room", NoConfigFeature.class);
-        loader.addVariant("minecraft:vines", NoConfigFeature.class);
-        loader.addVariant("minecraft:void_start_platform", NoConfigFeature.class);
-        loader.addVariant("minecraft:weeping_vines", NoConfigFeature.class);
+        loader.addVariant("minecraft:basalt_pillar", BasaltPillarFeature.class);
+        loader.addVariant("minecraft:blue_ice", BlueIceFeature.class);
+        loader.addVariant("minecraft:bonus_chest", BonusChestFeature.class);
+        loader.addVariant("minecraft:chorus_plant", ChorusPlantFeature.class);
+        loader.addVariant("minecraft:end_island", EndIslandFeature.class);
+        loader.addVariant("minecraft:end_platform", EndPlatformFeature.class);
+        loader.addVariant("minecraft:freeze_top_layer", FreezeTopLayerFeature.class);
+        loader.addVariant("minecraft:glowstone_blob", GlowstoneBlobFeature.class);
+        loader.addVariant("minecraft:kelp", KelpFeature.class);
+        loader.addVariant("minecraft:monster_room", MonsterRoomFeature.class);
+        loader.addVariant("minecraft:vines", VinesFeature.class);
+        loader.addVariant("minecraft:void_start_platform", VoidStartPlatformFeature.class);
+        loader.addVariant("minecraft:weeping_vines", WeepingVinesFeature.class);
 
         loader.setFallback((json, typeOfT, context) -> {
             if (!json.isJsonPrimitive()) throw new JsonParseException("Expected typed object or resource location for configured feature: " + json);
@@ -165,9 +165,44 @@ public class BuiltinConfiguredFeatures {
         public JsonElement feature;
     }
 
-    // basalt_pillar, blue_ice, bonus_chest, chorus_plant, end_island, end_platform,
-    // freeze_top_layer, glowstone_blob, kelp, monster_room, vines, void_start_platform, weeping_vines
-    private static class NoConfigFeature implements IConfiguredFeature {}
+    // basalt_pillar
+    private static class BasaltPillarFeature implements IConfiguredFeature {}
+
+    // blue_ice
+    private static class BlueIceFeature implements IConfiguredFeature {}
+
+    // bonus_chest
+    private static class BonusChestFeature implements IConfiguredFeature {}
+
+    // chorus_plant
+    private static class ChorusPlantFeature implements IConfiguredFeature {}
+
+    // end_island
+    private static class EndIslandFeature implements IConfiguredFeature {}
+
+    // end_platform
+    private static class EndPlatformFeature implements IConfiguredFeature {}
+
+    // freeze_top_layer
+    private static class FreezeTopLayerFeature implements IConfiguredFeature {}
+
+    // glowstone_blob
+    private static class GlowstoneBlobFeature implements IConfiguredFeature {}
+
+    // kelp
+    private static class KelpFeature implements IConfiguredFeature {}
+
+    // monster_room
+    private static class MonsterRoomFeature implements IConfiguredFeature {}
+
+    // vines
+    private static class VinesFeature implements IConfiguredFeature {}
+
+    // void_start_platform
+    private static class VoidStartPlatformFeature implements IConfiguredFeature {}
+
+    // weeping_vines
+    private static class WeepingVinesFeature implements IConfiguredFeature {}
 
     // desert_well
     private static class DesertWellFeature implements IConfiguredFeature {}
