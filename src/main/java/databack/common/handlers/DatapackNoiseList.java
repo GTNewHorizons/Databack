@@ -2,19 +2,18 @@ package databack.common.handlers;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
 import databack.common.dto.worldgen.noise.DatapackNoise;
-import databack.common.noise.NoiseSampler;
-import databack.common.noise.OctavesSampler;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
 
     public static final DatapackNoiseList INSTANCE = new DatapackNoiseList();
 
-    private final Map<String, NoiseSampler> samplerCache = new HashMap<>();
+    private final Map<String, Long2ObjectOpenHashMap<NoiseSampler>> samplerCache = new HashMap<>();
 
     public DatapackNoiseList() {
         super("worldgen/noise", DatapackNoise.class);
@@ -25,17 +24,10 @@ public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
         return super.getObject(name);
     }
 
-    /**
-     * Creates a NoiseSampler for the given noise resource location.
-     * Uses amplitudes.length as octave count with a deterministic seed.
-     * Note: firstOctave and per-octave amplitude weights are not respected — approximation only.
-     */
-    public NoiseSampler createSampler(String name) {
-        return samplerCache.computeIfAbsent(name, n -> {
-            DatapackNoise data = getNoise(n);
-            if (data == null) throw new IllegalStateException("Unknown noise: " + n);
-            return new OctavesSampler(new Random(n.hashCode()), Math.max(1, data.amplitudes.length));
-        });
+    @Override
+    public void onLoadStart() {
+        super.onLoadStart();
+        samplerCache.clear();
     }
 
     @Override
@@ -44,4 +36,21 @@ public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
         samplerCache.clear();
     }
 
+    public NoiseSampler getSampler(long dimensionSeed, String name) {
+        var cache = samplerCache.computeIfAbsent(name, $ -> new Long2ObjectOpenHashMap<>());
+
+        var sampler = cache.get(dimensionSeed);
+
+        if (sampler == null) {
+            DatapackNoise data = getNoise(name);
+
+            if (data == null) throw new IllegalStateException("Unknown noise: " + name);
+
+            sampler = data.createSampler(dimensionSeed);
+
+            cache.put(dimensionSeed, sampler);
+        }
+
+        return sampler;
+    }
 }

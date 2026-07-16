@@ -5,12 +5,28 @@ import java.util.List;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
-import com.google.gson.annotations.SerializedName;
-import databack.common.dto.worldgen.BlockState;
+import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.dto.worldgen.density_function.IDensityFunction;
+import databack.common.serde.DatapackSerialization;
 
+@SuppressWarnings({ "unused", "NotNullFieldNotInitialized" })
 public class NoiseGeneratorSettings {
+
+    public static void init() {
+        DatapackSerialization.getBuilder().registerTypeAdapter(
+            ClimatePoint.class, (JsonDeserializer<ClimatePoint>) (json, typeOfT, context) -> {
+                if (json.isJsonPrimitive()) {
+                    return new ClimatePoint(json.getAsFloat(), json.getAsFloat());
+                } else {
+                    JsonArray array = json.getAsJsonArray();
+
+                    return new ClimatePoint(array.get(0).getAsFloat(), array.get(1).getAsFloat());
+                }
+            });
+    }
 
     @NotNull
     public BlockState default_block;
@@ -93,25 +109,40 @@ public class NoiseGeneratorSettings {
         public IDensityFunction final_density;
     }
 
+    public static class ClimatePoint {
+        public float min, max;
+
+        public ClimatePoint(float min, float max) {
+            this.min = min;
+            this.max = max;
+        }
+
+        public float distance(float value) {
+            if (value < min) return min - value;
+            if (value > max) return value - max;
+            return 0;
+        }
+    }
+
     public static class ClimateParameters {
 
         @NotNull
-        public float[] temperature;
+        public ClimatePoint temperature;
 
         @NotNull
-        public float[] humidity;
+        public ClimatePoint humidity;
 
         @NotNull
-        public float[] continentalness;
+        public ClimatePoint continentalness;
 
         @NotNull
-        public float[] erosion;
+        public ClimatePoint erosion;
 
         @NotNull
-        public float[] weirdness;
+        public ClimatePoint weirdness;
 
         @NotNull
-        public float[] depth;
+        public ClimatePoint depth;
 
         public float offset;
     }

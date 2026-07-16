@@ -2,27 +2,30 @@ package databack.common.dto.worldgen.configured_feature;
 
 import java.util.List;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonParseException;
-import com.google.gson.annotations.SerializedName;
-
 import javax.annotation.Nonnegative;
 
 import org.jetbrains.annotations.Nullable;
 
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.annotations.SerializedName;
+import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.annotation.RangeFloat;
-import databack.common.dto.worldgen.BlockState;
+import databack.common.dto.worldgen.BlockWhitelist;
+import databack.common.dto.worldgen.FluidState;
 import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
 import databack.common.dto.worldgen.configured_feature.tree.BuiltinTreeComponents;
+import databack.common.dto.worldgen.configured_feature.tree.IFallenLogDecorator;
 import databack.common.dto.worldgen.configured_feature.tree.IFeatureSize;
+import databack.common.dto.worldgen.configured_feature.tree.IRootPlacer;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeDecorator;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeFoliagePlacer;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeTrunkPlacer;
-import databack.common.dto.worldgen.configured_feature.tree.IRootPlacer;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
 
+@SuppressWarnings("unused")
 public class BuiltinConfiguredFeatures {
 
     public static void init() {
@@ -37,6 +40,7 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:block_column", BlockColumnFeature.class);
         loader.addVariant("minecraft:block_pile", BlockPileFeature.class);
         loader.addVariant("minecraft:decorated", DecoratedFeature.class);
+        loader.addVariant("minecraft:desert_well", DesertWellFeature.class);
         loader.addVariant("minecraft:delta_feature", DeltaFeatureFeature.class);
         loader.addVariant("minecraft:disk", DiskFeature.class);
         loader.addVariant("minecraft:ice_patch", DiskFeature.class);
@@ -46,6 +50,7 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:end_spike", EndSpikeFeature.class);
         loader.addVariant("minecraft:dripstone_cluster", SpeleothemClusterFeature.class);
         loader.addVariant("minecraft:speleothem_cluster", SpeleothemClusterFeature.class);
+        loader.addVariant("minecraft:fallen_tree", FallenTreeFeature.class);
         loader.addVariant("minecraft:fill_layer", FillLayerFeature.class);
         loader.addVariant("minecraft:flower", RandomPatchFeature.class);
         loader.addVariant("minecraft:no_bonemeal_flower", RandomPatchFeature.class);
@@ -89,6 +94,19 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:waterlogged_vegetation_patch", VegetationPatchFeature.class);
         loader.addVariant("minecraft:weighted_random_selector", WeightedRandomSelectorFeature.class);
         loader.addVariant("minecraft:tree", TreeFeature.class);
+        loader.addVariant("minecraft:basalt_pillar", NoConfigFeature.class);
+        loader.addVariant("minecraft:blue_ice", NoConfigFeature.class);
+        loader.addVariant("minecraft:bonus_chest", NoConfigFeature.class);
+        loader.addVariant("minecraft:chorus_plant", NoConfigFeature.class);
+        loader.addVariant("minecraft:end_island", NoConfigFeature.class);
+        loader.addVariant("minecraft:end_platform", NoConfigFeature.class);
+        loader.addVariant("minecraft:freeze_top_layer", NoConfigFeature.class);
+        loader.addVariant("minecraft:glowstone_blob", NoConfigFeature.class);
+        loader.addVariant("minecraft:kelp", NoConfigFeature.class);
+        loader.addVariant("minecraft:monster_room", NoConfigFeature.class);
+        loader.addVariant("minecraft:vines", NoConfigFeature.class);
+        loader.addVariant("minecraft:void_start_platform", NoConfigFeature.class);
+        loader.addVariant("minecraft:weeping_vines", NoConfigFeature.class);
 
         loader.setFallback((json, typeOfT, context) -> {
             if (!json.isJsonPrimitive()) throw new JsonParseException("Expected typed object or resource location for configured feature: " + json);
@@ -147,6 +165,13 @@ public class BuiltinConfiguredFeatures {
         public JsonElement feature;
     }
 
+    // basalt_pillar, blue_ice, bonus_chest, chorus_plant, end_island, end_platform,
+    // freeze_top_layer, glowstone_blob, kelp, monster_room, vines, void_start_platform, weeping_vines
+    private static class NoConfigFeature implements IConfiguredFeature {}
+
+    // desert_well
+    private static class DesertWellFeature implements IConfiguredFeature {}
+
     // delta_feature
     private static class DeltaFeatureFeature implements IConfiguredFeature {
         public DeltaFeatureConfig config;
@@ -202,9 +227,17 @@ public class BuiltinConfiguredFeatures {
         public EndSpikeConfig config;
     }
     private static class EndSpikeConfig {
-        public JsonElement spikes;
+        public EndSpike[] spikes;
         @Nullable public Boolean crystal_invulnerable;
         @Nullable public int[] crystal_beam_target;
+    }
+
+    private static class EndSpike {
+        public int centerX;
+        public int centerZ;
+        public int radius;
+        public int height;
+        @Nullable public Boolean guarded;
     }
 
     // dripstone_cluster (until 26.2), speleothem_cluster (since 26.2)
@@ -214,7 +247,7 @@ public class BuiltinConfiguredFeatures {
     private static class SpeleothemClusterConfig {
         @Nullable public BlockState base_block;
         @Nullable public BlockState pointed_block;
-        @Nullable public JsonElement replaceable_blocks;
+        @Nullable public BlockWhitelist replaceable_blocks;
         @Nonnegative public int floor_to_ceiling_search_range;
         public IIntProvider height;
         public IIntProvider radius;
@@ -229,6 +262,17 @@ public class BuiltinConfiguredFeatures {
         @Nullable public Integer max_distance_from_edge_affecting_chance_of_dripstone_column;
         @Nullable public Integer max_distance_from_edge_affecting_chance_of_speleothem;
         @Nonnegative public int max_distance_from_center_affecting_height_bias;
+    }
+
+    // fallen_tree (since 26.1)
+    private static class FallenTreeFeature implements IConfiguredFeature {
+        public FallenTreeConfig config;
+    }
+    private static class FallenTreeConfig {
+        public JsonElement trunk_provider;
+        public IIntProvider log_length;
+        public IFallenLogDecorator[] log_decorators;
+        public IFallenLogDecorator[] stump_decorators;
     }
 
     // fill_layer
@@ -323,7 +367,7 @@ public class BuiltinConfiguredFeatures {
         @Nullable public Boolean can_place_on_floor;
         @Nullable public Boolean can_place_on_ceiling;
         @Nullable public Boolean can_place_on_wall;
-        @Nullable public JsonElement can_be_placed_on;
+        @Nullable public BlockWhitelist can_be_placed_on;
     }
 
     // growing_plant (1.17–1.18)
@@ -388,7 +432,7 @@ public class BuiltinConfiguredFeatures {
         public LargeDripstoneConfig config;
     }
     private static class LargeDripstoneConfig {
-        @Nullable public JsonElement replaceable_blocks;
+        @Nullable public IBlockPredicate replaceable_blocks;
         @Nullable public Integer floor_to_ceiling_search_range;
         public IIntProvider column_radius;
         public JsonElement height_scale;
@@ -439,7 +483,7 @@ public class BuiltinConfiguredFeatures {
     private static class SpeleothemConfig {
         @Nullable public BlockState base_block;
         @Nullable public BlockState pointed_block;
-        @Nullable public JsonElement replaceable_blocks;
+        @Nullable public BlockWhitelist replaceable_blocks;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_taller_dripstone;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_taller_generation;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_directional_spread;
@@ -488,7 +532,7 @@ public class BuiltinConfiguredFeatures {
         public int hanging_roots_vertical_span;
         public int hanging_root_placement_attempts;
         public int allowed_vertical_water_for_tree;
-        public JsonElement root_replaceable;
+        public BlockWhitelist root_replaceable;
         public JsonElement root_state_provider;
         public JsonElement hanging_root_state_provider;
         @Nullable public IBlockPredicate allowed_tree_position;
@@ -571,11 +615,11 @@ public class BuiltinConfiguredFeatures {
         public SpringConfig config;
     }
     private static class SpringConfig {
-        public JsonElement state;
+        public FluidState state;
         public int rock_count;
         public int hole_count;
         public boolean requires_block_below;
-        public JsonElement valid_blocks;
+        public BlockWhitelist valid_blocks;
     }
 
     // template (since 26.2)

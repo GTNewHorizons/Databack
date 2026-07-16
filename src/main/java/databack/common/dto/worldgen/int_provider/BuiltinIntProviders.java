@@ -10,15 +10,15 @@ import databack.common.serde.TaggedUnionLoader;
 public class BuiltinIntProviders {
 
     public static void init() {
-        TaggedUnionLoader<IIntProvider> loader = DatapackSerialization.getTaggedUnionLoader("worldgen/int_provider");
+        TaggedUnionLoader<IIntProvider> loader = DatapackSerialization.createTaggedUnionLoader("worldgen/int_provider", IIntProvider.class);
 
-        loader.addVariant("constant", ConstantInt.class);
-        loader.addVariant("uniform", UniformInt.class);
-        loader.addVariant("biased_to_bottom", BiasedToBottomInt.class);
-        loader.addVariant("clamped", ClampedInt.class);
-        loader.addVariant("clamped_normal", ClampedNormalInt.class);
-        loader.addVariant("trapezoid", TrapezoidInt.class);
-        loader.addVariant("weighted_list", WeightedListInt.class);
+        loader.addVariant("minecraft:constant", ConstantInt.class);
+        loader.addVariant("minecraft:uniform", UniformInt.class);
+        loader.addVariant("minecraft:biased_to_bottom", BiasedToBottomInt.class);
+        loader.addVariant("minecraft:clamped", ClampedInt.class);
+        loader.addVariant("minecraft:clamped_normal", ClampedNormalInt.class);
+        loader.addVariant("minecraft:trapezoid", TrapezoidInt.class);
+        loader.addVariant("minecraft:weighted_list", WeightedListInt.class);
 
         loader.setFallback((json, typeOfT, context) -> {
             if (!json.isJsonPrimitive()) throw new JsonParseException("Expected int or typed IntProvider: " + json);

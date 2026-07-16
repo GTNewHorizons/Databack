@@ -10,17 +10,19 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
+import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
+import databack.common.context.StateSlot;
+import databack.common.context.WorldContext;
 import databack.common.handlers.DatapackNoiseList;
 import databack.common.handlers.DensityFunctionList;
-import databack.common.noise.NoiseSampler;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
-import lombok.Getter;
 
+@SuppressWarnings("unused")
 public class BuiltinDensityFunctions {
 
     public static void init() {
-        TaggedUnionLoader<IDensityFunction> densityFunctions = DatapackSerialization.getTaggedUnionLoader("worldgen/density_function");
+        TaggedUnionLoader<IDensityFunction> densityFunctions = DatapackSerialization.createTaggedUnionLoader("worldgen/density_function", IDensityFunction.class);
 
         densityFunctions.addVariant("minecraft:abs", AbsUnary.class);
         densityFunctions.addVariant("minecraft:blend_density", BlendDensityUnary.class);
@@ -60,6 +62,10 @@ public class BuiltinDensityFunctions {
         DatapackSerialization.getBuilder().registerTypeAdapter(ISpline.class, new SplineAdapter());
         densityFunctions.addVariant("minecraft:spline", SplineFunc.class);
 
+        densityFunctions.addVariant("minecraft:end_islands", EndIslandsFunc.class);
+        densityFunctions.addVariant("minecraft:blend_alpha", BlendAlphaFunc.class);
+        densityFunctions.addVariant("minecraft:blend_offset", BlendOffsetFunc.class);
+
         densityFunctions.setFallback((json, typeOfT, context) -> {
             String str = context.deserialize(json, String.class);
 
@@ -72,24 +78,17 @@ public class BuiltinDensityFunctions {
 
     private static class DensityFunctionRef implements IDensityFunction {
 
-        @Getter
         private String name;
 
         private transient IDensityFunction cache;
 
-        // Not used by gson, but could be used by modders
-        public void setName(String name) {
-            this.name = name;
-            this.cache = null;
-        }
-
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             if (this.cache == null) {
                 this.cache = DensityFunctionList.INSTANCE.getDensityFunction(this.name);
             }
 
-            return this.cache.compute(blockX, blockY, blockZ);
+            return this.cache.compute(context, blockX, blockY, blockZ);
         }
     }
 
@@ -162,19 +161,19 @@ public class BuiltinDensityFunctions {
         public IDensityFunction argument;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             int blockX2 = ((int) blockX) & ~0b11;
             int blockY2 = ((int) blockY) & ~0b11;
             int blockZ2 = ((int) blockZ) & ~0b11;
 
-            float c000 = argument.compute(blockX2, blockY2, blockZ2);
-            float c100 = argument.compute(blockX2 + 4, blockY2, blockZ2);
-            float c010 = argument.compute(blockX2, blockY2 + 4, blockZ2);
-            float c110 = argument.compute(blockX2 + 4, blockY2 + 4, blockZ2);
-            float c001 = argument.compute(blockX2, blockY2, blockZ2 + 4);
-            float c101 = argument.compute(blockX2 + 4, blockY2, blockZ2 + 4);
-            float c011 = argument.compute(blockX2, blockY2 + 4, blockZ2 + 4);
-            float c111 = argument.compute(blockX2 + 4, blockY2 + 4, blockZ2 + 4);
+            float c000 = argument.compute(context, blockX2, blockY2, blockZ2);
+            float c100 = argument.compute(context, blockX2 + 4, blockY2, blockZ2);
+            float c010 = argument.compute(context, blockX2, blockY2 + 4, blockZ2);
+            float c110 = argument.compute(context, blockX2 + 4, blockY2 + 4, blockZ2);
+            float c001 = argument.compute(context, blockX2, blockY2, blockZ2 + 4);
+            float c101 = argument.compute(context, blockX2 + 4, blockY2, blockZ2 + 4);
+            float c011 = argument.compute(context, blockX2, blockY2 + 4, blockZ2 + 4);
+            float c111 = argument.compute(context, blockX2 + 4, blockY2 + 4, blockZ2 + 4);
 
             float kx = (((int) blockX) & 0b11) * 0.25f;
             float ky = (((int) blockY) & 0b11) * 0.25f;
@@ -274,8 +273,8 @@ public class BuiltinDensityFunctions {
         public float min, max;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            return MathHelper.clamp_float(input.compute(blockX, blockY, blockZ), min, max);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return MathHelper.clamp_float(input.compute(context, blockX, blockY, blockZ), min, max);
         }
     }
 
@@ -284,7 +283,7 @@ public class BuiltinDensityFunctions {
         public float argument;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             return argument;
         }
     }
@@ -294,9 +293,9 @@ public class BuiltinDensityFunctions {
         public int lower_bound, cell_height;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            for (int y = (int) upper_bound.compute(blockX, blockY, blockZ); y > lower_bound; y -= cell_height) {
-                float value = density.compute(blockX, y, blockZ);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            for (int y = (int) upper_bound.compute(context, blockX, blockY, blockZ); y > lower_bound; y -= cell_height) {
+                float value = density.compute(context, blockX, y, blockZ);
 
                 if (value > 0) return y;
             }
@@ -311,18 +310,18 @@ public class BuiltinDensityFunctions {
         public IDensityFunction[] functions;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            float value = input.compute(blockX, blockY, blockZ);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            float value = input.compute(context, blockX, blockY, blockZ);
 
             int len = thresholds.length;
 
             for (int i = 0; i < len; i++) {
                 if (value < thresholds[i]) {
-                    return functions[i].compute(blockX, blockY, blockZ);
+                    return functions[i].compute(context, blockX, blockY, blockZ);
                 }
             }
 
-            return functions[len].compute(blockX, blockY, blockZ);
+            return functions[len].compute(context, blockX, blockY, blockZ);
         }
     }
 
@@ -332,10 +331,10 @@ public class BuiltinDensityFunctions {
         public IDensityFunction when_in_range, when_out_of_range;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            float value = input.compute(blockX, blockY, blockZ);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            float value = input.compute(context, blockX, blockY, blockZ);
 
-            return value >= min_inclusive && value < max_exclusive ? when_in_range.compute(blockX, blockY, blockZ) : when_out_of_range.compute(blockX, blockY, blockZ);
+            return value >= min_inclusive && value < max_exclusive ? when_in_range.compute(context, blockX, blockY, blockZ) : when_out_of_range.compute(context, blockX, blockY, blockZ);
         }
     }
 
@@ -344,76 +343,115 @@ public class BuiltinDensityFunctions {
         public float xz_scale, y_scale;
         public IDensityFunction shift_x, shift_y, shift_z;
 
-        private transient NoiseSampler resolvedNoise;
+        private transient StateSlot<NoiseSampler> samplerSlot;
 
-        private NoiseSampler resolveNoise() {
-            if (resolvedNoise == null) {
-                resolvedNoise = DatapackNoiseList.INSTANCE.createSampler(noise);
+        private NoiseSampler getNoiseSampler(WorldContext context) {
+            synchronized (this) {
+                if (samplerSlot == null) {
+                    samplerSlot = context.createStateSlot();
+                }
             }
-            return resolvedNoise;
+
+            NoiseSampler sampler = context.getState(samplerSlot);
+
+            if (sampler == null) {
+                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.noise);
+                context.setState(samplerSlot, sampler);
+            }
+            return sampler;
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            int sx = (int) shift_x.compute(blockX, blockY, blockZ);
-            int sy = (int) shift_y.compute(blockX, blockY, blockZ);
-            int sz = (int) shift_z.compute(blockX, blockY, blockZ);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            int sx = (int) shift_x.compute(context, blockX, blockY, blockZ);
+            int sy = (int) shift_y.compute(context, blockX, blockY, blockZ);
+            int sz = (int) shift_z.compute(context, blockX, blockY, blockZ);
 
-            return resolveNoise().sample((blockX + sx) * xz_scale, (blockY + sy) * y_scale, (blockZ + sz) * xz_scale);
+            return (float) getNoiseSampler(context).sample((blockX + sx) * xz_scale, (blockY + sy) * y_scale, (blockZ + sz) * xz_scale);
         }
     }
 
     private static class ShiftFunc implements IDensityFunction {
         public String argument;
 
-        private transient NoiseSampler resolvedArgument;
+        private transient StateSlot<NoiseSampler> samplerSlot;
 
-        private NoiseSampler resolveArgument() {
-            if (resolvedArgument == null) {
-                resolvedArgument = DatapackNoiseList.INSTANCE.createSampler(argument);
+        private NoiseSampler getNoiseSampler(WorldContext context) {
+            synchronized (this) {
+                if (samplerSlot == null) {
+                    samplerSlot = context.createStateSlot();
+                }
             }
-            return resolvedArgument;
+
+            NoiseSampler sampler = context.getState(samplerSlot);
+
+            if (sampler == null) {
+                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.argument);
+                context.setState(samplerSlot, sampler);
+            }
+
+            return sampler;
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            return resolveArgument().sample(blockX / 4, blockY / 4, blockZ / 4) * 4;
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return (float) (getNoiseSampler(context).sample(blockX / 4, blockY / 4, blockZ / 4) * 4);
         }
     }
 
     private static class ShiftAFunc implements IDensityFunction {
         public String argument;
 
-        private transient NoiseSampler resolvedArgument;
+        private transient StateSlot<NoiseSampler> samplerSlot;
 
-        private NoiseSampler resolveArgument() {
-            if (resolvedArgument == null) {
-                resolvedArgument = DatapackNoiseList.INSTANCE.createSampler(argument);
+        private NoiseSampler getNoiseSampler(WorldContext context) {
+            synchronized (this) {
+                if (samplerSlot == null) {
+                    samplerSlot = context.createStateSlot();
+                }
             }
-            return resolvedArgument;
+
+            NoiseSampler sampler = context.getState(samplerSlot);
+
+            if (sampler == null) {
+                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.argument);
+                context.setState(samplerSlot, sampler);
+            }
+
+            return sampler;
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            return resolveArgument().sample(blockX / 4, 0, blockZ / 4) * 4;
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return (float) (getNoiseSampler(context).sample(blockX / 4, 0, blockZ / 4) * 4);
         }
     }
 
     private static class ShiftBFunc implements IDensityFunction {
         public String argument;
 
-        private transient NoiseSampler resolvedArgument;
+        private transient StateSlot<NoiseSampler> samplerSlot;
 
-        private NoiseSampler resolveArgument() {
-            if (resolvedArgument == null) {
-                resolvedArgument = DatapackNoiseList.INSTANCE.createSampler(argument);
+        private NoiseSampler getNoiseSampler(WorldContext context) {
+            synchronized (this) {
+                if (samplerSlot == null) {
+                    samplerSlot = context.createStateSlot();
+                }
             }
-            return resolvedArgument;
+
+            NoiseSampler sampler = context.getState(samplerSlot);
+
+            if (sampler == null) {
+                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.argument);
+                context.setState(samplerSlot, sampler);
+            }
+
+            return sampler;
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            return resolveArgument().sample(blockZ / 4, blockX / 4, 0) * 4;
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return (float) (getNoiseSampler(context).sample(blockZ / 4, blockX / 4, 0) * 4);
         }
     }
 
@@ -422,18 +460,28 @@ public class BuiltinDensityFunctions {
         public String noise;
         public IDensityFunction input;
 
-        private transient NoiseSampler resolvedNoise;
+        private transient StateSlot<NoiseSampler> samplerSlot;
 
-        private NoiseSampler resolveNoise() {
-            if (resolvedNoise == null) {
-                resolvedNoise = DatapackNoiseList.INSTANCE.createSampler(noise);
+        private NoiseSampler getNoiseSampler(WorldContext context) {
+            synchronized (this) {
+                if (samplerSlot == null) {
+                    samplerSlot = context.createStateSlot();
+                }
             }
-            return resolvedNoise;
+
+            NoiseSampler sampler = context.getState(samplerSlot);
+
+            if (sampler == null) {
+                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.noise);
+                context.setState(samplerSlot, sampler);
+            }
+
+            return sampler;
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            float value = input.compute(blockX, blockY, blockZ);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            float value = input.compute(context, blockX, blockY, blockZ);
 
             float rarity = 1f, rarityInv = 1f;
 
@@ -486,7 +534,7 @@ public class BuiltinDensityFunctions {
                 }
             }
 
-            return rarity * resolveNoise().sample(blockX * rarityInv, blockY * rarityInv, blockZ * rarityInv);
+            return (float) (rarity * getNoiseSampler(context).sample(blockX * rarityInv, blockY * rarityInv, blockZ * rarityInv));
         }
     }
 
@@ -505,7 +553,7 @@ public class BuiltinDensityFunctions {
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             //noinspection SuspiciousNameCombination
             return map(blockY, from_y, to_y, from_value, to_value);
         }
@@ -516,18 +564,28 @@ public class BuiltinDensityFunctions {
         public String noise;
         public float xz_scale, y_scale;
 
-        private transient NoiseSampler resolvedNoise;
+        private transient StateSlot<NoiseSampler> samplerSlot;
 
-        private NoiseSampler resolveNoise() {
-            if (resolvedNoise == null) {
-                resolvedNoise = DatapackNoiseList.INSTANCE.createSampler(noise);
+        private NoiseSampler getNoiseSampler(WorldContext context) {
+            synchronized (this) {
+                if (samplerSlot == null) {
+                    samplerSlot = context.createStateSlot();
+                }
             }
-            return resolvedNoise;
+
+            NoiseSampler sampler = context.getState(samplerSlot);
+
+            if (sampler == null) {
+                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.noise);
+                context.setState(samplerSlot, sampler);
+            }
+
+            return sampler;
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            return resolveNoise().sample(blockX * xz_scale, blockY * y_scale, blockZ * xz_scale);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return (float) getNoiseSampler(context).sample(blockX * xz_scale, blockY * y_scale, blockZ * xz_scale);
         }
     }
 
@@ -536,7 +594,7 @@ public class BuiltinDensityFunctions {
         public float xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             return 0; // TODO
         }
     }
@@ -548,7 +606,7 @@ public class BuiltinDensityFunctions {
         public IDensityFunction continentalness, erosion, weirdness;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             return 0; // TODO
         }
 
@@ -563,8 +621,8 @@ public class BuiltinDensityFunctions {
         public ISpline spline;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
-            return spline.compute(blockX, blockY, blockZ);
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return spline.compute(context, blockX, blockY, blockZ);
         }
     }
 
@@ -580,7 +638,7 @@ public class BuiltinDensityFunctions {
         }
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             return coordinate;
         }
     }
@@ -590,7 +648,7 @@ public class BuiltinDensityFunctions {
         public SplinePoint[] points;
 
         @Override
-        public float compute(float blockX, float blockY, float blockZ) {
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             return 0; // TODO: for claude
         }
     }
@@ -619,4 +677,27 @@ public class BuiltinDensityFunctions {
         }
     }
 
+    private static class EndIslandsFunc implements IDensityFunction {
+
+        @Override
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return 0; // TODO: this
+        }
+    }
+
+    private static class BlendAlphaFunc implements IDensityFunction {
+
+        @Override
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return 0; // TODO: this
+        }
+    }
+
+    private static class BlendOffsetFunc implements IDensityFunction {
+
+        @Override
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return 0; // TODO: this
+        }
+    }
 }

@@ -17,7 +17,7 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
-import databack.common.dto.worldgen.BlockState;
+import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.dto.worldgen.BlockWhitelist;
 import databack.common.interop.BiomeIds;
 import databack.common.interop.BlockTags;
@@ -28,19 +28,28 @@ public class BuiltinBlockPredicates {
 
     public static void init() {
         TaggedUnionLoader<IBlockPredicate> predicates = DatapackSerialization
-            .getTaggedUnionLoader("builtin/block_predicates");
+            .createTaggedUnionLoader("builtin/block_predicates", IBlockPredicate.class);
 
-        predicates.addVariant("all_of", AllOfPredicate.class);
-        predicates.addVariant("any_of", AnyOfPredicate.class);
-        predicates.addVariant("has_sturdy_face", HasSturdyFacePredicate.class);
-        predicates.addVariant("inside_world_bounds", InsideWorldBoundsPredicate.class);
-        predicates.addVariant("matching_block_tag", MatchingBlockTagPredicate.class);
-        predicates.addVariant("matching_biomes", MatchingBiomesPredicate.class);
-        predicates.addVariant("matching_blocks", MatchingBlocksPredicate.class);
-        predicates.addVariant("matching_fluids", MatchingFluidsPredicate.class);
-        predicates.addVariant("not", NotPredicate.class);
-        predicates.addVariant("unobstructed", UnobstructedPredicate.class);
-        predicates.addVariant("would_survive", WouldSurvivePredicate.class);
+        predicates.addVariant("minecraft:all_of", AllOfPredicate.class);
+        predicates.addVariant("minecraft:any_of", AnyOfPredicate.class);
+        predicates.addVariant("minecraft:has_sturdy_face", HasSturdyFacePredicate.class);
+        predicates.addVariant("minecraft:inside_world_bounds", InsideWorldBoundsPredicate.class);
+        predicates.addVariant("minecraft:matching_block_tag", MatchingBlockTagPredicate.class);
+        predicates.addVariant("minecraft:matching_biomes", MatchingBiomesPredicate.class);
+        predicates.addVariant("minecraft:matching_blocks", MatchingBlocksPredicate.class);
+        predicates.addVariant("minecraft:matching_fluids", MatchingFluidsPredicate.class);
+        predicates.addVariant("minecraft:not", NotPredicate.class);
+        predicates.addVariant("minecraft:replaceable", ReplaceablePredicate.class);
+        predicates.addVariant("minecraft:solid", SolidPredicate.class);
+        predicates.addVariant("minecraft:unobstructed", UnobstructedPredicate.class);
+        predicates.addVariant("minecraft:true", TruePredicate.class);
+        predicates.addVariant("minecraft:would_survive", WouldSurvivePredicate.class);
+
+        predicates.setFallback((json, typeOfT, context) -> {
+            BlockWhitelist whitelist = context.deserialize(json, BlockWhitelist.class);
+
+            return (world, x, y, z) -> whitelist.contains(world.getBlock(x, y, z));
+        });
 
         DatapackSerialization.getBuilder()
             .registerTypeAdapter(BlockWhitelist.class, new BlockWhitelistAdapter())
@@ -149,6 +158,14 @@ public class BuiltinBlockPredicates {
                 case east: return ForgeDirection.EAST;
                 default: throw new IllegalStateException("Unexpected direction: " + this);
             }
+        }
+    }
+
+    private static class TruePredicate implements IBlockPredicate {
+
+        @Override
+        public boolean test(World world, int x, int y, int z) {
+            return true;
         }
     }
 
@@ -271,6 +288,34 @@ public class BuiltinBlockPredicates {
         @Override
         public boolean test(World world, int x, int y, int z) {
             return !predicate.test(world, x, y, z);
+        }
+    }
+
+    private static class ReplaceablePredicate implements IBlockPredicate {
+
+        @Nullable public int[] offset;
+
+        @Override
+        public boolean test(World world, int x, int y, int z) {
+            int tx = offsetX(offset, x);
+            int ty = offsetY(offset, y);
+            int tz = offsetZ(offset, z);
+
+            return world.getBlock(tx, ty, tz).isReplaceable(world, tx, ty, tz);
+        }
+    }
+
+    private static class SolidPredicate implements IBlockPredicate {
+
+        @Nullable public int[] offset;
+
+        @Override
+        public boolean test(World world, int x, int y, int z) {
+            int tx = offsetX(offset, x);
+            int ty = offsetY(offset, y);
+            int tz = offsetZ(offset, z);
+
+            return world.getBlock(tx, ty, tz).isSideSolid(world, tx, ty, tz, ForgeDirection.UP);
         }
     }
 

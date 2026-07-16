@@ -99,15 +99,16 @@ public final class DatapackLoader {
      * normally or by exception.
      *
      * @param worldSaveDir the root of the current world's save directory
+     * @param worldInfo    ordering and enable/disable state for the current world
      * @throws DatapackLoadException on any fatal error during the loading pipeline
      */
-    public static void load(@Nonnull File worldSaveDir, World world) {
+    public static void load(@Nonnull File worldSaveDir, @Nonnull DatapackWorldInfo worldInfo) {
         LOGGER.info("Loading datapacks");
 
         List<File> candidates = discoverCandidates(worldSaveDir);
 
         if (candidates.isEmpty()) {
-            LOGGER.info("No datapacks founds; skipping datapack loading.");
+            LOGGER.info("No datapacks found; skipping datapack loading.");
             return;
         }
 
@@ -119,8 +120,6 @@ public final class DatapackLoader {
             for (Datapack pack : packs) {
                 LOGGER.info("Found datapack '{}' at {}", pack.getName(), pack.getSourcePath());
             }
-
-            DatapackWorldInfo worldInfo = (DatapackWorldInfo) world.getWorldInfo();
 
             // Order and disable packs (lowest priority first, highest priority last)
             worldInfo.syncPackDeltas(packs);
@@ -141,6 +140,18 @@ public final class DatapackLoader {
         }
 
         MinecraftForge.EVENT_BUS.post(new DatapackFinishedLoadingEvent());
+    }
+
+    /**
+     * Executes the complete datapack loading pipeline for the given world, then syncs to all
+     * currently online players.
+     *
+     * @param worldSaveDir the root of the current world's save directory
+     * @param world        the server-side overworld
+     * @throws DatapackLoadException on any fatal error during the loading pipeline
+     */
+    public static void load(@Nonnull File worldSaveDir, World world) {
+        load(worldSaveDir, (DatapackWorldInfo) world.getWorldInfo());
 
         for (var world2 : DimensionManager.getWorlds()) {
             for (var player : world2.playerEntities) {

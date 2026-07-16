@@ -13,6 +13,7 @@ public enum Mixins implements IMixins {
     DATAPACK(Side.COMMON, "MixinWorldInfo_Datapacks"),
     NBT_ACCESSOR(Side.COMMON, "AccessorNBTTagList", "AccessorNBTTagCompound"),
     HEIGHTMAPS(Side.COMMON, "MixinWorld_HeightmapExt"),
+    EXT(Side.COMMON, "MixinWorld_Ext"),
     //
     ;
 

@@ -55,6 +55,9 @@ public class BuiltinTreeComponents {
         treeDecorator.addVariant("minecraft:beehive", BeehiveTreeDecorator.class);
         treeDecorator.addVariant("minecraft:alter_ground", AlterGroundTreeDecorator.class);
         treeDecorator.addVariant("minecraft:attached_to_leaves", AttachedToLeavesTreeDecorator.class);
+        treeDecorator.addVariant("minecraft:place_on_ground", PlaceOnGroundTreeDecorator.class);
+        treeDecorator.addVariant("minecraft:creaking_heart", CreakingHeartTreeDecorator.class);
+        treeDecorator.addVariant("minecraft:pale_moss", EmptyTreeDecorator.class);
 
         TaggedUnionLoader<IFeatureSize> featureSize = DatapackSerialization
             .createTaggedUnionLoader("worldgen/feature_size", IFeatureSize.class);
@@ -66,6 +69,12 @@ public class BuiltinTreeComponents {
             .createTaggedUnionLoader("worldgen/root_placer", IRootPlacer.class);
 
         rootPlacer.addVariant("minecraft:mangrove_root_placer", MangroveRootPlacer.class);
+
+        TaggedUnionLoader<IFallenLogDecorator> fallenLogDecorator = DatapackSerialization
+            .createTaggedUnionLoader("worldgen/fallen_log_decorator", IFallenLogDecorator.class);
+
+        fallenLogDecorator.addVariant("minecraft:attached_to_logs", AttachedToLogsDecorator.class);
+        fallenLogDecorator.addVariant("minecraft:trunk_vine", EmptyFallenLogDecorator.class);
     }
 
     // -------------------------------------------------------------------------
@@ -89,20 +98,26 @@ public class BuiltinTreeComponents {
     public static class CherryTrunkPlacer extends TrunkPlacerBase {
         public IIntProvider branch_count;
         public IIntProvider branch_horizontal_length;
-        public IIntProvider branch_start_offset_from_top;
+        public UniformInt branch_start_offset_from_top;
         public IIntProvider branch_end_offset_from_top;
+    }
+
+    /** Plain uniform int range — no {@code type} discriminator field. */
+    public static class UniformInt {
+        public int min_inclusive;
+        public int max_inclusive;
     }
 
     public static class UpwardsBranchingTrunkPlacer extends TrunkPlacerBase {
         public IIntProvider extra_branch_steps;
         public float place_branch_per_log_probability;
         public IIntProvider extra_branch_length;
-        public List<IBlockPredicate> can_grow_through;
+        public IBlockPredicate can_grow_through;
     }
 
     public static class PalmTrunkPlacer extends TrunkPlacerBase {
-        public IIntProvider leaf_overflow;
-        public IIntProvider leaf_overflow_offset;
+        public UniformInt leaf_overflow;
+        public UniformInt leaf_overflow_offset;
         public IIntProvider height;
         public IIntProvider trunk_height;
     }
@@ -113,7 +128,7 @@ public class BuiltinTreeComponents {
 
     public static class FoliagePlacerBase implements ITreeFoliagePlacer {
         public IIntProvider radius;
-        public int offset;
+        public IIntProvider offset;
     }
 
     public static class EmptyFoliagePlacer extends FoliagePlacerBase {
@@ -159,7 +174,17 @@ public class BuiltinTreeComponents {
     // Tree decorator variants
     // -------------------------------------------------------------------------
 
-    public static class EmptyTreeDecorator implements ITreeDecorator {
+    public static class EmptyTreeDecorator implements ITreeDecorator {}
+
+    public static class PlaceOnGroundTreeDecorator implements ITreeDecorator {
+        public JsonElement block_state_provider;
+        @Nullable public IIntProvider height;
+        @Nullable public IIntProvider radius;
+        @Nullable public Integer tries;
+    }
+
+    public static class CreakingHeartTreeDecorator implements ITreeDecorator {
+        @RangeFloat(min = 0, max = 1) public float probability;
     }
 
     public static class CocoaTreeDecorator implements ITreeDecorator {
@@ -212,5 +237,17 @@ public class BuiltinTreeComponents {
         public IIntProvider trunk_offset_y;
         @Nullable public JsonElement above_root_placement;
         public JsonElement mangrove_root_placement;
+    }
+
+    // -------------------------------------------------------------------------
+    // Fallen log decorator variants
+    // -------------------------------------------------------------------------
+
+    public static class EmptyFallenLogDecorator implements IFallenLogDecorator {}
+
+    public static class AttachedToLogsDecorator implements IFallenLogDecorator {
+        @RangeFloat(min = 0, max = 1) public float probability;
+        public JsonElement block_provider;
+        public String[] directions;
     }
 }

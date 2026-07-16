@@ -1,7 +1,9 @@
 package databack.common.dto.worldgen.density_function;
 
+import databack.common.context.WorldContext;
+
 public interface IDensityFunction {
 
-    float compute(float blockX, float blockY, float blockZ);
+    float compute(WorldContext context, float blockX, float blockY, float blockZ);
 
 }

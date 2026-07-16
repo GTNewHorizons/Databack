@@ -44,4 +44,10 @@ public class DatapackHandlerRegistry {
             case SERVER -> SERVER_HANDLER_REGISTRY.entrySet();
         };
     }
+
+    /** Clears all registered handlers. Only for use in tests. */
+    public static void clearForTesting() {
+        SERVER_HANDLER_REGISTRY.clear();
+        CLIENT_HANDLER_REGISTRY.clear();
+    }
 }

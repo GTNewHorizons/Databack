@@ -7,7 +7,6 @@ import javax.annotation.Nonnegative;
 
 import org.jetbrains.annotations.Nullable;
 
-import com.google.gson.JsonElement;
 import com.gtnewhorizon.gtnhlib.color.ImmutableColor;
 import databack.common.annotation.RangeFloat;
 import databack.common.dto.SoundEventRef;
@@ -23,7 +22,7 @@ public class DatapackBiome {
     public boolean has_precipitation;
     /** PositionalEnvironmentAttributeMap — no Java equivalent yet. @since 1.21.11 */
     @Nullable
-    public JsonElement attributes;
+    public EnvironmentEffects attributes;
 
     @Nullable
     public TemperatureModifier temperature_modifier;
@@ -33,8 +32,17 @@ public class DatapackBiome {
     public Map<MobCategory, List<SpawnerData>> spawners;
     public Map<String, MobSpawnCost> spawn_costs;
     public BiomeCarvers carvers;
-    // Complex nested structure: arrays of arrays of placed feature refs or tag strings
-    public JsonElement features;
+    public PlacedFeatureSet[][] features;
+
+    public boolean hasFeature(String featureId) {
+        if (features == null) return false;
+        for (PlacedFeatureSet[] step : features) {
+            for (PlacedFeatureSet entry : step) {
+                if (entry.containsFeature(featureId)) return true;
+            }
+        }
+        return false;
+    }
 
     public enum TemperatureModifier {
         none,

@@ -32,6 +32,7 @@ public class DatapackSerialization {
 
         TaggedUnionLoader<T> loader = new TaggedUnionLoader<>();
         loader.setTagField(tagField);
+        loader.setInterfaceType(iface);
 
         builder.registerTypeAdapter(iface, loader);
 
@@ -52,5 +53,12 @@ public class DatapackSerialization {
 
     public static void init() {
 
+    }
+
+    /** Resets all static serde state so that {@link #init()} / Builtin*.init() / {@link #finish()} can be called again. Only for use in tests. */
+    public static void resetForTesting() {
+        builder = new GsonBuilder();
+        gson = null;
+        UNIONS.clear();
     }
 }

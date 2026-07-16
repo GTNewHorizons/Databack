@@ -1,6 +1,8 @@
 package databack.common.serde;
 
 import java.lang.reflect.Type;
+import java.util.HashMap;
+import java.util.Map;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -14,13 +16,17 @@ import com.google.gson.JsonSerializer;
 import lombok.Getter;
 import lombok.Setter;
 
-public class TaggedUnionLoader<Union> implements JsonSerializer<Union>, JsonDeserializer<Union> {
+public class TaggedUnionLoader<Union> implements JsonDeserializer<Union> {
 
     @Setter
     @Getter
     private String tagField = "type";
 
-    private final BiMap<String, Class<? extends Union>> variants = HashBiMap.create();
+    @Setter
+    @Getter
+    private Class<Union> interfaceType;
+
+    private final Map<String, Class<? extends Union>> variants = new HashMap<>();
 
     private JsonDeserializer<Union> fallback;
 
@@ -66,30 +72,13 @@ public class TaggedUnionLoader<Union> implements JsonSerializer<Union>, JsonDese
         Class<? extends Union> clazz = variants.get(tag.getAsJsonPrimitive().getAsString());
 
         if (clazz == null) {
-            throw new JsonParseException("Unknown variant '" + tag.getAsJsonPrimitive().getAsString() + "': " + json);
+            throw new JsonParseException("Unknown variant '" + tag.getAsJsonPrimitive().getAsString() + "' while parsing " + interfaceType.getName() + ": " + json);
         }
 
-        return context.deserialize(json, clazz);
-    }
-
-    @Override
-    public JsonElement serialize(Union src, Type typeOfSrc, JsonSerializationContext context) {
-        String variantName = variants.inverse().get(src.getClass());
-
-        if (variantName == null) {
-            throw new JsonParseException("Unknown variant '" + src.getClass().getName() + "': " + src);
+        try {
+            return context.deserialize(json, clazz);
+        } catch (JsonParseException e) {
+            throw new JsonParseException("Error while deserializing '" + tag.getAsJsonPrimitive().getAsString() + "/" + clazz.getName() + "'", e);
         }
-
-        JsonElement json = context.serialize(src, src.getClass());
-
-        if (!json.isJsonObject()) {
-            throw new JsonParseException("Expected variant '" + variantName + "' to serialize to object: " + json);
-        }
-
-        JsonObject obj = (JsonObject) json;
-
-        obj.addProperty(tagField, variantName);
-
-        return obj;
     }
 }

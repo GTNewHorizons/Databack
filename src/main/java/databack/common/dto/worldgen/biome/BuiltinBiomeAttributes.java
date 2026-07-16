@@ -53,7 +53,7 @@ public class BuiltinBiomeAttributes {
         floats.addVariant("override", OverrideFBA.class);
         floats.addVariant("add", AddFBA.class);
         floats.addVariant("sub", SubFBA.class);
-        floats.addVariant("mul", MulFBA.class);
+        floats.addVariant("multiply", MulFBA.class);
         floats.addVariant("min", MinFBA.class);
         floats.addVariant("max", MaxFBA.class);
         floats.addVariant("alpha_blend", AlphaBlendFBA.class);
@@ -69,7 +69,7 @@ public class BuiltinBiomeAttributes {
         rgb.addVariant("override", OverrideCBA.class);
         rgb.addVariant("add", AddCBA.class);
         rgb.addVariant("sub", SubCBA.class);
-        rgb.addVariant("mul", MulCBA.class);
+        rgb.addVariant("multiply", MulCBA.class);
         rgb.addVariant("alpha_blend", AlphaBlendCBA.class);
         rgb.addVariant("blend_to_gray", BlendToGrayCBA.class);
         rgb.setFallback((json, typeOfT, context) -> {
@@ -84,7 +84,7 @@ public class BuiltinBiomeAttributes {
         rgba.addVariant("override", OverrideCBA_RGBA.class);
         rgba.addVariant("add", AddCBA_RGBA.class);
         rgba.addVariant("sub", SubCBA_RGBA.class);
-        rgba.addVariant("mul", MulCBA_RGBA.class);
+        rgba.addVariant("multiply", MulCBA_RGBA.class);
         rgba.addVariant("alpha_blend", AlphaBlendCBA_RGBA.class);
         rgba.addVariant("blend_to_gray", BlendToGrayCBA_RGBA.class);
         rgba.setFallback((json, typeOfT, context) -> {

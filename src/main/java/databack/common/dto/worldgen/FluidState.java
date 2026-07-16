@@ -4,7 +4,7 @@ import java.util.Map;
 
 import org.jetbrains.annotations.Nullable;
 
-public class BlockState {
+public class FluidState {
 
     public String Name;
 

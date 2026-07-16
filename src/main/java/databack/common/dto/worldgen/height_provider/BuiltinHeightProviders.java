@@ -13,14 +13,14 @@ public class BuiltinHeightProviders {
 
     public static void init() {
         TaggedUnionLoader<IHeightProvider> loader = DatapackSerialization
-            .getTaggedUnionLoader("worldgen/height_provider");
+            .createTaggedUnionLoader("worldgen/height_provider", IHeightProvider.class);
 
-        loader.addVariant("constant", ConstantHeight.class);
-        loader.addVariant("uniform", UniformHeight.class);
-        loader.addVariant("biased_to_bottom", BiasedToBottomHeight.class);
-        loader.addVariant("very_biased_to_bottom", VeryBiasedToBottomHeight.class);
-        loader.addVariant("trapezoid", TrapezoidHeight.class);
-        loader.addVariant("weighted_list", WeightedListHeight.class);
+        loader.addVariant("minecraft:constant", ConstantHeight.class);
+        loader.addVariant("minecraft:uniform", UniformHeight.class);
+        loader.addVariant("minecraft:biased_to_bottom", BiasedToBottomHeight.class);
+        loader.addVariant("minecraft:very_biased_to_bottom", VeryBiasedToBottomHeight.class);
+        loader.addVariant("minecraft:trapezoid", TrapezoidHeight.class);
+        loader.addVariant("minecraft:weighted_list", WeightedListHeight.class);
 
         // Bare VerticalAnchor objects (no "type" field) resolve to a constant height.
         loader.setFallback((json, typeOfT, context) -> {

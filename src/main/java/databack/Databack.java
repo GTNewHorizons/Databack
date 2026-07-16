@@ -16,7 +16,7 @@ public class Databack {
     public static final String MODID = "databack";
     public static final Logger LOGGER = LogManager.getLogger(MODID);
 
-    @SidedProxy(clientSide = "databack.ClientProxy", serverSide = "databack.CommonProxy")
+    @SidedProxy(clientSide = "databack.CommonProxy", serverSide = "databack.CommonProxy")
     public static CommonProxy proxy;
 
     @Mod.EventHandler

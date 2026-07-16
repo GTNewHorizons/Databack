@@ -29,9 +29,9 @@ public class BuiltinCarvers {
         TaggedUnionLoader<IConfiguredCarver> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/configured_carver", IConfiguredCarver.class);
 
-        loader.addVariant("cave", CaveCarver.class);
-        loader.addVariant("nether_cave", CaveCarver.class);
-        loader.addVariant("canyon", CanyonCarver.class);
+        loader.addVariant("minecraft:cave", CaveCarver.class);
+        loader.addVariant("minecraft:nether_cave", CaveCarver.class);
+        loader.addVariant("minecraft:canyon", CanyonCarver.class);
 
         // String → lazy resource-location ref to a configured_carver data file
         loader.setFallback((json, typeOfT, context) -> {
