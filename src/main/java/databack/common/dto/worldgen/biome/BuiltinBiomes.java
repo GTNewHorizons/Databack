@@ -18,11 +18,7 @@ public class BuiltinBiomes {
 
     public static void init() {
         DatapackSerialization.getBuilder()
-            .registerTypeAdapter(BiomeMusicList.class, new BiomeMusicListDeserializer())
-            .registerTypeAdapter(PlacedFeatureSet.class, (JsonDeserializer<PlacedFeatureSet>) (json, type, ctx) -> {
-                String s = json.getAsString();
-                return s.startsWith("#") ? new PlacedFeatureTag(s.substring(1)) : new PlacedFeatureId(s);
-            });
+            .registerTypeAdapter(BiomeMusicList.class, new BiomeMusicListDeserializer());
     }
 
     private static class BiomeMusicListDeserializer implements JsonDeserializer<BiomeMusicList> {

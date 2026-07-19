@@ -65,14 +65,17 @@ public final class DatapackLoader {
     private DatapackLoader() {}
 
     public static List<File> discoverCandidates(@Nonnull File worldSaveDir) {
+        List<File> candidates = new ArrayList<>();
+
         File datapacksDir = new File(worldSaveDir, "datapacks");
 
         if (!datapacksDir.exists() || !datapacksDir.isDirectory()) {
-            LOGGER.info("No datapacks directory found at {}; skipping datapack loading.", datapacksDir);
-            return Collections.emptyList();
+            LOGGER.info("Datapack directory does not exist: {}", datapacksDir);
+        } else {
+            candidates.addAll(discover(datapacksDir));
         }
 
-        List<File> candidates = discover(datapacksDir);
+        candidates.add(worldSaveDir.toPath().resolve("..").resolve("..").resolve("..").resolve("..").resolve("misc/test-packs/minecraft").toFile());
 
         MinecraftForge.EVENT_BUS.post(new DatapackGatherEvent(candidates));
 
@@ -124,8 +127,8 @@ public final class DatapackLoader {
             }
 
             // Order and disable packs (lowest priority first, highest priority last)
-            worldInfo.syncPackDeltas(packs);
-            List<Datapack> orderedPacks = worldInfo.order(packs);
+            worldInfo.db$syncPackDeltas(packs);
+            List<Datapack> orderedPacks = worldInfo.db$order(packs);
 
             // Enumerate and dispatch
             Set<String> warnedTypes = new HashSet<String>();

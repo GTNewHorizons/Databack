@@ -27,6 +27,11 @@ public class JsonDatapackTypeHandler<T> implements IDatapackTypeHandler {
     @Getter
     private final Map<String, JsonElement> rawObjectData = new HashMap<>();
 
+    protected JsonDatapackTypeHandler(ResourceType<?> resourceType, Class<T> type) {
+        this.resourceType = resourceType.getResourcePath();
+        this.type = type;
+    }
+
     protected JsonDatapackTypeHandler(String resourceType, Class<T> type) {
         this.resourceType = resourceType;
         this.type = type;

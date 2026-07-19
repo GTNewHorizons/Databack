@@ -6,10 +6,10 @@ import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 
 public class PlacedFeatureList extends JsonDatapackTypeHandler<PlacedFeature> {
 
-    public static final PlacedFeatureList INSTANCE = new PlacedFeatureList();
+    public static final ResourceType<PlacedFeatureList> RT = ResourceType.withPath("worldgen/placed_feature");
 
     public PlacedFeatureList() {
-        super("worldgen/placed_feature", PlacedFeature.class);
+        super(RT, PlacedFeature.class);
     }
 
     @Nullable

@@ -6,10 +6,10 @@ import databack.common.dto.dimension_type.DimensionType;
 
 public class DimensionTypeList extends JsonDatapackTypeHandler<DimensionType> {
 
-    public static final DimensionTypeList INSTANCE = new DimensionTypeList();
+    public static final ResourceType<DimensionTypeList> RT = ResourceType.withPath("dimension_type");
 
     public DimensionTypeList() {
-        super("dimension_type", DimensionType.class);
+        super(RT, DimensionType.class);
     }
 
     @Nullable

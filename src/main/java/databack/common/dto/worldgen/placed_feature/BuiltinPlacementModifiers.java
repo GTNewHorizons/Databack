@@ -22,6 +22,15 @@ import databack.common.serde.TaggedUnionLoader;
 public class BuiltinPlacementModifiers {
 
     public static void init() {
+        DatapackSerialization.getBuilder()
+            .registerTypeAdapter(IPlacedFeatureRef.class, (com.google.gson.JsonDeserializer<IPlacedFeatureRef>) (json, type, ctx) -> {
+                if (json.isJsonPrimitive()) {
+                    String s = json.getAsString();
+                    return s.startsWith("#") ? new PlacedFeatureTagRef(s.substring(1)) : new PlacedFeatureIdRef(s);
+                }
+                return ctx.deserialize(json, PlacedFeature.class);
+            });
+
         TaggedUnionLoader<IPlacementModifier> placementModifiers = DatapackSerialization
             .createTaggedUnionLoader("builtin/placement_modifiers", IPlacementModifier.class);
 
@@ -258,7 +267,7 @@ public class BuiltinPlacementModifiers {
             positions.removeIf((x, y, z) -> {
                 BiomeGenBase biome = world.getBiomeGenForCoords(x, z);
                 String biomeId = BiomeIds.getBiomeId(biome);
-                DatapackBiome db = BiomeList.INSTANCE.getBiome(biomeId);
+                DatapackBiome db = BiomeList.RT.getHandler().getBiome(biomeId);
                 return db == null || !db.hasFeature(featureId);
             });
             return positions;

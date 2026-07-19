@@ -13,6 +13,7 @@ import databack.common.dto.SoundEventRef;
 import databack.common.dto.particle.IParticle;
 import databack.common.dto.worldgen.biome.BuiltinBiomeAttributes.RGBBiomeAttribute;
 import databack.common.dto.worldgen.carver.BiomeCarvers;
+import databack.common.dto.worldgen.placed_feature.IPlacedFeatureRef;
 
 @SuppressWarnings("unused")
 public class DatapackBiome {
@@ -32,13 +33,14 @@ public class DatapackBiome {
     public Map<MobCategory, List<SpawnerData>> spawners;
     public Map<String, MobSpawnCost> spawn_costs;
     public BiomeCarvers carvers;
-    public PlacedFeatureSet[][] features;
+    /** Placed feature references indexed by decoration step, then feature index within that step. */
+    public IPlacedFeatureRef[][] features;
 
     public boolean hasFeature(String featureId) {
         if (features == null) return false;
-        for (PlacedFeatureSet[] step : features) {
-            for (PlacedFeatureSet entry : step) {
-                if (entry.containsFeature(featureId)) return true;
+        for (IPlacedFeatureRef[] step : features) {
+            for (IPlacedFeatureRef ref : step) {
+                if (ref.containsFeature(featureId)) return true;
             }
         }
         return false;

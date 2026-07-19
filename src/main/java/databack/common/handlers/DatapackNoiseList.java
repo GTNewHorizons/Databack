@@ -11,12 +11,12 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
 
-    public static final DatapackNoiseList INSTANCE = new DatapackNoiseList();
+    public static final ResourceType<DatapackNoiseList> RT = ResourceType.withPath("worldgen/noise");
 
     private final Map<String, Long2ObjectOpenHashMap<NoiseSampler>> samplerCache = new HashMap<>();
 
     public DatapackNoiseList() {
-        super("worldgen/noise", DatapackNoise.class);
+        super(RT, DatapackNoise.class);
     }
 
     @Nullable

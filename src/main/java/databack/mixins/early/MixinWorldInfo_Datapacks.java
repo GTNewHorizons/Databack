@@ -32,24 +32,19 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
     @Unique
     private final HashSet<String> gtnhlib$disabledDatapacks = new HashSet<>();
 
-    @Inject(method = "<init>(Lnet/minecraft/nbt/NBTTagCompound;)V", at = @At("TAIL"))
-    public void gtnhlib$load(NBTTagCompound dataTag, CallbackInfo ci) {
+    public void db$loadDatapackInfo(NBTTagCompound tag) {
         gtnhlib$datapackOrder.clear();
         gtnhlib$disabledDatapacks.clear();
 
-        NBTTagCompound datapacks = dataTag.getCompoundTag("DataPacks");
+        NBTTagList disabled = tag.getTagList("Disabled", NBT.TAG_STRING);
+        NBTTagList order = tag.getTagList("Order", NBT.TAG_STRING);
 
-        if (datapacks != null) {
-            NBTTagList disabled = datapacks.getTagList("Disabled", NBT.TAG_STRING);
-            NBTTagList order = datapacks.getTagList("Order", NBT.TAG_STRING);
+        for (var t : ((AccessorNBTTagList) disabled).<NBTTagString>getTagList()) {
+            gtnhlib$disabledDatapacks.add(t.func_150285_a_());
+        }
 
-            for (var t : ((AccessorNBTTagList) disabled).<NBTTagString>getTagList()) {
-                gtnhlib$disabledDatapacks.add(t.func_150285_a_());
-            }
-
-            for (var t : ((AccessorNBTTagList) order).<NBTTagString>getTagList()) {
-                gtnhlib$datapackOrder.add(t.func_150285_a_());
-            }
+        for (var t : ((AccessorNBTTagList) order).<NBTTagString>getTagList()) {
+            gtnhlib$datapackOrder.add(t.func_150285_a_());
         }
     }
 
@@ -63,16 +58,14 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
         gtnhlib$disabledDatapacks.addAll(((MixinWorldInfo_Datapacks) (Object) source).gtnhlib$disabledDatapacks);
     }
 
-    @Inject(method = "updateTagCompound", at = @At("TAIL"))
-    public void gtnhlib$save(NBTTagCompound baseTag, NBTTagCompound playerTag, CallbackInfo ci) {
-        NBTTagCompound datapacks = new NBTTagCompound();
-        baseTag.setTag("DataPacks", datapacks);
+    public NBTTagCompound db$saveDatapackInfo() {
+        NBTTagCompound tag = new NBTTagCompound();
 
         NBTTagList disabled = new NBTTagList();
-        datapacks.setTag("Disabled", disabled);
+        tag.setTag("Disabled", disabled);
 
         NBTTagList order = new NBTTagList();
-        datapacks.setTag("Order", order);
+        tag.setTag("Order", order);
 
         for (String d : gtnhlib$disabledDatapacks) {
             disabled.appendTag(new NBTTagString(d));
@@ -81,30 +74,32 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
         for (String p : gtnhlib$datapackOrder) {
             order.appendTag(new NBTTagString(p));
         }
+
+        return tag;
     }
 
     @Override
-    public List<String> getDatapackOrder() {
+    public List<String> db$getDatapackOrder() {
         return gtnhlib$datapackOrder;
     }
 
     @Override
-    public Set<String> getDisabledPacks() {
+    public Set<String> db$getDisabledPacks() {
         return gtnhlib$disabledDatapacks;
     }
 
     @Override
-    public void enable(String pack) {
+    public void db$enable(String pack) {
         gtnhlib$disabledDatapacks.remove(pack);
     }
 
     @Override
-    public void disable(String pack) {
+    public void db$disable(String pack) {
         gtnhlib$disabledDatapacks.add(pack);
     }
 
     @Override
-    public void syncPackDeltas(@NotNull List<Datapack> packs) {
+    public void db$syncPackDeltas(@NotNull List<Datapack> packs) {
         List<String> present = packs.stream().map(Datapack::getPackId).collect(Collectors.toList());
 
         gtnhlib$disabledDatapacks.removeIf(p -> !present.contains(p));
@@ -118,7 +113,7 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
     }
 
     @Override
-    public @NotNull List<Datapack> order(@NotNull List<Datapack> packs) {
+    public @NotNull List<Datapack> db$order(@NotNull List<Datapack> packs) {
         packs = new ArrayList<>(packs);
 
         packs.forEach(pack -> {

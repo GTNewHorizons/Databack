@@ -18,5 +18,5 @@ public interface IPackOrderer {
      * @return a new list of the same packs in priority order (index 0 = lowest priority)
      */
     @Nonnull
-    List<Datapack> order(@Nonnull List<Datapack> packs);
+    List<Datapack> db$order(@Nonnull List<Datapack> packs);
 }

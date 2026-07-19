@@ -14,11 +14,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import cpw.mods.fml.relauncher.Side;
 import databack.common.handlers.DatapackHandlerRegistry;
 import databack.common.handlers.IDatapackTypeHandler;
 import databack.common.loader.Datapack;
@@ -289,7 +289,7 @@ class DatapackPipelineTest {
         DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo() {
 
             @Override
-            public List<Datapack> order(List<Datapack> packs) {
+            public @NotNull List<Datapack> db$order(@NotNull List<Datapack> packs) {
                 // Ensure pack-b is at the end (highest priority)
                 List<Datapack> ordered = new ArrayList<>(packs);
                 ordered.sort((x, y) -> x.getName().compareTo(y.getName())); // pack-a, pack-b
@@ -425,26 +425,26 @@ class DatapackPipelineTest {
     static class TestDatapackWorldInfo implements DatapackWorldInfo {
 
         @Override
-        public List<String> getDatapackOrder() {
+        public List<String> db$getDatapackOrder() {
             return new ArrayList<>();
         }
 
         @Override
-        public Set<String> getDisabledPacks() {
+        public Set<String> db$getDisabledPacks() {
             return new HashSet<>();
         }
 
         @Override
-        public void enable(String pack) {}
+        public void db$enable(String pack) {}
 
         @Override
-        public void disable(String pack) {}
+        public void db$disable(String pack) {}
 
         @Override
-        public void syncPackDeltas(List<Datapack> packs) {}
+        public void db$syncPackDeltas(@NotNull List<Datapack> packs) {}
 
         @Override
-        public List<Datapack> order(List<Datapack> packs) {
+        public @NotNull List<Datapack> db$order(@NotNull List<Datapack> packs) {
             return new ArrayList<>(packs);
         }
     }

@@ -6,10 +6,10 @@ import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 
 public class ConfiguredFeatureList extends JsonDatapackTypeHandler<IConfiguredFeature> {
 
-    public static final ConfiguredFeatureList INSTANCE = new ConfiguredFeatureList();
+    public static final ResourceType<ConfiguredFeatureList> RT = ResourceType.withPath("worldgen/configured_feature");
 
     public ConfiguredFeatureList() {
-        super("worldgen/configured_feature", IConfiguredFeature.class);
+        super(RT, IConfiguredFeature.class);
     }
 
     @Nullable

@@ -8,6 +8,7 @@ import com.google.gson.JsonElement;
 
 import databack.common.annotation.RangeFloat;
 import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
+import databack.common.dto.worldgen.block_state_provider.IBlockStateProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
@@ -177,7 +178,7 @@ public class BuiltinTreeComponents {
     public static class EmptyTreeDecorator implements ITreeDecorator {}
 
     public static class PlaceOnGroundTreeDecorator implements ITreeDecorator {
-        public JsonElement block_state_provider;
+        public IBlockStateProvider block_state_provider;
         @Nullable public IIntProvider height;
         @Nullable public IIntProvider radius;
         @Nullable public Integer tries;
@@ -196,7 +197,7 @@ public class BuiltinTreeComponents {
     }
 
     public static class AlterGroundTreeDecorator implements ITreeDecorator {
-        public JsonElement provider;
+        public IBlockStateProvider provider;
     }
 
     public static class AttachedToLeavesTreeDecorator implements ITreeDecorator {
@@ -204,7 +205,7 @@ public class BuiltinTreeComponents {
         public int exclusion_radius_xz;
         public int exclusion_radius_y;
         public int required_empty_blocks;
-        public JsonElement block_provider;
+        public IBlockStateProvider block_provider;
         public JsonElement directions;
     }
 
@@ -233,7 +234,7 @@ public class BuiltinTreeComponents {
     // -------------------------------------------------------------------------
 
     public static class MangroveRootPlacer implements IRootPlacer {
-        public JsonElement root_provider;
+        public IBlockStateProvider root_provider;
         public IIntProvider trunk_offset_y;
         @Nullable public JsonElement above_root_placement;
         public JsonElement mangrove_root_placement;
@@ -247,7 +248,7 @@ public class BuiltinTreeComponents {
 
     public static class AttachedToLogsDecorator implements IFallenLogDecorator {
         @RangeFloat(min = 0, max = 1) public float probability;
-        public JsonElement block_provider;
+        public IBlockStateProvider block_provider;
         public String[] directions;
     }
 }

@@ -18,6 +18,7 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParseException;
 import databack.common.annotation.RangeFloat;
+import databack.common.dto.worldgen.float_provider.IFloatProvider;
 import databack.common.dto.worldgen.height_provider.IHeightProvider;
 import databack.common.dto.worldgen.height_provider.VerticalAnchor;
 import databack.common.serde.DatapackSerialization;
@@ -79,8 +80,7 @@ public class BuiltinCarvers {
         @RangeFloat(min = 0, max = 1)
         public float probability;
         public IHeightProvider y;
-        /** FloatProvider<number> — stored raw until IFloatProvider is implemented. */
-        public JsonElement yScale;
+        public IFloatProvider yScale;
         public VerticalAnchor lava_level;
         /** @until 1.18 */
         @Nullable public Boolean aquifers_enabled;
@@ -92,12 +92,10 @@ public class BuiltinCarvers {
 
     static class CaveCarverConfig extends CarverConfigBase {
 
-        /** FloatProvider<number> */
-        public JsonElement horizontal_radius_multiplier;
-        /** FloatProvider<number> */
-        public JsonElement vertical_radius_multiplier;
-        /** FloatProvider<number>, range -1..1 */
-        public JsonElement floor_level;
+        public IFloatProvider horizontal_radius_multiplier;
+        public IFloatProvider vertical_radius_multiplier;
+        @RangeFloat(min = -1, max = 1)
+        public IFloatProvider floor_level;
 
     }
 
@@ -109,14 +107,11 @@ public class BuiltinCarvers {
 
     static class CanyonShape {
 
-        /** FloatProvider<number> */
-        public JsonElement distance_factor;
-        /** FloatProvider<number> */
-        public JsonElement thickness;
+        public IFloatProvider distance_factor;
+        public IFloatProvider thickness;
         @Nonnegative
         public int width_smoothness;
-        /** FloatProvider<number> */
-        public JsonElement horizontal_radius_factor;
+        public IFloatProvider horizontal_radius_factor;
         public float vertical_radius_default_factor;
         public float vertical_radius_center_factor;
 
@@ -124,8 +119,7 @@ public class BuiltinCarvers {
 
     static class CanyonCarverConfig extends CarverConfigBase {
 
-        /** FloatProvider<number> */
-        public JsonElement vertical_rotation;
+        public IFloatProvider vertical_rotation;
         public CanyonShape shape;
 
     }

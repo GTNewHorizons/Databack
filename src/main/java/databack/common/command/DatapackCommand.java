@@ -78,7 +78,7 @@ public class DatapackCommand extends CommandBase {
         DatapackWorldInfo worldInfo = (DatapackWorldInfo) world.getWorldInfo();
         List<Datapack> packs = DatapackLoader.loadDatapacks(DatapackLoader.discoverCandidates(saveDir));
 
-        worldInfo.syncPackDeltas(packs);
+        worldInfo.db$syncPackDeltas(packs);
 
         try {
             switch (argStack.pop()) {
@@ -91,8 +91,8 @@ public class DatapackCommand extends CommandBase {
                     String packName = argStack.pop();
 
                     if (argStack.isEmpty()) {
-                        if (worldInfo.getDatapackOrder().contains(packName)) {
-                            worldInfo.enable(packName);
+                        if (worldInfo.db$getDatapackOrder().contains(packName)) {
+                            worldInfo.db$enable(packName);
                             sender.addChatMessage(new ChatComponentText("Enabled " + packName));
                         } else {
                             sender.addChatMessage(new ChatComponentText("Pack " + packName + " does not exist"));
@@ -100,18 +100,18 @@ public class DatapackCommand extends CommandBase {
                     } else {
                         switch (argStack.pop()) {
                             case "first" -> {
-                                if (worldInfo.getDatapackOrder().contains(packName)) {
-                                    worldInfo.getDatapackOrder().remove(packName);
-                                    worldInfo.getDatapackOrder().add(0, packName);
+                                if (worldInfo.db$getDatapackOrder().contains(packName)) {
+                                    worldInfo.db$getDatapackOrder().remove(packName);
+                                    worldInfo.db$getDatapackOrder().add(0, packName);
                                     sender.addChatMessage(new ChatComponentText("Moved " + packName + " to the front of the list."));
                                 } else {
                                     sender.addChatMessage(new ChatComponentText("Pack " + packName + " does not exist"));
                                 }
                             }
                             case "last" -> {
-                                if (worldInfo.getDatapackOrder().contains(packName)) {
-                                    worldInfo.getDatapackOrder().remove(packName);
-                                    worldInfo.getDatapackOrder().add(packName);
+                                if (worldInfo.db$getDatapackOrder().contains(packName)) {
+                                    worldInfo.db$getDatapackOrder().remove(packName);
+                                    worldInfo.db$getDatapackOrder().add(packName);
                                     sender.addChatMessage(new ChatComponentText("Moved " + packName + " to the end of the list."));
                                 } else {
                                     sender.addChatMessage(new ChatComponentText("Pack " + packName + " does not exist"));
@@ -125,15 +125,15 @@ public class DatapackCommand extends CommandBase {
 
                                 String relativeTo = argStack.pop();
 
-                                int idx = worldInfo.getDatapackOrder().indexOf(relativeTo);
+                                int idx = worldInfo.db$getDatapackOrder().indexOf(relativeTo);
 
                                 if (idx == -1) {
                                     sender.addChatMessage(new ChatComponentText("Pack " + relativeTo + " does not exist"));
                                     return;
                                 }
 
-                                worldInfo.getDatapackOrder().remove(packName);
-                                worldInfo.getDatapackOrder().add(idx, packName);
+                                worldInfo.db$getDatapackOrder().remove(packName);
+                                worldInfo.db$getDatapackOrder().add(idx, packName);
                                 sender.addChatMessage(new ChatComponentText("Moved " + packName + " before " + relativeTo));
                             }
                             case "after" -> {
@@ -144,15 +144,15 @@ public class DatapackCommand extends CommandBase {
 
                                 String relativeTo = argStack.pop();
 
-                                int idx = worldInfo.getDatapackOrder().indexOf(relativeTo);
+                                int idx = worldInfo.db$getDatapackOrder().indexOf(relativeTo);
 
                                 if (idx == -1) {
                                     sender.addChatMessage(new ChatComponentText("Pack " + relativeTo + " does not exist"));
                                     return;
                                 }
 
-                                worldInfo.getDatapackOrder().remove(packName);
-                                worldInfo.getDatapackOrder().add(idx + 1, packName);
+                                worldInfo.db$getDatapackOrder().remove(packName);
+                                worldInfo.db$getDatapackOrder().add(idx + 1, packName);
                                 sender.addChatMessage(new ChatComponentText("Moved " + packName + " after " + relativeTo));
                             }
                         }
@@ -166,8 +166,8 @@ public class DatapackCommand extends CommandBase {
 
                     String packName = argStack.pop();
 
-                    if (worldInfo.getDatapackOrder().contains(packName)) {
-                        worldInfo.disable(packName);
+                    if (worldInfo.db$getDatapackOrder().contains(packName)) {
+                        worldInfo.db$disable(packName);
                         sender.addChatMessage(new ChatComponentText("Disabled " + packName));
                     } else {
                         sender.addChatMessage(new ChatComponentText("Pack " + packName + " does not exist"));
@@ -180,7 +180,7 @@ public class DatapackCommand extends CommandBase {
                         sender.addChatMessage(new ChatComponentText("None"));
                     }
 
-                    for (var pack : worldInfo.order(packs)) {
+                    for (var pack : worldInfo.db$order(packs)) {
                         sender.addChatMessage(new ChatComponentText(" - " + pack.getPackId() + (!pack.isEnabled() ? " (disabled)" : "")));
 
                         try {
@@ -223,8 +223,8 @@ public class DatapackCommand extends CommandBase {
         DatapackWorldInfo worldInfo = (DatapackWorldInfo) world.getWorldInfo();
         List<Datapack> packs = DatapackLoader.loadDatapacks(DatapackLoader.discoverCandidates(saveDir));
 
-        worldInfo.syncPackDeltas(packs);
-        packs = worldInfo.order(packs);
+        worldInfo.db$syncPackDeltas(packs);
+        packs = worldInfo.db$order(packs);
 
         try {
             String subcommand = argStack.pop();

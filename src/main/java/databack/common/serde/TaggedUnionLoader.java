@@ -62,6 +62,9 @@ public class TaggedUnionLoader<Union> implements JsonDeserializer<Union> {
         JsonElement tag = obj.get(tagField);
 
         if (tag == null) {
+            if (fallback != null) {
+                return fallback.deserialize(json, typeOfT, context);
+            }
             throw new JsonParseException("Tagged union did not have '" + tagField + "' field: " + json);
         }
 

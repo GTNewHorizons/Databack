@@ -14,6 +14,7 @@ import databack.common.annotation.RangeFloat;
 import databack.common.dto.worldgen.BlockWhitelist;
 import databack.common.dto.worldgen.FluidState;
 import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
+import databack.common.dto.worldgen.block_state_provider.IBlockStateProvider;
 import databack.common.dto.worldgen.configured_feature.tree.BuiltinTreeComponents;
 import databack.common.dto.worldgen.configured_feature.tree.IFallenLogDecorator;
 import databack.common.dto.worldgen.configured_feature.tree.IFeatureSize;
@@ -21,7 +22,10 @@ import databack.common.dto.worldgen.configured_feature.tree.IRootPlacer;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeDecorator;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeFoliagePlacer;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeTrunkPlacer;
+import databack.common.dto.worldgen.float_provider.IFloatProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
+import databack.common.dto.worldgen.placed_feature.IPlacedFeatureRef;
+import databack.common.dto.worldgen.processor_list.IProcessorListRef;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
 
@@ -107,6 +111,9 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:vines", VinesFeature.class);
         loader.addVariant("minecraft:void_start_platform", VoidStartPlatformFeature.class);
         loader.addVariant("minecraft:weeping_vines", WeepingVinesFeature.class);
+        loader.addVariant("minecraft:coral_claw", CoralClawFeature.class);
+        loader.addVariant("minecraft:coral_mushroom", CoralMushroomFeature.class);
+        loader.addVariant("minecraft:coral_tree", CoralTreeFeature.class);
 
         loader.setFallback((json, typeOfT, context) -> {
             if (!json.isJsonPrimitive()) throw new JsonParseException("Expected typed object or resource location for configured feature: " + json);
@@ -153,7 +160,7 @@ public class BuiltinConfiguredFeatures {
         public BlockPileConfig config;
     }
     private static class BlockPileConfig {
-        public JsonElement state_provider;
+        public IBlockStateProvider state_provider;
     }
 
     // decorated (until 1.18)
@@ -204,6 +211,11 @@ public class BuiltinConfiguredFeatures {
     // weeping_vines
     private static class WeepingVinesFeature implements IConfiguredFeature {}
 
+    // coral_claw, coral_mushroom, coral_tree
+    private static class CoralClawFeature implements IConfiguredFeature {}
+    private static class CoralMushroomFeature implements IConfiguredFeature {}
+    private static class CoralTreeFeature implements IConfiguredFeature {}
+
     // desert_well
     private static class DesertWellFeature implements IConfiguredFeature {}
 
@@ -224,7 +236,7 @@ public class BuiltinConfiguredFeatures {
     }
     private static class DiskConfig {
         @Nullable public BlockState state;
-        @Nullable public JsonElement state_provider;
+        @Nullable public IBlockStateProvider state_provider;
         public IIntProvider radius;
         public int half_height;
         @Nullable public JsonElement targets;
@@ -290,8 +302,8 @@ public class BuiltinConfiguredFeatures {
         @Nonnegative public int height_deviation;
         @Nullable public IIntProvider dripstone_block_layer_thickness;
         @Nullable public IIntProvider speleothem_block_layer_thickness;
-        public JsonElement density;
-        public JsonElement wetness;
+        public IFloatProvider density;
+        public IFloatProvider wetness;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_dripstone_column_at_max_distance_from_center;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_speleothem_at_max_distance_from_center;
         @Nullable public Integer max_distance_from_edge_affecting_chance_of_dripstone_column;
@@ -304,7 +316,7 @@ public class BuiltinConfiguredFeatures {
         public FallenTreeConfig config;
     }
     private static class FallenTreeConfig {
-        public JsonElement trunk_provider;
+        public IBlockStateProvider trunk_provider;
         public IIntProvider log_length;
         public IFallenLogDecorator[] log_decorators;
         public IFallenLogDecorator[] stump_decorators;
@@ -339,7 +351,7 @@ public class BuiltinConfiguredFeatures {
         // Since 1.18
         @Nullable public Integer xz_spread;
         @Nullable public Integer y_spread;
-        @Nullable public JsonElement feature;
+        @Nullable public IPlacedFeatureRef feature;
     }
 
     // block_blob (since 26.1)
@@ -367,8 +379,8 @@ public class BuiltinConfiguredFeatures {
         public int max_empty_corners_allowed;
         public String[] fossil_structures;
         public String[] overlay_structures;
-        public JsonElement fossil_processors;
-        public JsonElement overlay_processors;
+        public IProcessorListRef fossil_processors;
+        public IProcessorListRef overlay_processors;
     }
 
     // geode (since 1.17)
@@ -422,8 +434,8 @@ public class BuiltinConfiguredFeatures {
         public HugeMushroomConfig config;
     }
     private static class HugeMushroomConfig {
-        public JsonElement cap_provider;
-        public JsonElement stem_provider;
+        public IBlockStateProvider cap_provider;
+        public IBlockStateProvider stem_provider;
         public int foliage_radius;
         @Nullable public IBlockPredicate can_place_on;
     }
@@ -455,8 +467,8 @@ public class BuiltinConfiguredFeatures {
     }
     private static class LakeConfig {
         @Nullable public JsonElement state;
-        @Nullable public JsonElement fluid;
-        @Nullable public JsonElement barrier;
+        @Nullable public IBlockStateProvider fluid;
+        @Nullable public IBlockStateProvider barrier;
         @Nullable public IBlockPredicate can_place_feature;
         @Nullable public IBlockPredicate can_replace_with_air_or_fluid;
         @Nullable public IBlockPredicate can_replace_with_barrier;
@@ -470,11 +482,11 @@ public class BuiltinConfiguredFeatures {
         @Nullable public IBlockPredicate replaceable_blocks;
         @Nullable public Integer floor_to_ceiling_search_range;
         public IIntProvider column_radius;
-        public JsonElement height_scale;
+        public IFloatProvider height_scale;
         @RangeFloat(min = 0, max = 1) public float max_column_radius_to_cave_height_ratio;
-        public JsonElement stalactite_bluntness;
-        public JsonElement stalagmite_bluntness;
-        public JsonElement wind_speed;
+        public IFloatProvider stalactite_bluntness;
+        public IFloatProvider stalagmite_bluntness;
+        public IFloatProvider wind_speed;
         public int min_radius_for_wind;
         @RangeFloat(min = 0, max = 1) public float min_bluntness_for_wind;
     }
@@ -484,7 +496,7 @@ public class BuiltinConfiguredFeatures {
         public NetherForestVegetationConfig config;
     }
     private static class NetherForestVegetationConfig {
-        public JsonElement state_provider;
+        public IBlockStateProvider state_provider;
         @Nullable @Nonnegative public Integer spread_width;
         @Nullable @Nonnegative public Integer spread_height;
     }
@@ -531,8 +543,8 @@ public class BuiltinConfiguredFeatures {
         public RandomBooleanSelectorConfig config;
     }
     private static class RandomBooleanSelectorConfig {
-        public JsonElement feature_false;
-        public JsonElement feature_true;
+        public IPlacedFeatureRef feature_false;
+        public IPlacedFeatureRef feature_true;
     }
 
     // random_selector
@@ -540,8 +552,14 @@ public class BuiltinConfiguredFeatures {
         public RandomSelectorConfig config;
     }
     private static class RandomSelectorConfig {
-        public JsonElement features;
-        @SerializedName("default") public JsonElement defaultFeature;
+        public WeightedPlacedFeature[] features;
+        @SerializedName("default") public IPlacedFeatureRef defaultFeature;
+    }
+
+    /** An entry in a {@code random_selector} features list: a placed feature ref with a selection probability. */
+    private static class WeightedPlacedFeature {
+        @RangeFloat(min = 0, max = 1) public float chance;
+        public IPlacedFeatureRef feature;
     }
 
     // replace_single_block (since 1.17)
@@ -568,10 +586,10 @@ public class BuiltinConfiguredFeatures {
         public int hanging_root_placement_attempts;
         public int allowed_vertical_water_for_tree;
         public BlockWhitelist root_replaceable;
-        public JsonElement root_state_provider;
-        public JsonElement hanging_root_state_provider;
+        public IBlockStateProvider root_state_provider;
+        public IBlockStateProvider hanging_root_state_provider;
         @Nullable public IBlockPredicate allowed_tree_position;
-        public JsonElement feature;
+        public IPlacedFeatureRef feature;
     }
 
     // sculk_patch (since 1.19)
@@ -601,7 +619,7 @@ public class BuiltinConfiguredFeatures {
         public SequenceConfig config;
     }
     private static class SequenceConfig {
-        public JsonElement features;
+        public IPlacedFeatureRef[] features;
     }
 
     // simple_block
@@ -609,7 +627,7 @@ public class BuiltinConfiguredFeatures {
         public SimpleBlockConfig config;
     }
     private static class SimpleBlockConfig {
-        public JsonElement to_place;
+        public IBlockStateProvider to_place;
         @Nullable public Boolean schedule_tick;
         @Nullable public JsonElement place_on;
         @Nullable public JsonElement place_in;
@@ -621,7 +639,7 @@ public class BuiltinConfiguredFeatures {
         public SimpleRandomSelectorConfig config;
     }
     private static class SimpleRandomSelectorConfig {
-        public JsonElement features;
+        public IPlacedFeatureRef[] features;
     }
 
     // small_dripstone (1.17–1.18)
@@ -698,8 +716,8 @@ public class BuiltinConfiguredFeatures {
         @RangeFloat(min = 0, max = 1) public float vegetation_chance;
         public IIntProvider xz_radius;
         public JsonElement replaceable;
-        public JsonElement ground_state;
-        public JsonElement vegetation_feature;
+        public IBlockStateProvider ground_state;
+        public IPlacedFeatureRef vegetation_feature;
     }
 
     // weighted_random_selector (since 26.2)
@@ -707,7 +725,13 @@ public class BuiltinConfiguredFeatures {
         public WeightedRandomSelectorConfig config;
     }
     private static class WeightedRandomSelectorConfig {
-        public JsonElement features;
+        public WeightedListEntry[] features;
+    }
+
+    /** A {@code WeightedList} entry wrapping a placed feature reference. */
+    private static class WeightedListEntry {
+        public int weight;
+        public IPlacedFeatureRef data;
     }
 
     private static class TreeFeature implements IConfiguredFeature {
@@ -715,10 +739,10 @@ public class BuiltinConfiguredFeatures {
     }
 
     private static class TreeConfig {
-        public JsonElement trunk_provider;
-        public JsonElement foliage_provider;
-        @Nullable public JsonElement dirt_provider;
-        @Nullable public JsonElement below_trunk_provider;
+        public IBlockStateProvider trunk_provider;
+        public IBlockStateProvider foliage_provider;
+        @Nullable public IBlockStateProvider dirt_provider;
+        @Nullable public IBlockStateProvider below_trunk_provider;
         public ITreeTrunkPlacer trunk_placer;
         public ITreeFoliagePlacer foliage_placer;
         @Nullable public IRootPlacer root_placer;

@@ -16,7 +16,7 @@ public class DiscoveryOrderer implements IPackOrderer {
 
     @Override
     @Nonnull
-    public List<Datapack> order(@Nonnull List<Datapack> packs) {
+    public List<Datapack> db$order(@Nonnull List<Datapack> packs) {
         return new ArrayList<Datapack>(packs);
     }
 }

@@ -4,10 +4,10 @@ import databack.common.dto.worldgen.density_function.IDensityFunction;
 
 public class DensityFunctionList extends JsonDatapackTypeHandler<IDensityFunction> {
 
-    public static final DensityFunctionList INSTANCE = new DensityFunctionList();
+    public static final ResourceType<DensityFunctionList> RT = ResourceType.withPath("worldgen/density_function");
 
     public DensityFunctionList() {
-        super("worldgen/density_function", IDensityFunction.class);
+        super(RT, IDensityFunction.class);
     }
 
     public IDensityFunction getDensityFunction(String name) {

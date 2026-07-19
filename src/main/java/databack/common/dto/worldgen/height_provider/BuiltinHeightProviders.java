@@ -22,10 +22,17 @@ public class BuiltinHeightProviders {
         loader.addVariant("minecraft:trapezoid", TrapezoidHeight.class);
         loader.addVariant("minecraft:weighted_list", WeightedListHeight.class);
 
-        // Bare VerticalAnchor objects (no "type" field) resolve to a constant height.
+        // Bare VerticalAnchor (object or int) resolves to a constant height.
         loader.setFallback((json, typeOfT, context) -> {
-            if (!json.isJsonObject()) throw new JsonParseException("Expected object or typed HeightProvider: " + json);
-            VerticalAnchor anchor = context.deserialize(json, VerticalAnchor.class);
+            VerticalAnchor anchor;
+            if (json.isJsonPrimitive()) {
+                anchor = new VerticalAnchor();
+                anchor.absolute = json.getAsInt();
+            } else if (json.isJsonObject()) {
+                anchor = context.deserialize(json, VerticalAnchor.class);
+            } else {
+                throw new JsonParseException("Expected int, VerticalAnchor object, or typed HeightProvider: " + json);
+            }
             int y = anchor.resolve();
             return random -> y;
         });

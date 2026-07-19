@@ -18,7 +18,7 @@ public class DatabackCore implements IFMLLoadingPlugin, IEarlyMixinLoader {
 
     @Override
     public String getModContainerClass() {
-        return null;
+        return "databack.DatapackModContainer";
     }
 
     @Override

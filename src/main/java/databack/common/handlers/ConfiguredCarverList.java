@@ -6,10 +6,10 @@ import databack.common.dto.worldgen.carver.IConfiguredCarver;
 
 public class ConfiguredCarverList extends JsonDatapackTypeHandler<IConfiguredCarver> {
 
-    public static final ConfiguredCarverList INSTANCE = new ConfiguredCarverList();
+    public static final ResourceType<ConfiguredCarverList> RT = ResourceType.withPath("worldgen/configured_carver");
 
     public ConfiguredCarverList() {
-        super("worldgen/configured_carver", IConfiguredCarver.class);
+        super(RT, IConfiguredCarver.class);
     }
 
     @Nullable

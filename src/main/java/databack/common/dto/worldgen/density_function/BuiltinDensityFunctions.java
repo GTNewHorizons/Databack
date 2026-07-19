@@ -8,15 +8,19 @@ import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
+import databack.common.context.CacheSlot;
 import databack.common.context.StateSlot;
 import databack.common.context.WorldContext;
 import databack.common.handlers.DatapackNoiseList;
 import databack.common.handlers.DensityFunctionList;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
+import databack.common.util.QuantizedFloatMap2D;
+import databack.common.util.QuantizedFloatMap3D;
 
 @SuppressWarnings("unused")
 public class BuiltinDensityFunctions {
@@ -26,7 +30,7 @@ public class BuiltinDensityFunctions {
 
         densityFunctions.addVariant("minecraft:abs", AbsUnary.class);
         densityFunctions.addVariant("minecraft:blend_density", BlendDensityUnary.class);
-        densityFunctions.addVariant("minecraft:cache_2d", Cache2DUnary.class);
+        densityFunctions.addVariant("minecraft:cache_2d", Cache2DFunc.class);
         densityFunctions.addVariant("minecraft:cache_all_in_cell", CacheAllInCellUnary.class);
         densityFunctions.addVariant("minecraft:cache_once", CacheOnceUnary.class);
         densityFunctions.addVariant("minecraft:cube", CubeUnary.class);
@@ -67,12 +71,19 @@ public class BuiltinDensityFunctions {
         densityFunctions.addVariant("minecraft:blend_offset", BlendOffsetFunc.class);
 
         densityFunctions.setFallback((json, typeOfT, context) -> {
-            String str = context.deserialize(json, String.class);
+            JsonPrimitive prim = (JsonPrimitive) json;
 
-            var ref = new DensityFunctionRef();
-            ref.name = str;
+            if (prim.isString()) {
+                var ref = new DensityFunctionRef();
+                ref.name = prim.getAsString();
 
-            return ref;
+                return ref;
+            } else {
+                var ref = new ConstantFunc();
+                ref.argument = prim.getAsFloat();
+
+                return ref;
+            }
         });
     }
 
@@ -80,12 +91,16 @@ public class BuiltinDensityFunctions {
 
         private String name;
 
-        private transient IDensityFunction cache;
+        private transient volatile IDensityFunction cache;
 
         @Override
         public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
             if (this.cache == null) {
-                this.cache = DensityFunctionList.INSTANCE.getDensityFunction(this.name);
+                synchronized (this) {
+                    if (this.cache == null) {
+                        this.cache = DensityFunctionList.RT.getHandler().getDensityFunction(this.name);
+                    }
+                }
             }
 
             return this.cache.compute(context, blockX, blockY, blockZ);
@@ -108,11 +123,75 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class Cache2DUnary extends UnaryDensityFunction {
+    private static class Cache2DFunc implements IDensityFunction {
+
+        public IDensityFunction argument;
+
+        private transient volatile CacheSlot<QuantizedFloatMap2D> slot;
 
         @Override
-        protected float compute(float param) {
-            return param;
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            if (slot == null) {
+                synchronized (this) {
+                    if (slot == null) {
+                        slot = context.createCacheSlot(QuantizedFloatMap2D::clear);
+                    }
+                }
+            }
+
+            QuantizedFloatMap2D cache = context.getCache(slot);
+
+            if (cache == null) {
+                cache = new QuantizedFloatMap2D(1024);
+                cache.defaultReturnValue(Float.NaN);
+
+                context.setCache(slot, cache);
+            }
+
+            float value = cache.get(blockX, blockZ);
+
+            if (Float.isNaN(value)) {
+                value = argument.compute(context, blockX, blockY, blockZ);
+                cache.put(blockX, blockZ, value);
+            }
+
+            return value;
+        }
+    }
+
+    private static class FlatCacheUnary implements IDensityFunction {
+
+        public IDensityFunction argument;
+
+        private transient volatile CacheSlot<QuantizedFloatMap2D> slot;
+
+        @Override
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            if (slot == null) {
+                synchronized (this) {
+                    if (slot == null) {
+                        slot = context.createCacheSlot(QuantizedFloatMap2D::clear);
+                    }
+                }
+            }
+
+            QuantizedFloatMap2D cache = context.getCache(slot);
+
+            if (cache == null) {
+                cache = new QuantizedFloatMap2D(0.25f);
+                cache.defaultReturnValue(Float.NaN);
+
+                context.setCache(slot, cache);
+            }
+
+            float value = cache.get(blockX, blockZ);
+
+            if (Float.isNaN(value)) {
+                value = argument.compute(context, blockX, 0, blockZ);
+                cache.put(blockX, blockZ, value);
+            }
+
+            return value;
         }
     }
 
@@ -124,11 +203,39 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class CacheOnceUnary extends UnaryDensityFunction {
+    private static class CacheOnceUnary implements IDensityFunction {
+
+        public IDensityFunction argument;
+
+        private transient volatile CacheSlot<QuantizedFloatMap3D> slot;
 
         @Override
-        protected float compute(float param) {
-            return param;
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            if (slot == null) {
+                synchronized (this) {
+                    if (slot == null) {
+                        slot = context.createCacheSlot(QuantizedFloatMap3D::clear);
+                    }
+                }
+            }
+
+            QuantizedFloatMap3D cache = context.getCache(slot);
+
+            if (cache == null) {
+                cache = new QuantizedFloatMap3D(1024);
+                cache.defaultReturnValue(Float.NaN);
+
+                context.setCache(slot, cache);
+            }
+
+            float value = cache.get(blockX, blockY, blockZ);
+
+            if (Float.isNaN(value)) {
+                value = argument.compute(context, blockX, blockY, blockZ);
+                cache.put(blockX, blockY, blockZ, value);
+            }
+
+            return value;
         }
     }
 
@@ -137,14 +244,6 @@ public class BuiltinDensityFunctions {
         @Override
         protected float compute(float param) {
             return param * param * param;
-        }
-    }
-
-    private static class FlatCacheUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return param;
         }
     }
 
@@ -355,9 +454,10 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = context.getState(samplerSlot);
 
             if (sampler == null) {
-                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.noise);
+                sampler = DatapackNoiseList.RT.getHandler().getSampler(context.getDimensionSeed(), this.noise);
                 context.setState(samplerSlot, sampler);
             }
+
             return sampler;
         }
 
@@ -386,7 +486,7 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = context.getState(samplerSlot);
 
             if (sampler == null) {
-                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.argument);
+                sampler = DatapackNoiseList.RT.getHandler().getSampler(context.getDimensionSeed(), this.argument);
                 context.setState(samplerSlot, sampler);
             }
 
@@ -414,7 +514,7 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = context.getState(samplerSlot);
 
             if (sampler == null) {
-                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.argument);
+                sampler = DatapackNoiseList.RT.getHandler().getSampler(context.getDimensionSeed(), this.argument);
                 context.setState(samplerSlot, sampler);
             }
 
@@ -442,7 +542,7 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = context.getState(samplerSlot);
 
             if (sampler == null) {
-                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.argument);
+                sampler = DatapackNoiseList.RT.getHandler().getSampler(context.getDimensionSeed(), this.argument);
                 context.setState(samplerSlot, sampler);
             }
 
@@ -472,7 +572,7 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = context.getState(samplerSlot);
 
             if (sampler == null) {
-                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.noise);
+                sampler = DatapackNoiseList.RT.getHandler().getSampler(context.getDimensionSeed(), this.noise);
                 context.setState(samplerSlot, sampler);
             }
 
@@ -576,7 +676,7 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = context.getState(samplerSlot);
 
             if (sampler == null) {
-                sampler = DatapackNoiseList.INSTANCE.getSampler(context.getDimensionSeed(), this.noise);
+                sampler = DatapackNoiseList.RT.getHandler().getSampler(context.getDimensionSeed(), this.noise);
                 context.setState(samplerSlot, sampler);
             }
 
