@@ -425,6 +425,12 @@ class DatapackPipelineTest {
     static class TestDatapackWorldInfo implements DatapackWorldInfo {
 
         @Override
+        public net.minecraft.nbt.NBTTagCompound db$saveDatapackInfo() { return new net.minecraft.nbt.NBTTagCompound(); }
+
+        @Override
+        public void db$loadDatapackInfo(net.minecraft.nbt.NBTTagCompound tag) {}
+
+        @Override
         public List<String> db$getDatapackOrder() {
             return new ArrayList<>();
         }

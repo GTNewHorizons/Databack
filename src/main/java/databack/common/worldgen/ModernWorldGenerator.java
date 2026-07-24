@@ -1,5 +1,6 @@
 package databack.common.worldgen;
 
+import java.util.Arrays;
 import java.util.List;
 
 import net.minecraft.entity.EnumCreatureType;
@@ -7,6 +8,7 @@ import net.minecraft.init.Blocks;
 import net.minecraft.util.IProgressUpdate;
 import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.World;
+import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.biome.BiomeGenBase.SpawnListEntry;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
@@ -15,6 +17,7 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import com.gtnewhorizon.gtnhlib.util.data.BlockMeta;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 import databack.common.context.WorldContext;
+import databack.common.worldgen.compiler.DensityFunctionCompiler;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.MultiNoiseBiomes;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.NoiseDimensionGenerator;
 import databack.common.dto.dimension.Dimension;
@@ -64,6 +67,13 @@ public class ModernWorldGenerator implements IChunkProvider {
         this.dimensionType = DimensionTypeList.RT.getHandler().getDimensionType(dim.type);
         this.generatorSettings = noise.settings.get();
 
+        try {
+            NoiseGeneratorSettings.NoiseRouter r = this.generatorSettings.noise_router;
+            r.final_density = DensityFunctionCompiler.compile(r.final_density);
+        } catch (Exception e) {
+            System.err.println("[Databack] DF compilation failed, using interpreted fallback: " + e.getMessage());
+        }
+
         if (dimensionType == null) {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
         }
@@ -83,6 +93,8 @@ public class ModernWorldGenerator implements IChunkProvider {
     @Override
     public Chunk provideChunk(int chunkX, int chunkZ) {
         Chunk chunk = new Chunk(world, chunkX, chunkZ);
+
+        Arrays.fill(chunk.getBiomeArray(), (byte) BiomeGenBase.plains.biomeID);
 
         IDensityFunction finalDensity = this.generatorSettings.noise_router.final_density;
 

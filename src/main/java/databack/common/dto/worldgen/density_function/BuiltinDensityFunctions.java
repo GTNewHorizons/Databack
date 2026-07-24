@@ -61,7 +61,6 @@ public class BuiltinDensityFunctions {
         densityFunctions.addVariant("minecraft:y_clamped_gradient", YClampedGradientFunc.class);
         densityFunctions.addVariant("minecraft:noise", NoiseFunc.class);
         densityFunctions.addVariant("minecraft:old_blended_noise", OldBlendedNoise.class);
-        densityFunctions.addVariant("minecraft:terrain_shaper_spline", TerrainShaperSpline.class);
 
         DatapackSerialization.getBuilder().registerTypeAdapter(ISpline.class, new SplineAdapter());
         densityFunctions.addVariant("minecraft:spline", SplineFunc.class);
@@ -87,14 +86,13 @@ public class BuiltinDensityFunctions {
         });
     }
 
-    private static class DensityFunctionRef implements IDensityFunction {
+    public static class DensityFunctionRef implements IDensityFunction {
 
         private String name;
 
         private transient volatile IDensityFunction cache;
 
-        @Override
-        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+        public IDensityFunction getFunction() {
             if (this.cache == null) {
                 synchronized (this) {
                     if (this.cache == null) {
@@ -103,11 +101,16 @@ public class BuiltinDensityFunctions {
                 }
             }
 
-            return this.cache.compute(context, blockX, blockY, blockZ);
+            return this.cache;
+        }
+
+        @Override
+        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
+            return getFunction().compute(context, blockX, blockY, blockZ);
         }
     }
 
-    private static class AbsUnary extends UnaryDensityFunction {
+    public static class AbsUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -115,7 +118,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class BlendDensityUnary extends UnaryDensityFunction {
+    public static class BlendDensityUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -123,7 +126,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class Cache2DFunc implements IDensityFunction {
+    public static class Cache2DFunc implements IDensityFunction {
 
         public IDensityFunction argument;
 
@@ -159,7 +162,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class FlatCacheUnary implements IDensityFunction {
+    public static class FlatCacheUnary implements IDensityFunction {
 
         public IDensityFunction argument;
 
@@ -195,7 +198,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class CacheAllInCellUnary extends UnaryDensityFunction {
+    public static class CacheAllInCellUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -203,7 +206,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class CacheOnceUnary implements IDensityFunction {
+    public static class CacheOnceUnary implements IDensityFunction {
 
         public IDensityFunction argument;
 
@@ -239,7 +242,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class CubeUnary extends UnaryDensityFunction {
+    public static class CubeUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -247,7 +250,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class HalfNegativeUnary extends UnaryDensityFunction {
+    public static class HalfNegativeUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -255,7 +258,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class InterpolatedFunc implements IDensityFunction {
+    public static class InterpolatedFunc implements IDensityFunction {
 
         public IDensityFunction argument;
 
@@ -293,7 +296,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class InvertUnary extends UnaryDensityFunction {
+    public static class InvertUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -301,7 +304,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class QuarterNegativeUnary extends UnaryDensityFunction {
+    public static class QuarterNegativeUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -309,7 +312,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class SlideUnary extends UnaryDensityFunction {
+    public static class SlideUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -317,7 +320,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class SquareUnary extends UnaryDensityFunction {
+    public static class SquareUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -325,7 +328,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class SqueezeUnary extends UnaryDensityFunction {
+    public static class SqueezeUnary extends UnaryDensityFunction {
 
         @Override
         protected float compute(float param) {
@@ -335,7 +338,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class AddBinary extends BinaryDensityFunction {
+    public static class AddBinary extends BinaryDensityFunction {
 
         @Override
         protected float compute(float param1, float param2) {
@@ -343,7 +346,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class MaxBinary extends BinaryDensityFunction {
+    public static class MaxBinary extends BinaryDensityFunction {
 
         @Override
         protected float compute(float param1, float param2) {
@@ -351,7 +354,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class MinBinary extends BinaryDensityFunction {
+    public static class MinBinary extends BinaryDensityFunction {
 
         @Override
         protected float compute(float param1, float param2) {
@@ -359,7 +362,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class MulBinary extends BinaryDensityFunction {
+    public static class MulBinary extends BinaryDensityFunction {
 
         @Override
         protected float compute(float param1, float param2) {
@@ -367,7 +370,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class ClampFunc implements IDensityFunction {
+    public static class ClampFunc implements IDensityFunction {
         public IDensityFunction input;
         public float min, max;
 
@@ -377,7 +380,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class ConstantFunc implements IDensityFunction {
+    public static class ConstantFunc implements IDensityFunction {
 
         public float argument;
 
@@ -387,7 +390,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class FindTopSurfaceFunc implements IDensityFunction {
+    public static class FindTopSurfaceFunc implements IDensityFunction {
         public IDensityFunction density, upper_bound;
         public int lower_bound, cell_height;
 
@@ -403,7 +406,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class IntervalSelectFunc implements IDensityFunction {
+    public static class IntervalSelectFunc implements IDensityFunction {
         public IDensityFunction input;
         public float[] thresholds;
         public IDensityFunction[] functions;
@@ -424,7 +427,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class RangeChoiceFunc implements IDensityFunction {
+    public static class RangeChoiceFunc implements IDensityFunction {
         public IDensityFunction input;
         public float min_inclusive, max_exclusive;
         public IDensityFunction when_in_range, when_out_of_range;
@@ -437,7 +440,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class ShiftedNoiseFunc implements IDensityFunction {
+    public static class ShiftedNoiseFunc implements IDensityFunction {
         public String noise;
         public float xz_scale, y_scale;
         public IDensityFunction shift_x, shift_y, shift_z;
@@ -471,7 +474,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class ShiftFunc implements IDensityFunction {
+    public static class ShiftFunc implements IDensityFunction {
         public String argument;
 
         private transient StateSlot<NoiseSampler> samplerSlot;
@@ -499,7 +502,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class ShiftAFunc implements IDensityFunction {
+    public static class ShiftAFunc implements IDensityFunction {
         public String argument;
 
         private transient StateSlot<NoiseSampler> samplerSlot;
@@ -527,7 +530,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class ShiftBFunc implements IDensityFunction {
+    public static class ShiftBFunc implements IDensityFunction {
         public String argument;
 
         private transient StateSlot<NoiseSampler> samplerSlot;
@@ -555,7 +558,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class WeirdScaledSampler implements IDensityFunction {
+    public static class WeirdScaledSampler implements IDensityFunction {
         public RarityType rarity_value_mapper;
         public String noise;
         public IDensityFunction input;
@@ -638,12 +641,12 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private enum RarityType {
+    public enum RarityType {
         type_1,
         type_2;
     }
 
-    private static class YClampedGradientFunc implements IDensityFunction {
+    public static class YClampedGradientFunc implements IDensityFunction {
 
         public int from_y, to_y;
         public float from_value, to_value;
@@ -659,7 +662,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class NoiseFunc implements IDensityFunction {
+    public static class NoiseFunc implements IDensityFunction {
 
         public String noise;
         public float xz_scale, y_scale;
@@ -689,7 +692,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class OldBlendedNoise implements IDensityFunction {
+    public static class OldBlendedNoise implements IDensityFunction {
 
         public float xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier;
 
@@ -699,25 +702,13 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class TerrainShaperSpline implements IDensityFunction {
-
-        public SplineType spline;
-        public float min_value, max_value;
-        public IDensityFunction continentalness, erosion, weirdness;
-
-        @Override
-        public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
-            return 0; // TODO
-        }
-
-        private enum SplineType {
-            offset,
-            factor,
-            jaggedness
-        }
+    public enum SplineType {
+        offset,
+        factor,
+        jaggedness
     }
 
-    private static class SplineFunc implements IDensityFunction {
+    public static class SplineFunc implements IDensityFunction {
         public ISpline spline;
 
         @Override
@@ -726,11 +717,11 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private interface ISpline extends IDensityFunction {
+    public interface ISpline extends IDensityFunction {
 
     }
 
-    private static class SplineValue implements ISpline {
+    public static class SplineValue implements ISpline {
         public float coordinate;
 
         public SplineValue(float coordinate) {
@@ -743,22 +734,54 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class SplineCurve implements ISpline {
+    public static class SplineCurve implements ISpline {
         public IDensityFunction coordinate;
         public SplinePoint[] points;
 
         @Override
         public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
-            return 0; // TODO: for claude
+            float t = coordinate.compute(context, blockX, blockY, blockZ);
+
+            // Clamp to endpoints
+            if (t <= points[0].location) {
+                return points[0].value.compute(context, blockX, blockY, blockZ);
+            }
+            if (t >= points[points.length - 1].location) {
+                return points[points.length - 1].value.compute(context, blockX, blockY, blockZ);
+            }
+
+            // Binary search for the segment containing t
+            int lo = 0, hi = points.length - 1;
+            while (hi - lo > 1) {
+                int mid = (lo + hi) >>> 1;
+                if (points[mid].location <= t) lo = mid; else hi = mid;
+            }
+
+            SplinePoint p0 = points[lo];
+            SplinePoint p1 = points[hi];
+            float f0 = p0.value.compute(context, blockX, blockY, blockZ);
+            float f1 = p1.value.compute(context, blockX, blockY, blockZ);
+            float dx = p1.location - p0.location;
+            float u = (t - p0.location) / dx;
+            float u2 = u * u;
+            float u3 = u2 * u;
+
+            // Cubic Hermite basis
+            float h00 = 2 * u3 - 3 * u2 + 1;
+            float h10 = u3 - 2 * u2 + u;
+            float h01 = -2 * u3 + 3 * u2;
+            float h11 = u3 - u2;
+
+            return h00 * f0 + h10 * dx * p0.derivative + h01 * f1 + h11 * dx * p1.derivative;
         }
     }
 
-    private static class SplinePoint {
+    public static class SplinePoint {
         public float location, derivative;
         public ISpline value;
     }
 
-    private static class SplineAdapter implements JsonSerializer<ISpline>, JsonDeserializer<ISpline> {
+    public static class SplineAdapter implements JsonSerializer<ISpline>, JsonDeserializer<ISpline> {
 
         @Override
         public ISpline deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
@@ -777,7 +800,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class EndIslandsFunc implements IDensityFunction {
+    public static class EndIslandsFunc implements IDensityFunction {
 
         @Override
         public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
@@ -785,7 +808,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class BlendAlphaFunc implements IDensityFunction {
+    public static class BlendAlphaFunc implements IDensityFunction {
 
         @Override
         public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
@@ -793,7 +816,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class BlendOffsetFunc implements IDensityFunction {
+    public static class BlendOffsetFunc implements IDensityFunction {
 
         @Override
         public float compute(WorldContext context, float blockX, float blockY, float blockZ) {

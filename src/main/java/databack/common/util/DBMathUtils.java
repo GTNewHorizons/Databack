@@ -8,8 +8,31 @@ import net.minecraft.util.MathHelper;
 
 public class DBMathUtils {
 
-    public static int ceilDiv(int a, int b) {
-        return -Math.floorDiv(-a, b);
+    /// Ceiling division.
+    /// Rounds to positive infinity for positive signs, and rounds to zero for negative signs.
+    /// Sign = signum(lhs) * signum(rhs), so 7 / -2 = -3.5 = -3
+    public static int ceilDiv(int lhs, int rhs) {
+        if (rhs == 0) throw new ArithmeticException("/ by zero");
+
+        return lhs / rhs + ((lhs ^ rhs) > 0 && lhs % rhs != 0 ? 1 : 0);
+    }
+
+    /// Ceiling division.
+    /// Rounds to positive infinity for positive signs, and rounds to zero for negative signs.
+    /// Sign = signum(lhs) * signum(rhs), so 7 / -2 = -3.5 = -3
+    public static long ceilDiv(long lhs, long rhs) {
+        if (rhs == 0) throw new ArithmeticException("/ by zero");
+
+        return lhs / rhs + ((lhs ^ rhs) > 0 && lhs % rhs != 0 ? 1 : 0);
+    }
+
+    public static long gcd(long a, long b) {
+        while (b > 0) {
+            final long temp = b;
+            b = a % b; // % is remainder
+            a = temp;
+        }
+        return a;
     }
 
     public static boolean isPowerOfN(int toTest, int n) { // works only for positive numbers
