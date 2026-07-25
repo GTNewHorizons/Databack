@@ -4,6 +4,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -31,6 +32,11 @@ import databack.common.dto.worldgen.density_function.UnaryDensityFunction;
  * Compiles an {@link IDensityFunction} tree into a single JVM class, eliminating
  * virtual dispatch overhead for arithmetic nodes.
  *
+ * <p>Every unique DF node in the tree gets its own private {@code df_N} method with
+ * the same signature as {@link IDensityFunction#compute}. The public {@code compute()}
+ * method simply calls {@code df_0} (the root). Shared subtrees emit one method, called
+ * from multiple parents. The JIT inlines trivial methods naturally.
+ *
  * <p>Inlineable nodes (constant, add, mul, abs, square, noise, spline, etc.) are emitted
  * as direct JVM instructions. Truly complex nodes (caches, blend, end_islands, etc.) are
  * stored in an {@code IDensityFunction[] opaques} field and called via {@code invokeinterface}.
@@ -54,6 +60,10 @@ public final class DensityFunctionCompiler implements Opcodes {
     private static final String EXTRAS_FIELD_DESC = "[Ljava/lang/Object;";
     private static final String STATE_SLOT        = "databack/common/context/StateSlot";
     private static final String STATE_SLOT_DESC   = "L" + STATE_SLOT + ";";
+    private static final String CACHE_SLOT        = "databack/common/context/CacheSlot";
+    private static final String CACHE_SLOT_DESC   = "L" + CACHE_SLOT + ";";
+    private static final String MAP_2D            = "databack/common/util/QuantizedFloatMap2D";
+    private static final String MAP_3D            = "databack/common/util/QuantizedFloatMap3D";
     private static final String NOISE_HANDLER     = "databack/common/handlers/DatapackNoiseList";
     private static final String RESOURCE_TYPE     = "databack/common/handlers/ResourceType";
     private static final String I_HANDLER         = "databack/common/handlers/IDatapackTypeHandler";
@@ -65,21 +75,20 @@ public final class DensityFunctionCompiler implements Opcodes {
     private static final AtomicInteger COUNTER = new AtomicInteger();
     private static final Logger LOGGER = LogManager.getLogger("DensityFunctionCompiler");
 
-    // ── 64 KB method-size guard ───────────────────────────────────────────────
-
-    // Conservative limit; actual JVM limit is 65535 bytes of bytecode.
-    private static final int BYTECOST_LIMIT = 50_000;
-
     // ── Per-compilation state ─────────────────────────────────────────────────
 
     private MethodVisitor mv;
     private String className;
     private final List<IDensityFunction> opaques = new ArrayList<>();
     private final List<Object> extras = new ArrayList<>();
+
+    /** Maps each unique node instance (identity) to its df_N index. */
+    private final IdentityHashMap<IDensityFunction, Integer> nodeIndex = new IdentityHashMap<>();
+    /** Ordered list of nodes; {@code nodes.get(i)} is emitted as {@code df_i}. */
+    private final List<IDensityFunction> nodes = new ArrayList<>();
+
     /** Next available local variable slot (0-4 are reserved for this/ctx/x/y/z). */
     private int nextSlot = 5;
-    /** Running estimate of bytes emitted so far in compute(). */
-    private int bytecostSoFar = 0;
 
     // ── Public entry point ────────────────────────────────────────────────────
 
@@ -99,21 +108,33 @@ public final class DensityFunctionCompiler implements Opcodes {
         int id = COUNTER.getAndIncrement();
         className = "databack/compiled/CompiledDF_" + id;
 
-        // COMPUTE_FRAMES: ASM computes stack map frames automatically.
-        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_FRAMES);
-        cw.visit(V1_8, ACC_PUBLIC | ACC_FINAL, className, null,
+        // Phase 1: walk the tree, assign an index to every unique node instance.
+        registerTree(root);
+
+        // COMPUTE_MAXS: ASM computes max stack/locals; no StackMapTable needed for V1_6.
+        ClassWriter cw = new ClassWriter(ClassWriter.COMPUTE_MAXS);
+        cw.visit(V1_6, ACC_PUBLIC | ACC_FINAL, className, null,
                 "java/lang/Object", new String[]{IFACE});
 
-        // Emit compute() first — this populates the opaques and extras lists as a side-effect.
+        // compute() → tail call to df_0 (the root node's method).
         MethodVisitor computeMv = cw.visitMethod(ACC_PUBLIC, "compute", COMPUTE_DESC, null, null);
-        this.mv = computeMv;
         computeMv.visitCode();
-        emitNode(root);
+        computeMv.visitVarInsn(ALOAD, 0);
+        computeMv.visitVarInsn(ALOAD, 1);
+        computeMv.visitVarInsn(FLOAD, 2);
+        computeMv.visitVarInsn(FLOAD, 3);
+        computeMv.visitVarInsn(FLOAD, 4);
+        computeMv.visitMethodInsn(INVOKESPECIAL, className, nodeMethodName(0), COMPUTE_DESC, false);
         computeMv.visitInsn(FRETURN);
         computeMv.visitMaxs(0, 0);
         computeMv.visitEnd();
 
-        // Declare fields only if needed (visitField order doesn't matter in ASM).
+        // Phase 2: emit one private df_N method per registered node.
+        for (int i = 0; i < nodes.size(); i++) {
+            emitNodeMethod(cw, i);
+        }
+
+        // Declare fields only if needed.
         if (!opaques.isEmpty()) {
             cw.visitField(ACC_PRIVATE | ACC_FINAL, "opaques", IFACE_ARRAY_DESC, null, null).visitEnd();
         }
@@ -133,94 +154,107 @@ public final class DensityFunctionCompiler implements Opcodes {
         return instantiate(bytes, id);
     }
 
-    private void emitConstructor(ClassWriter cw) {
-        boolean hasOpaques = !opaques.isEmpty();
-        boolean hasExtras  = !extras.isEmpty();
+    // ── Tree registration ─────────────────────────────────────────────────────
 
-        // Build descriptor: ([IDensityFunction;)?([Object;)?
-        String desc;
-        if (!hasOpaques && !hasExtras) {
-            desc = "()V";
-        } else if (hasOpaques && !hasExtras) {
-            desc = "(" + IFACE_ARRAY_DESC + ")V";
-        } else if (!hasOpaques) {
-            desc = "(" + EXTRAS_FIELD_DESC + ")V";
-        } else {
-            desc = "(" + IFACE_ARRAY_DESC + EXTRAS_FIELD_DESC + ")V";
-        }
-
-        MethodVisitor init = cw.visitMethod(ACC_PUBLIC, "<init>", desc, null, null);
-        init.visitCode();
-        init.visitVarInsn(ALOAD, 0);
-        init.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
-
-        int slot = 1;
-        if (hasOpaques) {
-            init.visitVarInsn(ALOAD, 0);
-            init.visitVarInsn(ALOAD, slot++);
-            init.visitFieldInsn(PUTFIELD, className, "opaques", IFACE_ARRAY_DESC);
-        }
-        if (hasExtras) {
-            init.visitVarInsn(ALOAD, 0);
-            init.visitVarInsn(ALOAD, slot);
-            init.visitFieldInsn(PUTFIELD, className, "extras", EXTRAS_FIELD_DESC);
-        }
-
-        init.visitInsn(RETURN);
-        init.visitMaxs(0, 0);
-        init.visitEnd();
+    /**
+     * Assigns {@code node} the next available index and recurses into its children.
+     * Shared subtrees (same instance referenced from multiple parents) are registered once.
+     */
+    private void registerTree(IDensityFunction node) {
+        if (node instanceof DensityFunctionRef ref) node = ref.getFunction();
+        if (nodeIndex.containsKey(node)) return;
+        int idx = nodes.size();
+        nodes.add(node);
+        nodeIndex.put(node, idx);
+        registerChildren(node);
     }
 
-    private IDensityFunction instantiate(byte[] bytes, int id) {
-        try {
-            CompiledDFLoader loader = new CompiledDFLoader();
-            String dotName = "databack.compiled.CompiledDF_" + id;
-            Class<?> cls = loader.define(dotName, bytes);
-
-            boolean hasOpaques = !opaques.isEmpty();
-            boolean hasExtras  = !extras.isEmpty();
-
-            IDensityFunction[] opaquesArr = hasOpaques ? opaques.toArray(new IDensityFunction[0]) : null;
-            Object[]           extrasArr  = hasExtras  ? extras.toArray()                         : null;
-
-            if (!hasOpaques && !hasExtras) {
-                return (IDensityFunction) cls.getDeclaredConstructor().newInstance();
-            } else if (hasOpaques && !hasExtras) {
-                return (IDensityFunction) cls.getDeclaredConstructor(IDensityFunction[].class)
-                        .newInstance((Object) opaquesArr);
-            } else if (!hasOpaques) {
-                return (IDensityFunction) cls.getDeclaredConstructor(Object[].class)
-                        .newInstance((Object) extrasArr);
-            } else {
-                return (IDensityFunction) cls.getDeclaredConstructor(IDensityFunction[].class, Object[].class)
-                        .newInstance(opaquesArr, extrasArr);
+    /**
+     * Recurses into the children of {@code node}. Must stay in sync with
+     * {@link #emitNodeBody} — every child that {@code emitNodeBody} would call
+     * via {@code emitChildCall} must be registered here.
+     */
+    @SuppressWarnings("unchecked")
+    private void registerChildren(IDensityFunction node) {
+        if (node instanceof UnaryDensityFunction unary) {
+            switch (node.getClass().getSimpleName()) {
+                case "SlideUnary" -> {} // argument is never evaluated at runtime
+                default -> registerTree(unary.argument);
             }
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to instantiate compiled density function", e);
-        }
-    }
-
-    // ── Node emission ─────────────────────────────────────────────────────────
-
-    /** Emits bytecode for {@code node}, leaving its float result on the operand stack. */
-    private void emitNode(IDensityFunction node) {
-        if (node instanceof DensityFunctionRef ref) {
-            node = ref.getFunction();
-        }
-
-        // 64 KB guard: if this subtree would push us over the limit, treat the whole thing
-        // as opaque. This prevents JVM class verification errors on huge trees.
-        if (bytecostSoFar + estimateCost(node) > BYTECOST_LIMIT) {
-            emitOpaqueCall(addOpaque(node));
-            bytecostSoFar += 13;
             return;
         }
+        if (node instanceof BinaryDensityFunction binary) {
+            registerTree(binary.argument1);
+            registerTree(binary.argument2);
+            return;
+        }
+        switch (node.getClass().getSimpleName()) {
+            case "ClampFunc"          -> registerTree(getDF(node, "input"));
+            case "Cache2DFunc",
+                 "FlatCacheUnary",
+                 "CacheOnceUnary"     -> registerTree(getDF(node, "argument"));
+            case "RangeChoiceFunc"    -> {
+                registerTree(getDF(node, "input"));
+                registerTree(getDF(node, "when_in_range"));
+                registerTree(getDF(node, "when_out_of_range"));
+            }
+            case "IntervalSelectFunc" -> {
+                registerTree(getDF(node, "input"));
+                IDensityFunction[] fns = getDF(node, "functions");
+                for (IDensityFunction fn : fns) registerTree(fn);
+            }
+            case "FindTopSurfaceFunc" -> {
+                registerTree(getDF(node, "density"));
+                registerTree(getDF(node, "upper_bound"));
+            }
+            case "InterpolatedFunc"   -> registerTree(getDF(node, "argument"));
+            case "ShiftedNoiseFunc"   -> {
+                registerTree(getDF(node, "shift_x"));
+                registerTree(getDF(node, "shift_y"));
+                registerTree(getDF(node, "shift_z"));
+            }
+            case "WeirdScaledSampler" -> registerTree(getDF(node, "input"));
+            case "SplineFunc"         -> registerTree(getDF(node, "spline"));
+            case "SplineCurve"        -> {
+                registerTree(getDF(node, "coordinate"));
+                SplinePoint[] points = getDF(node, "points");
+                for (SplinePoint p : points) registerTree(getDF(p, "value"));
+            }
+            default -> {} // ConstantFunc, YClampedGradient, Noise*, SplineValue, opaques — no DF children
+        }
+    }
+
+    // ── Per-node method emission ──────────────────────────────────────────────
+
+    /** Emits the private {@code df_idx} method for {@code nodes.get(idx)}. */
+    private void emitNodeMethod(ClassWriter cw, int idx) {
+        IDensityFunction node = nodes.get(idx);
+        MethodVisitor nodeMv = cw.visitMethod(ACC_PRIVATE, nodeMethodName(idx), COMPUTE_DESC, null, null);
+        MethodVisitor savedMv   = this.mv;
+        int           savedSlot = this.nextSlot;
+        this.mv       = nodeMv;
+        this.nextSlot = 5;           // slots 0-4 = this/ctx/x/y/z
+        nodeMv.visitCode();
+        emitNodeBody(node);
+        nodeMv.visitInsn(FRETURN);
+        nodeMv.visitMaxs(0, 0);
+        nodeMv.visitEnd();
+        this.mv       = savedMv;
+        this.nextSlot = savedSlot;
+    }
+
+    /**
+     * Emits bytecode for {@code node}, leaving its float result on the operand stack.
+     * Children are called via {@code emitChildCall*} helpers that emit INVOKESPECIAL
+     * to the child's own {@code df_N} method.
+     */
+    private void emitNodeBody(IDensityFunction node) {
+        if (node instanceof DensityFunctionRef ref) node = ref.getFunction();
 
         if (node instanceof UnaryDensityFunction unary) {
             emitUnary(node, unary.argument);
             return;
         }
-
         if (node instanceof BinaryDensityFunction binary) {
             emitBinary(node, binary.argument1, binary.argument2);
             return;
@@ -233,6 +267,9 @@ public final class DensityFunctionCompiler implements Opcodes {
             case "YClampedGradientFunc"  -> emitYClampedGradient(
                     getInt(node, "from_y"), getInt(node, "to_y"),
                     getFloat(node, "from_value"), getFloat(node, "to_value"));
+            case "Cache2DFunc"           -> emitCache2D(getDF(node, "argument"), 1024f, false);
+            case "FlatCacheUnary"        -> emitCache2D(getDF(node, "argument"), 0.25f, true);
+            case "CacheOnceUnary"        -> emitCacheOnce(getDF(node, "argument"));
             case "RangeChoiceFunc"       -> emitRangeChoiceFunc(node);
             case "IntervalSelectFunc"    -> emitIntervalSelectFunc(node);
             case "FindTopSurfaceFunc"    -> emitFindTopSurfaceFunc(node);
@@ -243,44 +280,86 @@ public final class DensityFunctionCompiler implements Opcodes {
             case "ShiftBFunc"            -> emitShiftBFunc(node);
             case "ShiftedNoiseFunc"      -> emitShiftedNoiseFunc(node);
             case "WeirdScaledSampler"    -> emitWeirdScaledSampler(node);
-            case "SplineFunc"            -> emitNode(getDF(node, "spline"));
+            case "SplineFunc"            -> emitChildCall(getDF(node, "spline"));
             case "SplineValue"           -> emitConstant(getFloat(node, "coordinate"));
             case "SplineCurve"           -> emitSplineCurve(node);
-            default -> {
-                emitOpaqueCall(addOpaque(node));
-                bytecostSoFar += 13;
-            }
+            default                      -> emitOpaqueCall(addOpaque(node));
         }
     }
+
+    // ── Child-call helpers ────────────────────────────────────────────────────
+
+    /**
+     * Emits: {@code INVOKESPECIAL df_N(this, ctx, x, y, z)}
+     * using the current method's parameter slots for x/y/z.
+     */
+    private void emitChildCall(IDensityFunction child) {
+        if (child instanceof DensityFunctionRef ref) child = ref.getFunction();
+        int idx = nodeIndex.get(child);
+        mv.visitVarInsn(ALOAD, 0);
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitVarInsn(FLOAD, 3);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitMethodInsn(INVOKESPECIAL, className, nodeMethodName(idx), COMPUTE_DESC, false);
+    }
+
+    /**
+     * Emits: {@code INVOKESPECIAL df_N(this, ctx, x, 0.0f, z)}
+     * Used by FlatCacheUnary, which evaluates its argument at y=0.
+     */
+    private void emitChildCallAtY0(IDensityFunction child) {
+        if (child instanceof DensityFunctionRef ref) child = ref.getFunction();
+        int idx = nodeIndex.get(child);
+        mv.visitVarInsn(ALOAD, 0);
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitInsn(FCONST_0);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitMethodInsn(INVOKESPECIAL, className, nodeMethodName(idx), COMPUTE_DESC, false);
+    }
+
+    /**
+     * Emits: {@code INVOKESPECIAL df_N(this, ctx, x, (float)yIntSlot, z)}
+     * Used by FindTopSurfaceFunc to pass the loop variable as y.
+     */
+    private void emitChildCallWithIntY(IDensityFunction child, int yIntSlot) {
+        if (child instanceof DensityFunctionRef ref) child = ref.getFunction();
+        int idx = nodeIndex.get(child);
+        mv.visitVarInsn(ALOAD, 0);
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitVarInsn(ILOAD, yIntSlot);
+        mv.visitInsn(I2F);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitMethodInsn(INVOKESPECIAL, className, nodeMethodName(idx), COMPUTE_DESC, false);
+    }
+
+    // ── Node emission ─────────────────────────────────────────────────────────
 
     private void emitUnary(IDensityFunction node, IDensityFunction argument) {
         switch (node.getClass().getSimpleName()) {
 
             // Passthroughs (identity) — just emit child
-            case "BlendDensityUnary", "CacheAllInCellUnary" -> emitNode(argument);
+            case "BlendDensityUnary", "CacheAllInCellUnary" -> emitChildCall(argument);
 
             // Constant zero — don't even evaluate the child
-            case "SlideUnary" -> {
-                mv.visitInsn(FCONST_0);
-                bytecostSoFar += 1;
-            }
+            case "SlideUnary" -> mv.visitInsn(FCONST_0);
 
             case "AbsUnary" -> {
-                emitNode(argument);
+                emitChildCall(argument);
                 mv.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "abs", "(F)F", false);
-                bytecostSoFar += 3;
             }
 
             case "SquareUnary" -> {
-                emitNode(argument);
+                emitChildCall(argument);
                 // DUP is valid for category-1 (float) values
                 mv.visitInsn(DUP);
                 mv.visitInsn(FMUL);
-                bytecostSoFar += 2;
             }
 
             case "CubeUnary" -> {
-                emitNode(argument);
+                emitChildCall(argument);
                 int slot = nextSlot++;
                 mv.visitVarInsn(FSTORE, slot);
                 mv.visitVarInsn(FLOAD, slot);
@@ -288,80 +367,65 @@ public final class DensityFunctionCompiler implements Opcodes {
                 mv.visitInsn(FMUL);
                 mv.visitVarInsn(FLOAD, slot);
                 mv.visitInsn(FMUL);
-                bytecostSoFar += 8;
             }
 
             case "InvertUnary" -> {
-                // 1f / arg: emit arg, store, then LDC 1.0 / FLOAD
-                emitNode(argument);
+                // 1f / arg
+                emitChildCall(argument);
                 int slot = nextSlot++;
                 mv.visitVarInsn(FSTORE, slot);
                 mv.visitInsn(FCONST_1);
                 mv.visitVarInsn(FLOAD, slot);
                 mv.visitInsn(FDIV);
-                bytecostSoFar += 6;
             }
 
             case "HalfNegativeUnary" -> {
-                emitNode(argument);
+                emitChildCall(argument);
                 int slot = nextSlot++;
                 mv.visitVarInsn(FSTORE, slot);
                 emitConditionalScale(slot, 0.5f);
-                bytecostSoFar += 18;
             }
 
             case "QuarterNegativeUnary" -> {
-                emitNode(argument);
+                emitChildCall(argument);
                 int slot = nextSlot++;
                 mv.visitVarInsn(FSTORE, slot);
                 emitConditionalScale(slot, 0.25f);
-                bytecostSoFar += 18;
             }
 
             case "SqueezeUnary" -> {
-                emitNode(argument);
+                emitChildCall(argument);
                 emitSqueeze();
-                bytecostSoFar += 22;
             }
 
             // Unknown unary type — treat entire node as opaque
-            default -> {
-                emitOpaqueCall(addOpaque(node));
-                bytecostSoFar += 13;
-            }
+            default -> emitOpaqueCall(addOpaque(node));
         }
     }
 
     private void emitBinary(IDensityFunction node, IDensityFunction arg1, IDensityFunction arg2) {
         switch (node.getClass().getSimpleName()) {
             case "AddBinary" -> {
-                emitNode(arg1);
-                emitNode(arg2);
+                emitChildCall(arg1);
+                emitChildCall(arg2);
                 mv.visitInsn(FADD);
-                bytecostSoFar += 1;
             }
             case "MulBinary" -> {
-                emitNode(arg1);
-                emitNode(arg2);
+                emitChildCall(arg1);
+                emitChildCall(arg2);
                 mv.visitInsn(FMUL);
-                bytecostSoFar += 1;
             }
             case "MaxBinary" -> {
-                emitNode(arg1);
-                emitNode(arg2);
+                emitChildCall(arg1);
+                emitChildCall(arg2);
                 mv.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "max", "(FF)F", false);
-                bytecostSoFar += 3;
             }
             case "MinBinary" -> {
-                emitNode(arg1);
-                emitNode(arg2);
+                emitChildCall(arg1);
+                emitChildCall(arg2);
                 mv.visitMethodInsn(INVOKESTATIC, "java/lang/Math", "min", "(FF)F", false);
-                bytecostSoFar += 3;
             }
-            default -> {
-                emitOpaqueCall(addOpaque(node));
-                bytecostSoFar += 13;
-            }
+            default -> emitOpaqueCall(addOpaque(node));
         }
     }
 
@@ -372,15 +436,13 @@ public final class DensityFunctionCompiler implements Opcodes {
         else if (value == 1.0f) mv.visitInsn(FCONST_1);
         else if (value == 2.0f) mv.visitInsn(FCONST_2);
         else                    mv.visitLdcInsn(value);
-        bytecostSoFar += 2;
     }
 
     private void emitClamp(IDensityFunction input, float min, float max) {
-        emitNode(input);
+        emitChildCall(input);
         mv.visitLdcInsn(min);
         mv.visitLdcInsn(max);
         mv.visitMethodInsn(INVOKESTATIC, MATHHELPER, "clamp_float", "(FFF)F", false);
-        bytecostSoFar += 7;
     }
 
     private void emitYClampedGradient(int from_y, int to_y, float from_value, float to_value) {
@@ -394,7 +456,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitInsn(FMUL);
         mv.visitLdcInsn(from_value);
         mv.visitInsn(FADD);
-        bytecostSoFar += 15;
     }
 
     /**
@@ -411,7 +472,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         Label outOfRange = new Label();
         Label end        = new Label();
 
-        emitNode(input);
+        emitChildCall(input);
         mv.visitVarInsn(FSTORE, tVar);
 
         // if t < min_inclusive → out of range
@@ -427,14 +488,13 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitJumpInsn(IFGE, outOfRange);
 
         // In range
-        emitNode(whenIn);
+        emitChildCall(whenIn);
         mv.visitJumpInsn(GOTO, end);
 
         mv.visitLabel(outOfRange);
-        emitNode(whenOut);
+        emitChildCall(whenOut);
 
         mv.visitLabel(end);
-        bytecostSoFar += 12;
     }
 
     /**
@@ -448,7 +508,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         int   tVar = nextSlot++;
         Label end  = new Label();
 
-        emitNode(input);
+        emitChildCall(input);
         mv.visitVarInsn(FSTORE, tVar);
 
         int N = thresholds.length;
@@ -462,21 +522,22 @@ public final class DensityFunctionCompiler implements Opcodes {
             mv.visitInsn(FCMPL);          // -1 if t >= threshold or NaN
             mv.visitJumpInsn(IFGE, labels[i]);
 
-            emitNode(functions[i]);
+            emitChildCall(functions[i]);
             mv.visitJumpInsn(GOTO, end);
 
             mv.visitLabel(labels[i]);
         }
 
         // Fallthrough: t >= all thresholds
-        emitNode(functions[N]);
+        emitChildCall(functions[N]);
 
         mv.visitLabel(end);
-        bytecostSoFar += 6 * N + 5;
     }
 
     /**
      * FindTopSurfaceFunc: loop from upper_bound down by cell_height, return first y where density > 0.
+     * The y override is passed explicitly as an argument to the density child method;
+     * the current method's parameter slots are never modified.
      */
     private void emitFindTopSurfaceFunc(IDensityFunction node) {
         IDensityFunction density     = getDF(node, "density");
@@ -485,21 +546,16 @@ public final class DensityFunctionCompiler implements Opcodes {
         int              cellHeight  = getInt(node, "cell_height");
 
         int yVar      = nextSlot++;
-        int savedY    = nextSlot++;
         int resultVar = nextSlot++;
 
-        Label loopStart      = new Label();
-        Label noHit          = new Label();
-        Label restoreAndEnd  = new Label();
+        Label loopStart = new Label();
+        Label noHit     = new Label();
+        Label loopEnd   = new Label();
 
         // y = (int) upper_bound.compute(...)
-        emitNode(upperBound);
+        emitChildCall(upperBound);
         mv.visitInsn(F2I);
         mv.visitVarInsn(ISTORE, yVar);
-
-        // Save blockY parameter (slot 3)
-        mv.visitVarInsn(FLOAD, 3);
-        mv.visitVarInsn(FSTORE, savedY);
 
         // Default result = (float) lowerBound
         pushInt(lowerBound);
@@ -511,15 +567,10 @@ public final class DensityFunctionCompiler implements Opcodes {
         // if y <= lowerBound → exit loop (result remains lowerBound)
         mv.visitVarInsn(ILOAD, yVar);
         pushInt(lowerBound);
-        mv.visitJumpInsn(IF_ICMPLE, restoreAndEnd);
+        mv.visitJumpInsn(IF_ICMPLE, loopEnd);
 
-        // Override blockY with loop variable
-        mv.visitVarInsn(ILOAD, yVar);
-        mv.visitInsn(I2F);
-        mv.visitVarInsn(FSTORE, 3);
-
-        // Evaluate density at this y
-        emitNode(density);
+        // Evaluate density at (x, yVar, z) — y passed explicitly, no slot override
+        emitChildCallWithIntY(density, yVar);
 
         // if density <= 0 → no hit
         mv.visitInsn(FCONST_0);
@@ -530,7 +581,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitVarInsn(ILOAD, yVar);
         mv.visitInsn(I2F);
         mv.visitVarInsn(FSTORE, resultVar);
-        mv.visitJumpInsn(GOTO, restoreAndEnd);
+        mv.visitJumpInsn(GOTO, loopEnd);
 
         // No hit: decrement y and loop
         mv.visitLabel(noHit);
@@ -540,19 +591,15 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitVarInsn(ISTORE, yVar);
         mv.visitJumpInsn(GOTO, loopStart);
 
-        // Restore blockY and push result
-        mv.visitLabel(restoreAndEnd);
-        mv.visitVarInsn(FLOAD, savedY);
-        mv.visitVarInsn(FSTORE, 3);
+        mv.visitLabel(loopEnd);
         mv.visitVarInsn(FLOAD, resultVar);
         // → result on stack
-
-        bytecostSoFar += 35;
     }
 
     /**
      * InterpolatedFunc: trilinear interpolation of argument evaluated at 8 cell corners.
-     * Temporarily overrides parameter slots 2/3/4 for each corner evaluation.
+     * Each corner is evaluated by calling df_N directly with explicit corner coordinates;
+     * the current method's parameter slots are never modified.
      */
     private void emitInterpolatedFunc(IDensityFunction node) {
         IDensityFunction argument = getDF(node, "argument");
@@ -566,9 +613,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         int kxiVar  = nextSlot++;  // 1 - kx
         int kyiVar  = nextSlot++;
         int kziVar  = nextSlot++;
-        int savedX  = nextSlot++;
-        int savedY  = nextSlot++;
-        int savedZ  = nextSlot++;
         int c000    = nextSlot++;
         int c100    = nextSlot++;
         int c010    = nextSlot++;
@@ -604,12 +648,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitInsn(FCONST_1); mv.visitVarInsn(FLOAD, kyVar); mv.visitInsn(FSUB); mv.visitVarInsn(FSTORE, kyiVar);
         mv.visitInsn(FCONST_1); mv.visitVarInsn(FLOAD, kzVar); mv.visitInsn(FSUB); mv.visitVarInsn(FSTORE, kziVar);
 
-        // Save original params
-        mv.visitVarInsn(FLOAD, 2); mv.visitVarInsn(FSTORE, savedX);
-        mv.visitVarInsn(FLOAD, 3); mv.visitVarInsn(FSTORE, savedY);
-        mv.visitVarInsn(FLOAD, 4); mv.visitVarInsn(FSTORE, savedZ);
-
-        // Evaluate 8 corners
+        // Evaluate 8 corners — each call passes explicit coordinates to df_N
         emitInterpolatedCorner(bx2Var, by2Var, bz2Var, c000, false, false, false, argument);
         emitInterpolatedCorner(bx2Var, by2Var, bz2Var, c100, true,  false, false, argument);
         emitInterpolatedCorner(bx2Var, by2Var, bz2Var, c010, false, true,  false, argument);
@@ -618,11 +657,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         emitInterpolatedCorner(bx2Var, by2Var, bz2Var, c101, true,  false, true,  argument);
         emitInterpolatedCorner(bx2Var, by2Var, bz2Var, c011, false, true,  true,  argument);
         emitInterpolatedCorner(bx2Var, by2Var, bz2Var, c111, true,  true,  true,  argument);
-
-        // Restore original params
-        mv.visitVarInsn(FLOAD, savedX); mv.visitVarInsn(FSTORE, 2);
-        mv.visitVarInsn(FLOAD, savedY); mv.visitVarInsn(FSTORE, 3);
-        mv.visitVarInsn(FLOAD, savedZ); mv.visitVarInsn(FSTORE, 4);
 
         // Trilinear sum: c000*kxi*kyi*kzi + c100*kx*kyi*kzi + ... (8 terms)
         emitTrilinearTerm(c000, kxiVar, kyiVar, kziVar, false);
@@ -633,30 +667,37 @@ public final class DensityFunctionCompiler implements Opcodes {
         emitTrilinearTerm(c101, kxVar,  kyiVar, kzVar,  true);
         emitTrilinearTerm(c011, kxiVar, kyVar,  kzVar,  true);
         emitTrilinearTerm(c111, kxVar,  kyVar,  kzVar,  true);
-
-        bytecostSoFar += 70;
     }
 
-    /** Evaluates argument at corner (bx2 [+4 if ox], by2 [+4 if oy], bz2 [+4 if oz]) and stores result. */
+    /**
+     * Evaluates argument at corner (bx2 [+4 if ox], by2 [+4 if oy], bz2 [+4 if oz])
+     * via direct INVOKESPECIAL — no slot overrides of the current method's parameters.
+     */
     private void emitInterpolatedCorner(int bx2, int by2, int bz2, int resultVar,
                                         boolean ox, boolean oy, boolean oz,
                                         IDensityFunction argument) {
-        // Set blockX param (slot 2)
+        if (argument instanceof DensityFunctionRef ref) argument = ref.getFunction();
+        int argIdx = nodeIndex.get(argument);
+
+        mv.visitVarInsn(ALOAD, 0);
+        mv.visitVarInsn(ALOAD, 1);
+
+        // x = bx2 [+ 4] as float
         mv.visitVarInsn(ILOAD, bx2);
         if (ox) { mv.visitInsn(ICONST_4); mv.visitInsn(IADD); }
-        mv.visitInsn(I2F); mv.visitVarInsn(FSTORE, 2);
+        mv.visitInsn(I2F);
 
-        // Set blockY param (slot 3)
+        // y = by2 [+ 4] as float
         mv.visitVarInsn(ILOAD, by2);
         if (oy) { mv.visitInsn(ICONST_4); mv.visitInsn(IADD); }
-        mv.visitInsn(I2F); mv.visitVarInsn(FSTORE, 3);
+        mv.visitInsn(I2F);
 
-        // Set blockZ param (slot 4)
+        // z = bz2 [+ 4] as float
         mv.visitVarInsn(ILOAD, bz2);
         if (oz) { mv.visitInsn(ICONST_4); mv.visitInsn(IADD); }
-        mv.visitInsn(I2F); mv.visitVarInsn(FSTORE, 4);
+        mv.visitInsn(I2F);
 
-        emitNode(argument);
+        mv.visitMethodInsn(INVOKESPECIAL, className, nodeMethodName(argIdx), COMPUTE_DESC, false);
         mv.visitVarInsn(FSTORE, resultVar);
     }
 
@@ -667,6 +708,188 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitVarInsn(FLOAD, wbVar); mv.visitInsn(FMUL);
         mv.visitVarInsn(FLOAD, wcVar); mv.visitInsn(FMUL);
         if (addToStack) mv.visitInsn(FADD);
+    }
+
+    // ── Cache emitters ───────────────────────────────────────────────────────
+
+    @SuppressWarnings("rawtypes")
+    private int addCacheSlot2D() {
+        return addExtra(WorldContextImpl.allocateCacheSlot((java.util.Map m) -> m.clear()));
+    }
+
+    @SuppressWarnings("rawtypes")
+    private int addCacheSlot3D() {
+        return addExtra(WorldContextImpl.allocateCacheSlot((java.util.Map m) -> m.clear()));
+    }
+
+    /**
+     * Cache2DFunc / FlatCacheUnary: lookup or create a {@code QuantizedFloatMap2D}, then
+     * return the cached (x,z) value. When {@code flatY} is true the argument is evaluated
+     * with y=0 (FlatCacheUnary semantics); no slot-3 override is performed.
+     */
+    private void emitCache2D(IDensityFunction argument, float resolution, boolean flatY) {
+        int cacheSlotIdx = addCacheSlot2D();
+        int slotVar = nextSlot++;
+        int mapVar  = nextSlot++;
+        int valVar  = nextSlot++;
+
+        Label skipInit    = new Label();
+        Label skipCompute = new Label();
+
+        // slotVar = (CacheSlot) extras[cacheSlotIdx]
+        mv.visitVarInsn(ALOAD, 0);
+        mv.visitFieldInsn(GETFIELD, className, "extras", EXTRAS_FIELD_DESC);
+        pushInt(cacheSlotIdx);
+        mv.visitInsn(AALOAD);
+        mv.visitTypeInsn(CHECKCAST, CACHE_SLOT);
+        mv.visitVarInsn(ASTORE, slotVar);
+
+        // mapVar = (Map2D) ctx.getCache(slotVar)
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(ALOAD, slotVar);
+        mv.visitMethodInsn(INVOKEINTERFACE, CTX, "getCache",
+                "(" + CACHE_SLOT_DESC + ")Ljava/lang/Object;", true);
+        mv.visitTypeInsn(CHECKCAST, MAP_2D);
+        mv.visitVarInsn(ASTORE, mapVar);
+
+        // if mapVar != null, skip init
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitJumpInsn(IFNONNULL, skipInit);
+
+        // mapVar = new QuantizedFloatMap2D(resolution)
+        mv.visitTypeInsn(NEW, MAP_2D);
+        mv.visitInsn(DUP);
+        mv.visitLdcInsn(resolution);
+        mv.visitMethodInsn(INVOKESPECIAL, MAP_2D, "<init>", "(F)V", false);
+        mv.visitVarInsn(ASTORE, mapVar);
+
+        // mapVar.defaultReturnValue(Float.NaN)
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitLdcInsn(Float.NaN);
+        mv.visitMethodInsn(INVOKEVIRTUAL, MAP_2D, "defaultReturnValue", "(F)V", false);
+
+        // ctx.setCache(slotVar, mapVar)
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(ALOAD, slotVar);
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitMethodInsn(INVOKEINTERFACE, CTX, "setCache",
+                "(" + CACHE_SLOT_DESC + "Ljava/lang/Object;)V", true);
+
+        mv.visitLabel(skipInit);
+
+        // valVar = mapVar.get(blockX, blockZ)
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitMethodInsn(INVOKEVIRTUAL, MAP_2D, "get", "(FF)F", false);
+        mv.visitVarInsn(FSTORE, valVar);
+
+        // if !Float.isNaN(valVar) goto skipCompute
+        mv.visitVarInsn(FLOAD, valVar);
+        mv.visitMethodInsn(INVOKESTATIC, "java/lang/Float", "isNaN", "(F)Z", false);
+        mv.visitJumpInsn(IFEQ, skipCompute);
+
+        // Evaluate argument: flatY passes y=0, regular passes current y
+        if (flatY) {
+            emitChildCallAtY0(argument);
+        } else {
+            emitChildCall(argument);
+        }
+        mv.visitVarInsn(FSTORE, valVar);
+
+        // mapVar.put(blockX, blockZ, valVar); discard old value
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitVarInsn(FLOAD, valVar);
+        mv.visitMethodInsn(INVOKEVIRTUAL, MAP_2D, "put", "(FFF)F", false);
+        mv.visitInsn(POP);
+
+        mv.visitLabel(skipCompute);
+        mv.visitVarInsn(FLOAD, valVar);
+    }
+
+    /**
+     * CacheOnceUnary: lookup or create a {@code QuantizedFloatMap3D}, then
+     * return the cached (x,y,z) value.
+     */
+    private void emitCacheOnce(IDensityFunction argument) {
+        int cacheSlotIdx = addCacheSlot3D();
+        int slotVar = nextSlot++;
+        int mapVar  = nextSlot++;
+        int valVar  = nextSlot++;
+
+        Label skipInit    = new Label();
+        Label skipCompute = new Label();
+
+        // slotVar = (CacheSlot) extras[cacheSlotIdx]
+        mv.visitVarInsn(ALOAD, 0);
+        mv.visitFieldInsn(GETFIELD, className, "extras", EXTRAS_FIELD_DESC);
+        pushInt(cacheSlotIdx);
+        mv.visitInsn(AALOAD);
+        mv.visitTypeInsn(CHECKCAST, CACHE_SLOT);
+        mv.visitVarInsn(ASTORE, slotVar);
+
+        // mapVar = (Map3D) ctx.getCache(slotVar)
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(ALOAD, slotVar);
+        mv.visitMethodInsn(INVOKEINTERFACE, CTX, "getCache",
+                "(" + CACHE_SLOT_DESC + ")Ljava/lang/Object;", true);
+        mv.visitTypeInsn(CHECKCAST, MAP_3D);
+        mv.visitVarInsn(ASTORE, mapVar);
+
+        // if mapVar != null, skip init
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitJumpInsn(IFNONNULL, skipInit);
+
+        // mapVar = new QuantizedFloatMap3D(1024)
+        mv.visitTypeInsn(NEW, MAP_3D);
+        mv.visitInsn(DUP);
+        pushInt(1024);
+        mv.visitMethodInsn(INVOKESPECIAL, MAP_3D, "<init>", "(I)V", false);
+        mv.visitVarInsn(ASTORE, mapVar);
+
+        // mapVar.defaultReturnValue(Float.NaN)
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitLdcInsn(Float.NaN);
+        mv.visitMethodInsn(INVOKEVIRTUAL, MAP_3D, "defaultReturnValue", "(F)V", false);
+
+        // ctx.setCache(slotVar, mapVar)
+        mv.visitVarInsn(ALOAD, 1);
+        mv.visitVarInsn(ALOAD, slotVar);
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitMethodInsn(INVOKEINTERFACE, CTX, "setCache",
+                "(" + CACHE_SLOT_DESC + "Ljava/lang/Object;)V", true);
+
+        mv.visitLabel(skipInit);
+
+        // valVar = mapVar.get(blockX, blockY, blockZ)
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitVarInsn(FLOAD, 3);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitMethodInsn(INVOKEVIRTUAL, MAP_3D, "get", "(FFF)F", false);
+        mv.visitVarInsn(FSTORE, valVar);
+
+        // if !Float.isNaN(valVar) goto skipCompute
+        mv.visitVarInsn(FLOAD, valVar);
+        mv.visitMethodInsn(INVOKESTATIC, "java/lang/Float", "isNaN", "(F)Z", false);
+        mv.visitJumpInsn(IFEQ, skipCompute);
+
+        emitChildCall(argument);
+        mv.visitVarInsn(FSTORE, valVar);
+
+        // mapVar.put(blockX, blockY, blockZ, valVar); discard old value
+        mv.visitVarInsn(ALOAD, mapVar);
+        mv.visitVarInsn(FLOAD, 2);
+        mv.visitVarInsn(FLOAD, 3);
+        mv.visitVarInsn(FLOAD, 4);
+        mv.visitVarInsn(FLOAD, valVar);
+        mv.visitMethodInsn(INVOKEVIRTUAL, MAP_3D, "put", "(FFFF)F", false);
+        mv.visitInsn(POP);
+
+        mv.visitLabel(skipCompute);
+        mv.visitVarInsn(FLOAD, valVar);
     }
 
     // ── Noise emitters ───────────────────────────────────────────────────────
@@ -733,8 +956,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitVarInsn(ALOAD, rawVar);
         mv.visitTypeInsn(CHECKCAST, NOISE_SAMPLER);
         // → NoiseSampler on stack
-
-        bytecostSoFar += 50;
     }
 
     /** Emits: {@code (float)(sampler.sample(x * xzScale, y * yScale, z * xzScale))} */
@@ -745,7 +966,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitVarInsn(FLOAD, 4); mv.visitInsn(F2D); mv.visitLdcInsn(xzScale); mv.visitInsn(DMUL);
         mv.visitMethodInsn(INVOKEINTERFACE, NOISE_SAMPLER, "sample", "(DDD)D", true);
         mv.visitInsn(D2F);
-        bytecostSoFar += 20;
     }
 
     /** NoiseFunc: {@code sample(x * xz_scale, y * y_scale, z * xz_scale)} */
@@ -768,7 +988,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitMethodInsn(INVOKEINTERFACE, NOISE_SAMPLER, "sample", "(DDD)D", true);
         mv.visitInsn(D2F);
         mv.visitLdcInsn(4.0f); mv.visitInsn(FMUL);
-        bytecostSoFar += 25;
     }
 
     /** ShiftAFunc: {@code sample(x/4, 0, z/4) * 4} */
@@ -782,7 +1001,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitMethodInsn(INVOKEINTERFACE, NOISE_SAMPLER, "sample", "(DDD)D", true);
         mv.visitInsn(D2F);
         mv.visitLdcInsn(4.0f); mv.visitInsn(FMUL);
-        bytecostSoFar += 25;
     }
 
     /** ShiftBFunc: {@code sample(z/4, x/4, 0) * 4} */
@@ -796,7 +1014,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitMethodInsn(INVOKEINTERFACE, NOISE_SAMPLER, "sample", "(DDD)D", true);
         mv.visitInsn(D2F);
         mv.visitLdcInsn(4.0f); mv.visitInsn(FMUL);
-        bytecostSoFar += 25;
     }
 
     /** ShiftedNoiseFunc: {@code sample((x+sx)*xz_scale, (y+sy)*y_scale, (z+sz)*xz_scale)} */
@@ -813,9 +1030,9 @@ public final class DensityFunctionCompiler implements Opcodes {
         int syVar   = nextSlot++;
         int szVar   = nextSlot++;
 
-        emitNode(shiftX); mv.visitInsn(F2I); mv.visitVarInsn(ISTORE, sxVar);
-        emitNode(shiftY); mv.visitInsn(F2I); mv.visitVarInsn(ISTORE, syVar);
-        emitNode(shiftZ); mv.visitInsn(F2I); mv.visitVarInsn(ISTORE, szVar);
+        emitChildCall(shiftX); mv.visitInsn(F2I); mv.visitVarInsn(ISTORE, sxVar);
+        emitChildCall(shiftY); mv.visitInsn(F2I); mv.visitVarInsn(ISTORE, syVar);
+        emitChildCall(shiftZ); mv.visitInsn(F2I); mv.visitVarInsn(ISTORE, szVar);
 
         emitNoiseLookup(slotIdx);
 
@@ -830,7 +1047,6 @@ public final class DensityFunctionCompiler implements Opcodes {
 
         mv.visitMethodInsn(INVOKEINTERFACE, NOISE_SAMPLER, "sample", "(DDD)D", true);
         mv.visitInsn(D2F);
-        bytecostSoFar += 30;
     }
 
     /**
@@ -847,7 +1063,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         int rarityVar = nextSlot++;
         int invVar    = nextSlot++;
 
-        emitNode(input);
+        emitChildCall(input);
         mv.visitVarInsn(FSTORE, valVar);
 
         // Default: rarity = 1, rarityInv = 1
@@ -868,8 +1084,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitInsn(D2F);
         mv.visitVarInsn(FLOAD, rarityVar);
         mv.visitInsn(FMUL);
-
-        bytecostSoFar += 60;
     }
 
     /**
@@ -954,7 +1168,8 @@ public final class DensityFunctionCompiler implements Opcodes {
 
     /**
      * Emits the SplineCurve computation with all point locations/derivatives baked in as
-     * LDC constants. Segment selection is unrolled; child value nodes are recursively inlined.
+     * LDC constants. Segment selection is unrolled; child value nodes are called via
+     * emitChildCall (INVOKESPECIAL to their df_N method).
      */
     private void emitSplineCurve(IDensityFunction node) {
         IDensityFunction coordinate = getDF(node, "coordinate");
@@ -971,7 +1186,7 @@ public final class DensityFunctionCompiler implements Opcodes {
 
         Label end = new Label();
 
-        emitNode(coordinate);
+        emitChildCall(coordinate);
         mv.visitVarInsn(FSTORE, tVar);
 
         if (N == 0) {
@@ -986,7 +1201,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitLdcInsn(getFloat(points[0], "location"));
         mv.visitInsn(FCMPG);                        // 1 if t < loc0
         mv.visitJumpInsn(IFGT, afterLower);          // if t > loc0, skip
-        emitNode(getDF(points[0], "value"));
+        emitChildCall(getDF(points[0], "value"));
         mv.visitJumpInsn(GOTO, end);
         mv.visitLabel(afterLower);
 
@@ -1003,7 +1218,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitLdcInsn(getFloat(points[N - 1], "location"));
         mv.visitInsn(FCMPL);                        // -1 if t > locN-1
         mv.visitJumpInsn(IFLT, afterUpper);          // if t < locN-1, skip
-        emitNode(getDF(points[N - 1], "value"));
+        emitChildCall(getDF(points[N - 1], "value"));
         mv.visitJumpInsn(GOTO, end);
         mv.visitLabel(afterUpper);
 
@@ -1046,14 +1261,10 @@ public final class DensityFunctionCompiler implements Opcodes {
             mv.visitVarInsn(FSTORE, u3Var);
 
             // f0 = points[i].value.compute(), f1 = points[i+1].value.compute()
-            emitNode(getDF(points[i],     "value")); mv.visitVarInsn(FSTORE, f0Var);
-            emitNode(getDF(points[i + 1], "value")); mv.visitVarInsn(FSTORE, f1Var);
+            emitChildCall(getDF(points[i],     "value")); mv.visitVarInsn(FSTORE, f0Var);
+            emitChildCall(getDF(points[i + 1], "value")); mv.visitVarInsn(FSTORE, f1Var);
 
-            // Cubic Hermite:
-            // result = (2u3 - 3u2 + 1)*f0
-            //        + (u3 - 2u2 + u)*k0
-            //        + (-2u3 + 3u2)*f1
-            //        + (u3 - u2)*k1
+            // Cubic Hermite interpolation
             emitHermite(uVar, u2Var, u3Var, f0Var, f1Var, k0, k1);
 
             mv.visitJumpInsn(GOTO, end);
@@ -1062,10 +1273,9 @@ public final class DensityFunctionCompiler implements Opcodes {
         }
 
         // Fallback (shouldn't be reached with well-formed data, but needed for bytecode legality)
-        emitNode(getDF(points[N - 1], "value"));
+        emitChildCall(getDF(points[N - 1], "value"));
 
         mv.visitLabel(end);
-        bytecostSoFar += 50 * (N - 1) + 20;
     }
 
     /** Emits the cubic Hermite polynomial evaluation. Leaves result float on stack. */
@@ -1109,8 +1319,6 @@ public final class DensityFunctionCompiler implements Opcodes {
         Label positive = new Label();
         Label end = new Label();
 
-        // FCMPG: -1 if arg<0, 0 if arg==0, +1 if arg>0 or NaN
-        // IFGE jumps when comparison result >= 0  (i.e. arg >= 0 OR NaN)
         mv.visitVarInsn(FLOAD, slot);
         mv.visitInsn(FCONST_0);
         mv.visitInsn(FCMPG);
@@ -1184,6 +1392,8 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     private int addOpaque(IDensityFunction node) {
+        LOGGER.warn("DensityFunctionCompiler: uncompiled opaque node type '{}' — falling back to virtual dispatch",
+                node.getClass().getSimpleName());
         int idx = opaques.size();
         opaques.add(node);
         return idx;
@@ -1207,79 +1417,83 @@ public final class DensityFunctionCompiler implements Opcodes {
         return slotIdx;
     }
 
-    // ── Cost estimator (for 64 KB guard) ─────────────────────────────────────
+    // ── Constructor / instantiation ───────────────────────────────────────────
 
-    /**
-     * Recursively estimates the bytecode cost of inlining {@code node}.
-     * Opaque nodes always return 13 (the cost of one opaque call).
-     */
-    @SuppressWarnings("unchecked")
-    static int estimateCost(IDensityFunction node) {
-        if (node instanceof UnaryDensityFunction u) {
-            return switch (node.getClass().getSimpleName()) {
-                case "BlendDensityUnary", "CacheAllInCellUnary" -> estimateCost(u.argument);
-                case "SlideUnary"            -> 1;
-                case "AbsUnary"              -> 3  + estimateCost(u.argument);
-                case "SquareUnary"           -> 2  + estimateCost(u.argument);
-                case "CubeUnary"             -> 8  + estimateCost(u.argument);
-                case "InvertUnary"           -> 6  + estimateCost(u.argument);
-                case "HalfNegativeUnary",
-                     "QuarterNegativeUnary"  -> 18 + estimateCost(u.argument);
-                case "SqueezeUnary"          -> 22 + estimateCost(u.argument);
-                default                      -> 13;
-            };
+    private void emitConstructor(ClassWriter cw) {
+        boolean hasOpaques = !opaques.isEmpty();
+        boolean hasExtras  = !extras.isEmpty();
+
+        String desc;
+        if (!hasOpaques && !hasExtras) {
+            desc = "()V";
+        } else if (hasOpaques && !hasExtras) {
+            desc = "(" + IFACE_ARRAY_DESC + ")V";
+        } else if (!hasOpaques) {
+            desc = "(" + EXTRAS_FIELD_DESC + ")V";
+        } else {
+            desc = "(" + IFACE_ARRAY_DESC + EXTRAS_FIELD_DESC + ")V";
         }
 
-        if (node instanceof BinaryDensityFunction b) {
-            return switch (node.getClass().getSimpleName()) {
-                case "AddBinary", "MulBinary" ->
-                        1  + estimateCost(b.argument1) + estimateCost(b.argument2);
-                case "MaxBinary", "MinBinary" ->
-                        3  + estimateCost(b.argument1) + estimateCost(b.argument2);
-                default -> 13;
-            };
+        MethodVisitor init = cw.visitMethod(ACC_PUBLIC, "<init>", desc, null, null);
+        init.visitCode();
+        init.visitVarInsn(ALOAD, 0);
+        init.visitMethodInsn(INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false);
+
+        int slot = 1;
+        if (hasOpaques) {
+            init.visitVarInsn(ALOAD, 0);
+            init.visitVarInsn(ALOAD, slot++);
+            init.visitFieldInsn(PUTFIELD, className, "opaques", IFACE_ARRAY_DESC);
+        }
+        if (hasExtras) {
+            init.visitVarInsn(ALOAD, 0);
+            init.visitVarInsn(ALOAD, slot);
+            init.visitFieldInsn(PUTFIELD, className, "extras", EXTRAS_FIELD_DESC);
         }
 
-        return switch (node.getClass().getSimpleName()) {
-            case "ConstantFunc"         -> 2;
-            case "ClampFunc"            -> 7  + estimateCost(getDF(node, "input"));
-            case "YClampedGradientFunc" -> 15;
-            case "SplineValue"          -> 2;
-            case "RangeChoiceFunc"      -> 12 + estimateCost(getDF(node, "input"))
-                                              + estimateCost(getDF(node, "when_in_range"))
-                                              + estimateCost(getDF(node, "when_out_of_range"));
-            case "FindTopSurfaceFunc"   -> 35 + estimateCost(getDF(node, "upper_bound"))
-                                              + estimateCost(getDF(node, "density"));
-            case "InterpolatedFunc"     -> {
-                int childCost = estimateCost(getDF(node, "argument"));
-                yield 70 + 8 * childCost;
+        init.visitInsn(RETURN);
+        init.visitMaxs(0, 0);
+        init.visitEnd();
+    }
+
+    private IDensityFunction instantiate(byte[] bytes, int id) {
+        try {
+            CompiledDFLoader loader = new CompiledDFLoader();
+            String dotName = "databack.compiled.CompiledDF_" + id;
+            Class<?> cls = loader.define(dotName, bytes);
+
+            boolean hasOpaques = !opaques.isEmpty();
+            boolean hasExtras  = !extras.isEmpty();
+
+            IDensityFunction[] opaquesArr = hasOpaques ? opaques.toArray(new IDensityFunction[0]) : null;
+            Object[]           extrasArr  = hasExtras  ? extras.toArray()                         : null;
+
+            if (!hasOpaques && !hasExtras) {
+                return (IDensityFunction) cls.getDeclaredConstructor().newInstance();
+            } else if (hasOpaques && !hasExtras) {
+                return (IDensityFunction) cls.getDeclaredConstructor(IDensityFunction[].class)
+                        .newInstance((Object) opaquesArr);
+            } else if (!hasOpaques) {
+                return (IDensityFunction) cls.getDeclaredConstructor(Object[].class)
+                        .newInstance((Object) extrasArr);
+            } else {
+                return (IDensityFunction) cls.getDeclaredConstructor(IDensityFunction[].class, Object[].class)
+                        .newInstance(opaquesArr, extrasArr);
             }
-            case "NoiseFunc", "ShiftFunc", "ShiftAFunc", "ShiftBFunc" -> 70;
-            case "ShiftedNoiseFunc"     -> 80 + estimateCost(getDF(node, "shift_x"))
-                                             + estimateCost(getDF(node, "shift_y"))
-                                             + estimateCost(getDF(node, "shift_z"));
-            case "WeirdScaledSampler"   -> 80 + estimateCost(getDF(node, "input"));
-            case "SplineFunc"           -> estimateCost(getDF(node, "spline"));
-            case "IntervalSelectFunc"   -> {
-                IDensityFunction input = getDF(node, "input");
-                float[]          thr   = getDF(node, "thresholds");
-                IDensityFunction[] fns = getDF(node, "functions");
-                int cost = 5 + 6 * thr.length + estimateCost(input);
-                for (IDensityFunction fn : fns) cost += estimateCost(fn);
-                yield cost;
-            }
-            case "SplineCurve"          -> {
-                IDensityFunction coord  = getDF(node, "coordinate");
-                SplinePoint[]    points = getDF(node, "points");
-                int cost = 20 + estimateCost(coord);
-                for (SplinePoint p : points) cost += 50 + estimateCost(getDF(p, "value"));
-                yield cost;
-            }
-            default                     -> 13;
-        };
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to instantiate compiled density function", e);
+        }
     }
 
     // ── JVM helpers ──────────────────────────────────────────────────────────
+
+    /** Returns the name of the private method for node {@code idx}: {@code df_N_ClassName}. */
+    private String nodeMethodName(int idx) {
+        // Strip characters illegal in JVM method names (e.g. '/' in lambda class names).
+        String simpleName = nodes.get(idx).getClass().getSimpleName()
+                .replaceAll("[^A-Za-z0-9_$]", "_");
+        return "df_" + idx + "_" + simpleName;
+    }
 
     /** Emits the most compact integer push instruction for {@code value}. */
     private void pushInt(int value) {
@@ -1303,8 +1517,6 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     // ── Reflection field access ───────────────────────────────────────────────
-
-    // Used only at compile-time (once per world), so reflection overhead is negligible.
 
     private static float getFloat(Object obj, String fieldName) {
         return ((Number) getFieldValue(obj, fieldName)).floatValue();
@@ -1338,7 +1550,6 @@ public final class DensityFunctionCompiler implements Opcodes {
     // ── Class dumping ─────────────────────────────────────────────────────────
 
     private void dumpClass(byte[] bytes, int id) {
-        // className is e.g. "databack/compiled/CompiledDF_0" — convert slashes to path separators
         File outFile = new File(DatabackConfig.compiledDensityFunctionDumpDir,
                 className.replace('/', File.separatorChar) + ".class");
         try {
@@ -1357,7 +1568,6 @@ public final class DensityFunctionCompiler implements Opcodes {
     private static final class CompiledDFLoader extends ClassLoader {
 
         CompiledDFLoader() {
-            // Parent = compiler's loader so the compiled class can see IDensityFunction, etc.
             super(DensityFunctionCompiler.class.getClassLoader());
         }
 

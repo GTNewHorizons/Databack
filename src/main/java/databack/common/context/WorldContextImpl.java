@@ -125,6 +125,20 @@ public class WorldContextImpl implements WorldContext {
         return new Slot<>(STATE_COUNTER.incrementAndGet());
     }
 
+    /** Allocates a {@link CacheSlot} without needing a {@code WorldContext} instance.
+     *  Equivalent to {@code createCacheSlot(resetter)} but callable at compile time. */
+    public static <T> CacheSlot<T> allocateCacheSlot(Consumer<T> resetter) {
+        int index = CACHE_COUNTER.incrementAndGet();
+
+        while (CACHE_RESETTERS.size() <= index) {
+            CACHE_RESETTERS.add(null);
+        }
+
+        CACHE_RESETTERS.set(index, resetter);
+
+        return new Slot<>(index);
+    }
+
     private static class Slot<T> implements StateSlot<T>, CacheSlot<T> {
         public final int index;
 

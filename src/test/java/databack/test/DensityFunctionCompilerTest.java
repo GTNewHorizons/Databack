@@ -3,6 +3,8 @@ package databack.test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import com.google.gson.Gson;
+import databack.common.context.WorldContext;
+import databack.common.context.WorldContextImpl;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions;
 import databack.common.dto.worldgen.density_function.IDensityFunction;
 import databack.common.serde.DatapackSerialization;
@@ -578,6 +580,82 @@ class DensityFunctionCompilerTest {
         }
     }
 
+    // ── Cache2DFunc ───────────────────────────────────────────────────────────
+
+    @Test
+    void cache2D_returnsConstant() {
+        IDensityFunction c = compiled("{\"type\":\"minecraft:cache_2d\",\"argument\":5.0}");
+        WorldContext ctx = new WorldContextImpl(null);
+        assertEquals(5.0f, c.compute(ctx, 0, 0, 0), DELTA);
+        assertEquals(5.0f, c.compute(ctx, 0, 99, 0), DELTA);  // same (x,z), different y
+    }
+
+    @Test
+    void cache2D_matchesInterpreted() {
+        String json = "{\"type\":\"minecraft:cache_2d\",\"argument\":3.0}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        WorldContext ctx = new WorldContextImpl(null);
+        assertEquals(interp.compute(ctx, 10, 20, 30), comp.compute(ctx, 10, 20, 30), DELTA);
+    }
+
+    // ── FlatCacheUnary ────────────────────────────────────────────────────────
+
+    @Test
+    void flatCache_returnsConstantAtAnyY() {
+        IDensityFunction c = compiled("{\"type\":\"minecraft:flat_cache\",\"argument\":7.0}");
+        WorldContext ctx = new WorldContextImpl(null);
+        assertEquals(7.0f, c.compute(ctx, 0, 100, 0), DELTA);
+        assertEquals(7.0f, c.compute(ctx, 0, 200, 0), DELTA);
+    }
+
+    @Test
+    void flatCache_matchesInterpreted() {
+        String json = "{\"type\":\"minecraft:flat_cache\",\"argument\":4.5}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        WorldContext iCtx = new WorldContextImpl(null);
+        WorldContext cCtx = new WorldContextImpl(null);
+        assertEquals(interp.compute(iCtx, 10, 50, 20), comp.compute(cCtx, 10, 50, 20), DELTA);
+    }
+
+    @Test
+    void flatCache_evaluatesAtY0() {
+        // flat_cache evaluates its argument with y=0; argument is y_clamped_gradient
+        // at y=0 → 0.0; regardless of what y we call with
+        String json =
+                "{\"type\":\"minecraft:flat_cache\",\"argument\":" +
+                "{\"type\":\"minecraft:y_clamped_gradient\"," +
+                "\"from_y\":0,\"to_y\":100,\"from_value\":0.0,\"to_value\":1.0}}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        WorldContext iCtx = new WorldContextImpl(null);
+        WorldContext cCtx = new WorldContextImpl(null);
+        // At any (x,z), the cached value is gradient(y=0) = 0.0
+        assertEquals(interp.compute(iCtx, 0, 50, 0), comp.compute(cCtx, 0, 50, 0), DELTA);
+        assertEquals(0.0f, interp.compute(iCtx, 0, 50, 0), DELTA);
+    }
+
+    // ── CacheOnceUnary ────────────────────────────────────────────────────────
+
+    @Test
+    void cacheOnce_returnsConstant() {
+        IDensityFunction c = compiled("{\"type\":\"minecraft:cache_once\",\"argument\":9.0}");
+        WorldContext ctx = new WorldContextImpl(null);
+        assertEquals(9.0f, c.compute(ctx, 0, 0, 0), DELTA);
+        assertEquals(9.0f, c.compute(ctx, 5, 5, 5), DELTA);  // different coords, same result
+    }
+
+    @Test
+    void cacheOnce_matchesInterpreted() {
+        String json = "{\"type\":\"minecraft:cache_once\",\"argument\":2.5}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        WorldContext iCtx = new WorldContextImpl(null);
+        WorldContext cCtx = new WorldContextImpl(null);
+        assertEquals(interp.compute(iCtx, 5, 5, 5), comp.compute(cCtx, 5, 5, 5), DELTA);
+    }
+
     // ── Noise function smoke tests (compilation only) ─────────────────────────
 
     @Test
@@ -630,5 +708,54 @@ class DensityFunctionCompilerTest {
                 "\"input\":0.0}");
         IDensityFunction result = DensityFunctionCompiler.compile(interp);
         assertNotNull(result);
+    }
+
+    // ── Large tree and shared-node tests ─────────────────────────────────────
+
+    /**
+     * Builds a balanced binary tree of {@code AddBinary} nodes with {@code ConstantFunc}
+     * leaves all set to {@code leafValue}. Depth-0 returns a single constant.
+     */
+    private static IDensityFunction buildAddTree(int depth, float leafValue) {
+        if (depth == 0) {
+            BuiltinDensityFunctions.ConstantFunc c = new BuiltinDensityFunctions.ConstantFunc();
+            c.argument = leafValue;
+            return c;
+        }
+        BuiltinDensityFunctions.AddBinary add = new BuiltinDensityFunctions.AddBinary();
+        add.argument1 = buildAddTree(depth - 1, leafValue);
+        add.argument2 = buildAddTree(depth - 1, leafValue);
+        return add;
+    }
+
+    @Test
+    void hugeTree_compilesAndEvaluatesCorrectly() {
+        // depth-12 balanced add tree: 2^12 = 4096 leaves each contributing 1.0.
+        // 2^13 - 1 = 8191 unique node instances → 8191 df_N methods, well within
+        // the JVM class file method limit of 65535.
+        int depth = 12;
+        float leaf = 1.0f;
+        float expected = (float) Math.pow(2, depth);
+
+        IDensityFunction interp = buildAddTree(depth, leaf);
+        IDensityFunction result  = DensityFunctionCompiler.compile(interp);
+        assertNotNull(result);
+        assertEquals(expected, result.compute(null, 0, 0, 0), DELTA);
+    }
+
+    @Test
+    void sharedNode_compiledOnce_evaluatesCorrectly() {
+        // The same IDensityFunction instance is referenced from both arguments of an add.
+        // The compiler registers it once and emits one df_N method, called twice from df_0.
+        BuiltinDensityFunctions.ConstantFunc shared = new BuiltinDensityFunctions.ConstantFunc();
+        shared.argument = 5.0f;
+
+        BuiltinDensityFunctions.AddBinary add = new BuiltinDensityFunctions.AddBinary();
+        add.argument1 = shared;
+        add.argument2 = shared;
+
+        IDensityFunction result = DensityFunctionCompiler.compile(add);
+        assertNotNull(result);
+        assertEquals(10.0f, result.compute(null, 0, 0, 0), DELTA);
     }
 }

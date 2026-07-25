@@ -39,6 +39,8 @@ public class ModernWorldGenerator implements IChunkProvider {
 
     private final BiomeProvider biomeProvider;
 
+    private final IDensityFunction finalDensity;
+
     public ModernWorldGenerator(World world, String generatorOptions) {
         this.world = world;
 
@@ -67,12 +69,18 @@ public class ModernWorldGenerator implements IChunkProvider {
         this.dimensionType = DimensionTypeList.RT.getHandler().getDimensionType(dim.type);
         this.generatorSettings = noise.settings.get();
 
+        NoiseGeneratorSettings.NoiseRouter router = this.generatorSettings.noise_router;
+
+        IDensityFunction finalDensity1;
+
         try {
-            NoiseGeneratorSettings.NoiseRouter r = this.generatorSettings.noise_router;
-            r.final_density = DensityFunctionCompiler.compile(r.final_density);
+            finalDensity1 = DensityFunctionCompiler.compile(router.final_density);
         } catch (Exception e) {
             System.err.println("[Databack] DF compilation failed, using interpreted fallback: " + e.getMessage());
+            finalDensity1 = router.final_density;
         }
+
+        this.finalDensity = finalDensity1;
 
         if (dimensionType == null) {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
@@ -96,7 +104,7 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         Arrays.fill(chunk.getBiomeArray(), (byte) BiomeGenBase.plains.biomeID);
 
-        IDensityFunction finalDensity = this.generatorSettings.noise_router.final_density;
+        IDensityFunction finalDensity = this.finalDensity;
 
         WorldContext context = WorldContext.getContext(world);
         context.resetCache();
