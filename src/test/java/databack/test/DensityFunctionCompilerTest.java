@@ -358,4 +358,277 @@ class DensityFunctionCompilerTest {
         IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
         assertEquals(200.0f, comp.compute(null, 0, 0, 0), DELTA);
     }
+
+    // ── RangeChoiceFunc ──────────────────────────────────────────────────────
+
+    @Test
+    void rangeChoice_inRange() {
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:range_choice\",\"input\":5.0," +
+                "\"min_inclusive\":0.0,\"max_exclusive\":10.0," +
+                "\"when_in_range\":100.0,\"when_out_of_range\":-100.0}");
+        assertCompute(c, 100.0f, 0, 0, 0);
+    }
+
+    @Test
+    void rangeChoice_belowMin_outOfRange() {
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:range_choice\",\"input\":-1.0," +
+                "\"min_inclusive\":0.0,\"max_exclusive\":10.0," +
+                "\"when_in_range\":100.0,\"when_out_of_range\":-100.0}");
+        assertCompute(c, -100.0f, 0, 0, 0);
+    }
+
+    @Test
+    void rangeChoice_atMaxExclusive_outOfRange() {
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:range_choice\",\"input\":10.0," +
+                "\"min_inclusive\":0.0,\"max_exclusive\":10.0," +
+                "\"when_in_range\":100.0,\"when_out_of_range\":-100.0}");
+        assertCompute(c, -100.0f, 0, 0, 0);
+    }
+
+    @Test
+    void rangeChoice_matchesInterpreted() {
+        String json = "{\"type\":\"minecraft:range_choice\",\"input\":3.0," +
+                "\"min_inclusive\":2.0,\"max_exclusive\":5.0," +
+                "\"when_in_range\":7.0,\"when_out_of_range\":-7.0}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+    }
+
+    // ── IntervalSelectFunc ────────────────────────────────────────────────────
+
+    @Test
+    void intervalSelect_picksMidFunction() {
+        // thresholds=[0,1,2,3], functions=[f0,f1,f2,f3,f4], input=2.5 → 2.5 < 3.0 → functions[3]=30
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:interval_select\",\"input\":2.5," +
+                "\"thresholds\":[0.0,1.0,2.0,3.0]," +
+                "\"functions\":[0.0,10.0,20.0,30.0,40.0]}");
+        assertCompute(c, 30.0f, 0, 0, 0);
+    }
+
+    @Test
+    void intervalSelect_belowAllThresholds_picksFirst() {
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:interval_select\",\"input\":-5.0," +
+                "\"thresholds\":[0.0,1.0,2.0]," +
+                "\"functions\":[99.0,10.0,20.0,30.0]}");
+        assertCompute(c, 99.0f, 0, 0, 0);
+    }
+
+    @Test
+    void intervalSelect_aboveAllThresholds_picksLast() {
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:interval_select\",\"input\":100.0," +
+                "\"thresholds\":[0.0,1.0,2.0]," +
+                "\"functions\":[0.0,10.0,20.0,77.0]}");
+        assertCompute(c, 77.0f, 0, 0, 0);
+    }
+
+    @Test
+    void intervalSelect_matchesInterpreted() {
+        String json = "{\"type\":\"minecraft:interval_select\",\"input\":1.5," +
+                "\"thresholds\":[0.0,1.0,2.0,3.0]," +
+                "\"functions\":[5.0,15.0,25.0,35.0,45.0]}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+    }
+
+    // ── FindTopSurfaceFunc ────────────────────────────────────────────────────
+
+    @Test
+    void findTopSurface_hitsImmediately() {
+        // density=1 (always positive) → hits at first y = (int)upper_bound = 10
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:find_top_surface\"," +
+                "\"density\":1.0,\"upper_bound\":10.0," +
+                "\"lower_bound\":0,\"cell_height\":2}");
+        assertCompute(c, 10.0f, 0, 0, 0);
+    }
+
+    @Test
+    void findTopSurface_neverHits_returnsLowerBound() {
+        // density=-1 (never positive) → exhausts loop → returns lower_bound=0
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:find_top_surface\"," +
+                "\"density\":-1.0,\"upper_bound\":10.0," +
+                "\"lower_bound\":0,\"cell_height\":4}");
+        assertCompute(c, 0.0f, 0, 0, 0);
+    }
+
+    @Test
+    void findTopSurface_matchesInterpreted() {
+        // density=1 above y=5, -1 below. Step of 2 from upper_bound=8.
+        // Loop: y=8 → density(8)=1 → returns 8.
+        String json = "{\"type\":\"minecraft:find_top_surface\"," +
+                "\"density\":1.0,\"upper_bound\":8.0," +
+                "\"lower_bound\":0,\"cell_height\":2}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+    }
+
+    // ── InterpolatedFunc ─────────────────────────────────────────────────────
+
+    @Test
+    void interpolated_constantArg_returnsConstant() {
+        // All 8 corners evaluate to 7.0, so trilinear result is also 7.0
+        IDensityFunction c = compiled(
+                "{\"type\":\"minecraft:interpolated\",\"argument\":7.0}");
+        assertCompute(c, 7.0f, 0, 0, 0);
+        assertCompute(c, 7.0f, 10, 20, 30);
+    }
+
+    @Test
+    void interpolated_withGradient_matchesInterpreted() {
+        // Argument is y_clamped_gradient that maps y→y (identity).
+        // At (2,2,2): blockY2=0, ky=0.5, corners at y=0 and y=4 → trilinear Y-average.
+        String json =
+                "{\"type\":\"minecraft:interpolated\",\"argument\":" +
+                "{\"type\":\"minecraft:y_clamped_gradient\"," +
+                "\"from_y\":0,\"to_y\":256,\"from_value\":0.0,\"to_value\":256.0}}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        for (float y : new float[]{0, 1, 2, 3, 4, 8, 16, 100}) {
+            assertEquals(interp.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
+                    "mismatch at y=" + y);
+        }
+    }
+
+    // ── SplineFunc / SplineCurve ──────────────────────────────────────────────
+
+    @Test
+    void splineValue_asSplineFunc() {
+        IDensityFunction c = compiled("{\"type\":\"minecraft:spline\",\"spline\":3.14}");
+        assertCompute(c, 3.14f, 0, 0, 0);
+        assertCompute(c, 3.14f, 100, 200, 300);
+    }
+
+    @Test
+    void splineCurve_midpointHermite() {
+        // 2-point spline [loc=0,val=0,deriv=0] and [loc=1,val=1,deriv=0].
+        // At t=0.5: Hermite interpolation yields 0.5 (smooth S-curve midpoint).
+        String json =
+                "{\"type\":\"minecraft:spline\",\"spline\":{" +
+                "\"coordinate\":0.5," +
+                "\"points\":[" +
+                "{\"location\":0.0,\"derivative\":0.0,\"value\":0.0}," +
+                "{\"location\":1.0,\"derivative\":0.0,\"value\":1.0}" +
+                "]}}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        assertEquals(0.5f, comp.compute(null, 0, 0, 0), DELTA);
+        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+    }
+
+    @Test
+    void splineCurve_lowerClamp() {
+        // t=-1 is below loc=0 → returns points[0].value = 5.0
+        String json =
+                "{\"type\":\"minecraft:spline\",\"spline\":{" +
+                "\"coordinate\":-1.0," +
+                "\"points\":[" +
+                "{\"location\":0.0,\"derivative\":0.0,\"value\":5.0}," +
+                "{\"location\":1.0,\"derivative\":0.0,\"value\":9.0}" +
+                "]}}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        assertCompute(comp, 5.0f, 0, 0, 0);
+        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+    }
+
+    @Test
+    void splineCurve_upperClamp() {
+        // t=2.0 is above loc=1.0 → returns points[last].value = 9.0
+        String json =
+                "{\"type\":\"minecraft:spline\",\"spline\":{" +
+                "\"coordinate\":2.0," +
+                "\"points\":[" +
+                "{\"location\":0.0,\"derivative\":0.0,\"value\":5.0}," +
+                "{\"location\":1.0,\"derivative\":0.0,\"value\":9.0}" +
+                "]}}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        assertCompute(comp, 9.0f, 0, 0, 0);
+        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+    }
+
+    @Test
+    void splineCurve_threePoints_matchesInterpreted() {
+        // 3-point spline. For many t values, compiled result must match interpreted.
+        // Uses a y_clamped_gradient as the coordinate so t varies with y.
+        String json =
+                "{\"type\":\"minecraft:spline\",\"spline\":{" +
+                "\"coordinate\":{\"type\":\"minecraft:y_clamped_gradient\"," +
+                "\"from_y\":0,\"to_y\":100,\"from_value\":0.0,\"to_value\":1.0}," +
+                "\"points\":[" +
+                "{\"location\":0.0,\"derivative\":0.0,\"value\":0.0}," +
+                "{\"location\":0.5,\"derivative\":1.0,\"value\":0.5}," +
+                "{\"location\":1.0,\"derivative\":0.0,\"value\":1.0}" +
+                "]}}";
+        IDensityFunction interp = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        for (float y : new float[]{0, 10, 25, 50, 75, 90, 100}) {
+            assertEquals(interp.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
+                    "mismatch at y=" + y);
+        }
+    }
+
+    // ── Noise function smoke tests (compilation only) ─────────────────────────
+
+    @Test
+    void noiseFunc_compilesSuccessfully() {
+        IDensityFunction interp = parse(
+                "{\"type\":\"minecraft:noise\",\"noise\":\"minecraft:temperature\"," +
+                "\"xz_scale\":1.0,\"y_scale\":0.0}");
+        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        assertNotNull(result);
+        assertNotSame(interp, result);
+    }
+
+    @Test
+    void shiftFunc_compilesSuccessfully() {
+        IDensityFunction interp = parse(
+                "{\"type\":\"minecraft:shift\",\"argument\":\"minecraft:shift\"}");
+        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        assertNotNull(result);
+    }
+
+    @Test
+    void shiftedNoiseFunc_compilesSuccessfully() {
+        IDensityFunction interp = parse(
+                "{\"type\":\"minecraft:shifted_noise\",\"noise\":\"minecraft:temperature\"," +
+                "\"xz_scale\":1.0,\"y_scale\":0.0," +
+                "\"shift_x\":{\"type\":\"minecraft:shift_a\",\"argument\":\"minecraft:shift\"}," +
+                "\"shift_y\":0.0," +
+                "\"shift_z\":{\"type\":\"minecraft:shift_b\",\"argument\":\"minecraft:shift\"}}");
+        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        assertNotNull(result);
+    }
+
+    @Test
+    void weirdScaledSampler_type1_compilesSuccessfully() {
+        IDensityFunction interp = parse(
+                "{\"type\":\"minecraft:weird_scaled_sampler\"," +
+                "\"noise\":\"minecraft:erosion\"," +
+                "\"rarity_value_mapper\":\"type_1\"," +
+                "\"input\":0.5}");
+        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        assertNotNull(result);
+    }
+
+    @Test
+    void weirdScaledSampler_type2_compilesSuccessfully() {
+        IDensityFunction interp = parse(
+                "{\"type\":\"minecraft:weird_scaled_sampler\"," +
+                "\"noise\":\"minecraft:erosion\"," +
+                "\"rarity_value_mapper\":\"type_2\"," +
+                "\"input\":0.0}");
+        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        assertNotNull(result);
+    }
 }

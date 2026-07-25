@@ -118,6 +118,13 @@ public class WorldContextImpl implements WorldContext {
         return index >= cache.size() ? null : (T) cache.get(index);
     }
 
+    /** Allocates a {@link StateSlot} without needing a {@code WorldContext} instance.
+     *  The resulting slot is valid across all {@code WorldContextImpl} instances because
+     *  {@code STATE_COUNTER} is global. */
+    public static <T> StateSlot<T> allocateSlot() {
+        return new Slot<>(STATE_COUNTER.incrementAndGet());
+    }
+
     private static class Slot<T> implements StateSlot<T>, CacheSlot<T> {
         public final int index;
 
