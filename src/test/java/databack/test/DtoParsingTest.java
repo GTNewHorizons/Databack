@@ -154,7 +154,7 @@ class DtoParsingTest {
         Path tempDir = Files.createTempDirectory("databack-dto-test");
         try {
             Path datapacksDir = Files.createDirectories(tempDir.resolve("datapacks"));
-            Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
+            Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toRealPath());
             DatapackLoader.load(tempDir.toFile(), new TestDatapackWorldInfo());
         } finally {
             // Remove only the symlink and the datapacks dir — not the vanilla pack.
