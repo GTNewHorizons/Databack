@@ -2,14 +2,16 @@ package databack.common.dto.worldgen.density_function;
 
 import databack.common.context.WorldContext;
 
-public abstract class BinaryDensityFunction implements IDensityFunction {
+public abstract class BinaryDensityFunction implements IDensityFunctionFactory {
 
-    public IDensityFunction argument1, argument2;
+    public IDensityFunctionFactory argument1, argument2;
 
     protected abstract float compute(float param1, float param2);
 
     @Override
-    public float compute(WorldContext context, float blockX, float blockY, float blockZ) {
-        return compute(argument1.compute(context, blockX, blockY, blockZ), argument2.compute(context, blockX, blockY, blockZ));
+    public IDensityFunction instantiate(WorldContext ctx) {
+        IDensityFunction a1 = argument1.instantiate(ctx);
+        IDensityFunction a2 = argument2.instantiate(ctx);
+        return (context, x, y, z) -> compute(a1.compute(context, x, y, z), a2.compute(context, x, y, z));
     }
 }

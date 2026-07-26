@@ -9,7 +9,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
-import databack.common.dto.worldgen.density_function.IDensityFunction;
+import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.serde.DatapackSerialization;
 
 @SuppressWarnings({ "unused", "NotNullFieldNotInitialized" })
@@ -64,49 +64,49 @@ public class NoiseGeneratorSettings {
     public static class NoiseRouter {
 
         @NotNull
-        public IDensityFunction barrier;
+        public IDensityFunctionFactory barrier;
 
         @NotNull
-        public IDensityFunction fluid_level_floodedness;
+        public IDensityFunctionFactory fluid_level_floodedness;
 
         @NotNull
-        public IDensityFunction fluid_level_spread;
+        public IDensityFunctionFactory fluid_level_spread;
 
         @NotNull
-        public IDensityFunction lava;
+        public IDensityFunctionFactory lava;
 
         @NotNull
-        public IDensityFunction vein_toggle;
+        public IDensityFunctionFactory vein_toggle;
 
         @NotNull
-        public IDensityFunction vein_ridged;
+        public IDensityFunctionFactory vein_ridged;
 
         @NotNull
-        public IDensityFunction vein_gap;
+        public IDensityFunctionFactory vein_gap;
 
         @NotNull
-        public IDensityFunction temperature;
+        public IDensityFunctionFactory temperature;
 
         @NotNull
-        public IDensityFunction vegetation;
+        public IDensityFunctionFactory vegetation;
 
         @NotNull
-        public IDensityFunction continents;
+        public IDensityFunctionFactory continents;
 
         @NotNull
-        public IDensityFunction erosion;
+        public IDensityFunctionFactory erosion;
 
         @NotNull
-        public IDensityFunction depth;
+        public IDensityFunctionFactory depth;
 
         @NotNull
-        public IDensityFunction ridges;
+        public IDensityFunctionFactory ridges;
 
         @Nullable
-        public IDensityFunction initial_density_without_jaggedness;
+        public IDensityFunctionFactory initial_density_without_jaggedness;
 
         @NotNull
-        public IDensityFunction final_density;
+        public IDensityFunctionFactory final_density;
     }
 
     public static class ClimatePoint {

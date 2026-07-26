@@ -23,6 +23,7 @@ import databack.common.dto.dimension.BuiltinDimensionGenerators.NoiseDimensionGe
 import databack.common.dto.dimension.Dimension;
 import databack.common.dto.dimension_type.DimensionType;
 import databack.common.dto.worldgen.density_function.IDensityFunction;
+import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
 import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
@@ -70,14 +71,15 @@ public class ModernWorldGenerator implements IChunkProvider {
         this.generatorSettings = noise.settings.get();
 
         NoiseGeneratorSettings.NoiseRouter router = this.generatorSettings.noise_router;
+        IDensityFunctionFactory densityFactory = router.final_density;
+        WorldContext context = WorldContext.getContext(world);
 
         IDensityFunction finalDensity1;
-
         try {
-            finalDensity1 = DensityFunctionCompiler.compile(router.final_density);
+            finalDensity1 = DensityFunctionCompiler.compile(densityFactory, context);
         } catch (Exception e) {
             System.err.println("[Databack] DF compilation failed, using interpreted fallback: " + e.getMessage());
-            finalDensity1 = router.final_density;
+            finalDensity1 = densityFactory.instantiate(context);
         }
 
         this.finalDensity = finalDensity1;

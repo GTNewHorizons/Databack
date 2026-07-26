@@ -7,6 +7,7 @@ import databack.common.context.WorldContext;
 import databack.common.context.WorldContextImpl;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions;
 import databack.common.dto.worldgen.density_function.IDensityFunction;
+import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.MiscAdapters;
 import databack.common.worldgen.compiler.DensityFunctionCompiler;
@@ -38,12 +39,17 @@ class DensityFunctionCompilerTest {
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
-    private IDensityFunction parse(String json) {
-        return gson.fromJson(json, IDensityFunction.class);
+    private IDensityFunctionFactory parse(String json) {
+        return gson.fromJson(json, IDensityFunctionFactory.class);
+    }
+
+    /** Returns the interpreted IDensityFunction for a JSON tree. Null ctx is safe for nodes that don't fetch noise. */
+    private IDensityFunction interp(String json) {
+        return parse(json).instantiate(null);
     }
 
     private IDensityFunction compiled(String json) {
-        return DensityFunctionCompiler.compile(parse(json));
+        return DensityFunctionCompiler.compile(parse(json), null);
     }
 
     private static void assertCompute(IDensityFunction df, float expected, float x, float y, float z) {
@@ -246,9 +252,9 @@ class DensityFunctionCompilerTest {
     @Test
     void squeeze_atClampBoundary_1() {
         // t=1: 1/2 - 1^3/24 = 0.5 - 1/24 ≈ 0.4583
-        IDensityFunction interp = parse("{\"type\":\"minecraft:squeeze\",\"argument\":1.0}");
-        IDensityFunction comp = DensityFunctionCompiler.compile(interp);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        IDensityFunction interpFn = interp("{\"type\":\"minecraft:squeeze\",\"argument\":1.0}");
+        IDensityFunction comp = DensityFunctionCompiler.compile(parse("{\"type\":\"minecraft:squeeze\",\"argument\":1.0}"), null);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     @Test
@@ -261,9 +267,10 @@ class DensityFunctionCompilerTest {
 
     @Test
     void squeeze_matchesInterpreted() {
-        IDensityFunction interp = parse("{\"type\":\"minecraft:squeeze\",\"argument\":0.6}");
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        String json = "{\"type\":\"minecraft:squeeze\",\"argument\":0.6}";
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     // ── ClampFunc ────────────────────────────────────────────────────────────
@@ -309,10 +316,10 @@ class DensityFunctionCompilerTest {
     void yClampedGradient_matchesInterpreted() {
         String json = "{\"type\":\"minecraft:y_clamped_gradient\","
                 + "\"from_y\":-64,\"to_y\":320,\"from_value\":-0.078125,\"to_value\":0.328125}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
         for (float y : new float[]{-64, 0, 64, 128, 192, 256, 320}) {
-            assertEquals(interp.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
+            assertEquals(interpFn.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
                     "mismatch at y=" + y);
         }
     }
@@ -321,10 +328,10 @@ class DensityFunctionCompilerTest {
 
     @Test
     void opaque_delegatesToOriginal() {
-        // A lambda's class name won't match any inlineable type, so the compiler
-        // treats it as opaque. The compiled wrapper must call through to it.
-        IDensityFunction stub = (ctx, x, y, z) -> 42.0f;
-        IDensityFunction comp = DensityFunctionCompiler.compile(stub);
+        // A factory lambda whose class name won't match any inlineable type,
+        // so the compiler treats it as opaque and delegates via LazyInstantiatedDF.
+        IDensityFunctionFactory stub = ctx -> (context, x, y, z) -> 42.0f;
+        IDensityFunction comp = DensityFunctionCompiler.compile(stub, null);
         assertCompute(comp, 42.0f, 0, 0, 0);
         assertCompute(comp, 42.0f, 999, -64, 999);
     }
@@ -338,9 +345,9 @@ class DensityFunctionCompilerTest {
                 + "{\"type\":\"minecraft:add\",\"argument1\":"
                 + "{\"type\":\"minecraft:mul\",\"argument1\":2.0,\"argument2\":3.0},"
                 + "\"argument2\":-10.0}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
         assertEquals(4.0f, comp.compute(null, 0, 0, 0), DELTA);
     }
 
@@ -356,8 +363,8 @@ class DensityFunctionCompilerTest {
         for (int i = 0; i < 200; i++) {
             sb.append(",\"argument2\":1.0}");
         }
-        IDensityFunction interp = parse(sb.toString());
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(sb.toString());
+        IDensityFunction comp     = compiled(sb.toString());
         assertEquals(200.0f, comp.compute(null, 0, 0, 0), DELTA);
     }
 
@@ -395,9 +402,9 @@ class DensityFunctionCompilerTest {
         String json = "{\"type\":\"minecraft:range_choice\",\"input\":3.0," +
                 "\"min_inclusive\":2.0,\"max_exclusive\":5.0," +
                 "\"when_in_range\":7.0,\"when_out_of_range\":-7.0}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     // ── IntervalSelectFunc ────────────────────────────────────────────────────
@@ -435,9 +442,9 @@ class DensityFunctionCompilerTest {
         String json = "{\"type\":\"minecraft:interval_select\",\"input\":1.5," +
                 "\"thresholds\":[0.0,1.0,2.0,3.0]," +
                 "\"functions\":[5.0,15.0,25.0,35.0,45.0]}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     // ── FindTopSurfaceFunc ────────────────────────────────────────────────────
@@ -469,9 +476,9 @@ class DensityFunctionCompilerTest {
         String json = "{\"type\":\"minecraft:find_top_surface\"," +
                 "\"density\":1.0,\"upper_bound\":8.0," +
                 "\"lower_bound\":0,\"cell_height\":2}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     // ── InterpolatedFunc ─────────────────────────────────────────────────────
@@ -493,10 +500,10 @@ class DensityFunctionCompilerTest {
                 "{\"type\":\"minecraft:interpolated\",\"argument\":" +
                 "{\"type\":\"minecraft:y_clamped_gradient\"," +
                 "\"from_y\":0,\"to_y\":256,\"from_value\":0.0,\"to_value\":256.0}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
         for (float y : new float[]{0, 1, 2, 3, 4, 8, 16, 100}) {
-            assertEquals(interp.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
+            assertEquals(interpFn.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
                     "mismatch at y=" + y);
         }
     }
@@ -521,10 +528,10 @@ class DensityFunctionCompilerTest {
                 "{\"location\":0.0,\"derivative\":0.0,\"value\":0.0}," +
                 "{\"location\":1.0,\"derivative\":0.0,\"value\":1.0}" +
                 "]}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
         assertEquals(0.5f, comp.compute(null, 0, 0, 0), DELTA);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     @Test
@@ -537,10 +544,10 @@ class DensityFunctionCompilerTest {
                 "{\"location\":0.0,\"derivative\":0.0,\"value\":5.0}," +
                 "{\"location\":1.0,\"derivative\":0.0,\"value\":9.0}" +
                 "]}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
         assertCompute(comp, 5.0f, 0, 0, 0);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     @Test
@@ -553,10 +560,10 @@ class DensityFunctionCompilerTest {
                 "{\"location\":0.0,\"derivative\":0.0,\"value\":5.0}," +
                 "{\"location\":1.0,\"derivative\":0.0,\"value\":9.0}" +
                 "]}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
         assertCompute(comp, 9.0f, 0, 0, 0);
-        assertEquals(interp.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
+        assertEquals(interpFn.compute(null, 0, 0, 0), comp.compute(null, 0, 0, 0), DELTA);
     }
 
     @Test
@@ -572,10 +579,10 @@ class DensityFunctionCompilerTest {
                 "{\"location\":0.5,\"derivative\":1.0,\"value\":0.5}," +
                 "{\"location\":1.0,\"derivative\":0.0,\"value\":1.0}" +
                 "]}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunction interpFn = interp(json);
+        IDensityFunction comp     = compiled(json);
         for (float y : new float[]{0, 10, 25, 50, 75, 90, 100}) {
-            assertEquals(interp.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
+            assertEquals(interpFn.compute(null, 0, y, 0), comp.compute(null, 0, y, 0), DELTA,
                     "mismatch at y=" + y);
         }
     }
@@ -593,10 +600,12 @@ class DensityFunctionCompilerTest {
     @Test
     void cache2D_matchesInterpreted() {
         String json = "{\"type\":\"minecraft:cache_2d\",\"argument\":3.0}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
-        WorldContext ctx = new WorldContextImpl(null);
-        assertEquals(interp.compute(ctx, 10, 20, 30), comp.compute(ctx, 10, 20, 30), DELTA);
+        IDensityFunctionFactory factory = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(factory, null);
+        WorldContext iCtx = new WorldContextImpl(null);
+        WorldContext cCtx = new WorldContextImpl(null);
+        IDensityFunction interpFn = factory.instantiate(iCtx);
+        assertEquals(interpFn.compute(iCtx, 10, 20, 30), comp.compute(cCtx, 10, 20, 30), DELTA);
     }
 
     // ── FlatCacheUnary ────────────────────────────────────────────────────────
@@ -612,11 +621,12 @@ class DensityFunctionCompilerTest {
     @Test
     void flatCache_matchesInterpreted() {
         String json = "{\"type\":\"minecraft:flat_cache\",\"argument\":4.5}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunctionFactory factory = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(factory, null);
         WorldContext iCtx = new WorldContextImpl(null);
         WorldContext cCtx = new WorldContextImpl(null);
-        assertEquals(interp.compute(iCtx, 10, 50, 20), comp.compute(cCtx, 10, 50, 20), DELTA);
+        IDensityFunction interpFn = factory.instantiate(iCtx);
+        assertEquals(interpFn.compute(iCtx, 10, 50, 20), comp.compute(cCtx, 10, 50, 20), DELTA);
     }
 
     @Test
@@ -627,13 +637,14 @@ class DensityFunctionCompilerTest {
                 "{\"type\":\"minecraft:flat_cache\",\"argument\":" +
                 "{\"type\":\"minecraft:y_clamped_gradient\"," +
                 "\"from_y\":0,\"to_y\":100,\"from_value\":0.0,\"to_value\":1.0}}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunctionFactory factory = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(factory, null);
         WorldContext iCtx = new WorldContextImpl(null);
         WorldContext cCtx = new WorldContextImpl(null);
+        IDensityFunction interpFn = factory.instantiate(iCtx);
         // At any (x,z), the cached value is gradient(y=0) = 0.0
-        assertEquals(interp.compute(iCtx, 0, 50, 0), comp.compute(cCtx, 0, 50, 0), DELTA);
-        assertEquals(0.0f, interp.compute(iCtx, 0, 50, 0), DELTA);
+        assertEquals(interpFn.compute(iCtx, 0, 50, 0), comp.compute(cCtx, 0, 50, 0), DELTA);
+        assertEquals(0.0f, interpFn.compute(iCtx, 0, 50, 0), DELTA);
     }
 
     // ── CacheOnceUnary ────────────────────────────────────────────────────────
@@ -649,64 +660,65 @@ class DensityFunctionCompilerTest {
     @Test
     void cacheOnce_matchesInterpreted() {
         String json = "{\"type\":\"minecraft:cache_once\",\"argument\":2.5}";
-        IDensityFunction interp = parse(json);
-        IDensityFunction comp   = DensityFunctionCompiler.compile(interp);
+        IDensityFunctionFactory factory = parse(json);
+        IDensityFunction comp   = DensityFunctionCompiler.compile(factory, null);
         WorldContext iCtx = new WorldContextImpl(null);
         WorldContext cCtx = new WorldContextImpl(null);
-        assertEquals(interp.compute(iCtx, 5, 5, 5), comp.compute(cCtx, 5, 5, 5), DELTA);
+        IDensityFunction interpFn = factory.instantiate(iCtx);
+        assertEquals(interpFn.compute(iCtx, 5, 5, 5), comp.compute(cCtx, 5, 5, 5), DELTA);
     }
 
     // ── Noise function smoke tests (compilation only) ─────────────────────────
 
     @Test
     void noiseFunc_compilesSuccessfully() {
-        IDensityFunction interp = parse(
+        IDensityFunctionFactory factory = parse(
                 "{\"type\":\"minecraft:noise\",\"noise\":\"minecraft:temperature\"," +
                 "\"xz_scale\":1.0,\"y_scale\":0.0}");
-        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        IDensityFunction result = DensityFunctionCompiler.compile(factory, null);
         assertNotNull(result);
-        assertNotSame(interp, result);
+        assertNotSame(factory, result);
     }
 
     @Test
     void shiftFunc_compilesSuccessfully() {
-        IDensityFunction interp = parse(
+        IDensityFunctionFactory factory = parse(
                 "{\"type\":\"minecraft:shift\",\"argument\":\"minecraft:shift\"}");
-        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        IDensityFunction result = DensityFunctionCompiler.compile(factory, null);
         assertNotNull(result);
     }
 
     @Test
     void shiftedNoiseFunc_compilesSuccessfully() {
-        IDensityFunction interp = parse(
+        IDensityFunctionFactory factory = parse(
                 "{\"type\":\"minecraft:shifted_noise\",\"noise\":\"minecraft:temperature\"," +
                 "\"xz_scale\":1.0,\"y_scale\":0.0," +
                 "\"shift_x\":{\"type\":\"minecraft:shift_a\",\"argument\":\"minecraft:shift\"}," +
                 "\"shift_y\":0.0," +
                 "\"shift_z\":{\"type\":\"minecraft:shift_b\",\"argument\":\"minecraft:shift\"}}");
-        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        IDensityFunction result = DensityFunctionCompiler.compile(factory, null);
         assertNotNull(result);
     }
 
     @Test
     void weirdScaledSampler_type1_compilesSuccessfully() {
-        IDensityFunction interp = parse(
+        IDensityFunctionFactory factory = parse(
                 "{\"type\":\"minecraft:weird_scaled_sampler\"," +
                 "\"noise\":\"minecraft:erosion\"," +
                 "\"rarity_value_mapper\":\"type_1\"," +
                 "\"input\":0.5}");
-        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        IDensityFunction result = DensityFunctionCompiler.compile(factory, null);
         assertNotNull(result);
     }
 
     @Test
     void weirdScaledSampler_type2_compilesSuccessfully() {
-        IDensityFunction interp = parse(
+        IDensityFunctionFactory factory = parse(
                 "{\"type\":\"minecraft:weird_scaled_sampler\"," +
                 "\"noise\":\"minecraft:erosion\"," +
                 "\"rarity_value_mapper\":\"type_2\"," +
                 "\"input\":0.0}");
-        IDensityFunction result = DensityFunctionCompiler.compile(interp);
+        IDensityFunction result = DensityFunctionCompiler.compile(factory, null);
         assertNotNull(result);
     }
 
@@ -716,7 +728,7 @@ class DensityFunctionCompilerTest {
      * Builds a balanced binary tree of {@code AddBinary} nodes with {@code ConstantFunc}
      * leaves all set to {@code leafValue}. Depth-0 returns a single constant.
      */
-    private static IDensityFunction buildAddTree(int depth, float leafValue) {
+    private static IDensityFunctionFactory buildAddTree(int depth, float leafValue) {
         if (depth == 0) {
             BuiltinDensityFunctions.ConstantFunc c = new BuiltinDensityFunctions.ConstantFunc();
             c.argument = leafValue;
@@ -737,15 +749,15 @@ class DensityFunctionCompilerTest {
         float leaf = 1.0f;
         float expected = (float) Math.pow(2, depth);
 
-        IDensityFunction interp = buildAddTree(depth, leaf);
-        IDensityFunction result  = DensityFunctionCompiler.compile(interp);
+        IDensityFunctionFactory factory = buildAddTree(depth, leaf);
+        IDensityFunction result  = DensityFunctionCompiler.compile(factory, null);
         assertNotNull(result);
         assertEquals(expected, result.compute(null, 0, 0, 0), DELTA);
     }
 
     @Test
     void sharedNode_compiledOnce_evaluatesCorrectly() {
-        // The same IDensityFunction instance is referenced from both arguments of an add.
+        // The same IDensityFunctionFactory instance is referenced from both arguments of an add.
         // The compiler registers it once and emits one df_N method, called twice from df_0.
         BuiltinDensityFunctions.ConstantFunc shared = new BuiltinDensityFunctions.ConstantFunc();
         shared.argument = 5.0f;
@@ -754,7 +766,7 @@ class DensityFunctionCompilerTest {
         add.argument1 = shared;
         add.argument2 = shared;
 
-        IDensityFunction result = DensityFunctionCompiler.compile(add);
+        IDensityFunction result = DensityFunctionCompiler.compile(add, null);
         assertNotNull(result);
         assertEquals(10.0f, result.compute(null, 0, 0, 0), DELTA);
     }

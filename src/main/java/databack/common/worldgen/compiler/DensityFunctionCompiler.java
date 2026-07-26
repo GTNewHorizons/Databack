@@ -19,6 +19,7 @@ import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
 import databack.common.context.StateSlot;
+import databack.common.context.WorldContext;
 import databack.common.context.WorldContextImpl;
 import databack.common.dto.worldgen.density_function.BinaryDensityFunction;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.ConstantFunc;
@@ -26,6 +27,7 @@ import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.Den
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.RarityType;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.SplinePoint;
 import databack.common.dto.worldgen.density_function.IDensityFunction;
+import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.dto.worldgen.density_function.UnaryDensityFunction;
 
 /**
@@ -82,29 +84,37 @@ public final class DensityFunctionCompiler implements Opcodes {
     private final List<IDensityFunction> opaques = new ArrayList<>();
     private final List<Object> extras = new ArrayList<>();
 
+    /** WorldContext used to instantiate opaque factories; may be null in tests. */
+    private final WorldContext ctx;
+
     /** Maps each unique node instance (identity) to its df_N index. */
-    private final IdentityHashMap<IDensityFunction, Integer> nodeIndex = new IdentityHashMap<>();
+    private final IdentityHashMap<IDensityFunctionFactory, Integer> nodeIndex = new IdentityHashMap<>();
     /** Ordered list of nodes; {@code nodes.get(i)} is emitted as {@code df_i}. */
-    private final List<IDensityFunction> nodes = new ArrayList<>();
+    private final List<IDensityFunctionFactory> nodes = new ArrayList<>();
 
     /** Next available local variable slot (0-4 are reserved for this/ctx/x/y/z). */
     private int nextSlot = 5;
 
+    private DensityFunctionCompiler(WorldContext ctx) {
+        this.ctx = ctx;
+    }
+
     // ── Public entry point ────────────────────────────────────────────────────
 
     /**
-     * Compiles {@code root} into a concrete JVM class and returns an instance.
-     * Falls back to {@code root} unchanged if compilation fails.
+     * Compiles {@code root} factory into a concrete JVM class and returns an instance.
+     * {@code ctx} is used only to instantiate opaque (unrecognized) factory nodes;
+     * it may be {@code null} in tests when no opaque nodes are present.
      */
-    public static IDensityFunction compile(IDensityFunction root) {
+    public static IDensityFunction compile(IDensityFunctionFactory root, WorldContext ctx) {
         if (root == null) return null;
-        if (root instanceof ConstantFunc) return root;
-        return new DensityFunctionCompiler().doCompile(root);
+        if (root instanceof ConstantFunc cf) return cf.instantiate(ctx);
+        return new DensityFunctionCompiler(ctx).doCompile(root);
     }
 
     // ── Core compilation ──────────────────────────────────────────────────────
 
-    private IDensityFunction doCompile(IDensityFunction root) {
+    private IDensityFunction doCompile(IDensityFunctionFactory root) {
         int id = COUNTER.getAndIncrement();
         className = "databack/compiled/CompiledDF_" + id;
 
@@ -160,8 +170,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      * Assigns {@code node} the next available index and recurses into its children.
      * Shared subtrees (same instance referenced from multiple parents) are registered once.
      */
-    private void registerTree(IDensityFunction node) {
-        if (node instanceof DensityFunctionRef ref) node = ref.getFunction();
+    private void registerTree(IDensityFunctionFactory node) {
+        if (node instanceof DensityFunctionRef ref) node = ref.getFactory();
         if (nodeIndex.containsKey(node)) return;
         int idx = nodes.size();
         nodes.add(node);
@@ -175,7 +185,7 @@ public final class DensityFunctionCompiler implements Opcodes {
      * via {@code emitChildCall} must be registered here.
      */
     @SuppressWarnings("unchecked")
-    private void registerChildren(IDensityFunction node) {
+    private void registerChildren(IDensityFunctionFactory node) {
         if (node instanceof UnaryDensityFunction unary) {
             switch (node.getClass().getSimpleName()) {
                 case "SlideUnary" -> {} // argument is never evaluated at runtime
@@ -200,8 +210,8 @@ public final class DensityFunctionCompiler implements Opcodes {
             }
             case "IntervalSelectFunc" -> {
                 registerTree(getDF(node, "input"));
-                IDensityFunction[] fns = getDF(node, "functions");
-                for (IDensityFunction fn : fns) registerTree(fn);
+                IDensityFunctionFactory[] fns = getDF(node, "functions");
+                for (IDensityFunctionFactory fn : fns) registerTree(fn);
             }
             case "FindTopSurfaceFunc" -> {
                 registerTree(getDF(node, "density"));
@@ -228,7 +238,7 @@ public final class DensityFunctionCompiler implements Opcodes {
 
     /** Emits the private {@code df_idx} method for {@code nodes.get(idx)}. */
     private void emitNodeMethod(ClassWriter cw, int idx) {
-        IDensityFunction node = nodes.get(idx);
+        IDensityFunctionFactory node = nodes.get(idx);
         MethodVisitor nodeMv = cw.visitMethod(ACC_PRIVATE, nodeMethodName(idx), COMPUTE_DESC, null, null);
         MethodVisitor savedMv   = this.mv;
         int           savedSlot = this.nextSlot;
@@ -248,8 +258,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      * Children are called via {@code emitChildCall*} helpers that emit INVOKESPECIAL
      * to the child's own {@code df_N} method.
      */
-    private void emitNodeBody(IDensityFunction node) {
-        if (node instanceof DensityFunctionRef ref) node = ref.getFunction();
+    private void emitNodeBody(IDensityFunctionFactory node) {
+        if (node instanceof DensityFunctionRef ref) node = ref.getFactory();
 
         if (node instanceof UnaryDensityFunction unary) {
             emitUnary(node, unary.argument);
@@ -293,8 +303,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      * Emits: {@code INVOKESPECIAL df_N(this, ctx, x, y, z)}
      * using the current method's parameter slots for x/y/z.
      */
-    private void emitChildCall(IDensityFunction child) {
-        if (child instanceof DensityFunctionRef ref) child = ref.getFunction();
+    private void emitChildCall(IDensityFunctionFactory child) {
+        if (child instanceof DensityFunctionRef ref) child = ref.getFactory();
         int idx = nodeIndex.get(child);
         mv.visitVarInsn(ALOAD, 0);
         mv.visitVarInsn(ALOAD, 1);
@@ -308,8 +318,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      * Emits: {@code INVOKESPECIAL df_N(this, ctx, x, 0.0f, z)}
      * Used by FlatCacheUnary, which evaluates its argument at y=0.
      */
-    private void emitChildCallAtY0(IDensityFunction child) {
-        if (child instanceof DensityFunctionRef ref) child = ref.getFunction();
+    private void emitChildCallAtY0(IDensityFunctionFactory child) {
+        if (child instanceof DensityFunctionRef ref) child = ref.getFactory();
         int idx = nodeIndex.get(child);
         mv.visitVarInsn(ALOAD, 0);
         mv.visitVarInsn(ALOAD, 1);
@@ -323,8 +333,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      * Emits: {@code INVOKESPECIAL df_N(this, ctx, x, (float)yIntSlot, z)}
      * Used by FindTopSurfaceFunc to pass the loop variable as y.
      */
-    private void emitChildCallWithIntY(IDensityFunction child, int yIntSlot) {
-        if (child instanceof DensityFunctionRef ref) child = ref.getFunction();
+    private void emitChildCallWithIntY(IDensityFunctionFactory child, int yIntSlot) {
+        if (child instanceof DensityFunctionRef ref) child = ref.getFactory();
         int idx = nodeIndex.get(child);
         mv.visitVarInsn(ALOAD, 0);
         mv.visitVarInsn(ALOAD, 1);
@@ -337,7 +347,7 @@ public final class DensityFunctionCompiler implements Opcodes {
 
     // ── Node emission ─────────────────────────────────────────────────────────
 
-    private void emitUnary(IDensityFunction node, IDensityFunction argument) {
+    private void emitUnary(IDensityFunctionFactory node, IDensityFunctionFactory argument) {
         switch (node.getClass().getSimpleName()) {
 
             // Passthroughs (identity) — just emit child
@@ -403,7 +413,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         }
     }
 
-    private void emitBinary(IDensityFunction node, IDensityFunction arg1, IDensityFunction arg2) {
+    private void emitBinary(IDensityFunctionFactory node, IDensityFunctionFactory arg1, IDensityFunctionFactory arg2) {
         switch (node.getClass().getSimpleName()) {
             case "AddBinary" -> {
                 emitChildCall(arg1);
@@ -438,7 +448,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         else                    mv.visitLdcInsn(value);
     }
 
-    private void emitClamp(IDensityFunction input, float min, float max) {
+    private void emitClamp(IDensityFunctionFactory input, float min, float max) {
         emitChildCall(input);
         mv.visitLdcInsn(min);
         mv.visitLdcInsn(max);
@@ -461,12 +471,12 @@ public final class DensityFunctionCompiler implements Opcodes {
     /**
      * RangeChoiceFunc: if input in [min_inclusive, max_exclusive) → when_in_range, else when_out_of_range.
      */
-    private void emitRangeChoiceFunc(IDensityFunction node) {
-        IDensityFunction input        = getDF(node, "input");
-        float            minInclusive = getFloat(node, "min_inclusive");
-        float            maxExclusive = getFloat(node, "max_exclusive");
-        IDensityFunction whenIn       = getDF(node, "when_in_range");
-        IDensityFunction whenOut      = getDF(node, "when_out_of_range");
+    private void emitRangeChoiceFunc(IDensityFunctionFactory node) {
+        IDensityFunctionFactory input        = getDF(node, "input");
+        float                   minInclusive = getFloat(node, "min_inclusive");
+        float                   maxExclusive = getFloat(node, "max_exclusive");
+        IDensityFunctionFactory whenIn       = getDF(node, "when_in_range");
+        IDensityFunctionFactory whenOut      = getDF(node, "when_out_of_range");
 
         int tVar = nextSlot++;
         Label outOfRange = new Label();
@@ -500,10 +510,10 @@ public final class DensityFunctionCompiler implements Opcodes {
     /**
      * IntervalSelectFunc: evaluate input, then select from functions[] based on thresholds[].
      */
-    private void emitIntervalSelectFunc(IDensityFunction node) {
-        IDensityFunction   input      = getDF(node, "input");
-        float[]            thresholds = getDF(node, "thresholds");
-        IDensityFunction[] functions  = getDF(node, "functions");
+    private void emitIntervalSelectFunc(IDensityFunctionFactory node) {
+        IDensityFunctionFactory   input      = getDF(node, "input");
+        float[]                   thresholds = getDF(node, "thresholds");
+        IDensityFunctionFactory[] functions  = getDF(node, "functions");
 
         int   tVar = nextSlot++;
         Label end  = new Label();
@@ -539,9 +549,9 @@ public final class DensityFunctionCompiler implements Opcodes {
      * The y override is passed explicitly as an argument to the density child method;
      * the current method's parameter slots are never modified.
      */
-    private void emitFindTopSurfaceFunc(IDensityFunction node) {
-        IDensityFunction density     = getDF(node, "density");
-        IDensityFunction upperBound  = getDF(node, "upper_bound");
+    private void emitFindTopSurfaceFunc(IDensityFunctionFactory node) {
+        IDensityFunctionFactory density     = getDF(node, "density");
+        IDensityFunctionFactory upperBound  = getDF(node, "upper_bound");
         int              lowerBound  = getInt(node, "lower_bound");
         int              cellHeight  = getInt(node, "cell_height");
 
@@ -601,8 +611,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      * Each corner is evaluated by calling df_N directly with explicit corner coordinates;
      * the current method's parameter slots are never modified.
      */
-    private void emitInterpolatedFunc(IDensityFunction node) {
-        IDensityFunction argument = getDF(node, "argument");
+    private void emitInterpolatedFunc(IDensityFunctionFactory node) {
+        IDensityFunctionFactory argument = getDF(node, "argument");
 
         int bx2Var  = nextSlot++;  // int
         int by2Var  = nextSlot++;  // int
@@ -675,8 +685,8 @@ public final class DensityFunctionCompiler implements Opcodes {
      */
     private void emitInterpolatedCorner(int bx2, int by2, int bz2, int resultVar,
                                         boolean ox, boolean oy, boolean oz,
-                                        IDensityFunction argument) {
-        if (argument instanceof DensityFunctionRef ref) argument = ref.getFunction();
+                                        IDensityFunctionFactory argument) {
+        if (argument instanceof DensityFunctionRef ref) argument = ref.getFactory();
         int argIdx = nodeIndex.get(argument);
 
         mv.visitVarInsn(ALOAD, 0);
@@ -727,7 +737,7 @@ public final class DensityFunctionCompiler implements Opcodes {
      * return the cached (x,z) value. When {@code flatY} is true the argument is evaluated
      * with y=0 (FlatCacheUnary semantics); no slot-3 override is performed.
      */
-    private void emitCache2D(IDensityFunction argument, float resolution, boolean flatY) {
+    private void emitCache2D(IDensityFunctionFactory argument, float resolution, boolean flatY) {
         int cacheSlotIdx = addCacheSlot2D();
         int slotVar = nextSlot++;
         int mapVar  = nextSlot++;
@@ -813,7 +823,7 @@ public final class DensityFunctionCompiler implements Opcodes {
      * CacheOnceUnary: lookup or create a {@code QuantizedFloatMap3D}, then
      * return the cached (x,y,z) value.
      */
-    private void emitCacheOnce(IDensityFunction argument) {
+    private void emitCacheOnce(IDensityFunctionFactory argument) {
         int cacheSlotIdx = addCacheSlot3D();
         int slotVar = nextSlot++;
         int mapVar  = nextSlot++;
@@ -969,7 +979,7 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     /** NoiseFunc: {@code sample(x * xz_scale, y * y_scale, z * xz_scale)} */
-    private void emitNoiseFunc(IDensityFunction node) {
+    private void emitNoiseFunc(IDensityFunctionFactory node) {
         String noiseName = getDF(node, "noise");
         double xzScale   = getFloat(node, "xz_scale");
         double yScale    = getFloat(node, "y_scale");
@@ -978,7 +988,7 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     /** ShiftFunc: {@code sample(x/4, y/4, z/4) * 4} */
-    private void emitShiftFunc(IDensityFunction node) {
+    private void emitShiftFunc(IDensityFunctionFactory node) {
         String noiseName = getDF(node, "argument");
         int    slotIdx   = addNoiseSlot(noiseName);
         emitNoiseLookup(slotIdx);
@@ -991,7 +1001,7 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     /** ShiftAFunc: {@code sample(x/4, 0, z/4) * 4} */
-    private void emitShiftAFunc(IDensityFunction node) {
+    private void emitShiftAFunc(IDensityFunctionFactory node) {
         String noiseName = getDF(node, "argument");
         int    slotIdx   = addNoiseSlot(noiseName);
         emitNoiseLookup(slotIdx);
@@ -1004,7 +1014,7 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     /** ShiftBFunc: {@code sample(z/4, x/4, 0) * 4} */
-    private void emitShiftBFunc(IDensityFunction node) {
+    private void emitShiftBFunc(IDensityFunctionFactory node) {
         String noiseName = getDF(node, "argument");
         int    slotIdx   = addNoiseSlot(noiseName);
         emitNoiseLookup(slotIdx);
@@ -1017,13 +1027,13 @@ public final class DensityFunctionCompiler implements Opcodes {
     }
 
     /** ShiftedNoiseFunc: {@code sample((x+sx)*xz_scale, (y+sy)*y_scale, (z+sz)*xz_scale)} */
-    private void emitShiftedNoiseFunc(IDensityFunction node) {
-        String           noiseName = getDF(node, "noise");
-        double           xzScale   = getFloat(node, "xz_scale");
-        double           yScale    = getFloat(node, "y_scale");
-        IDensityFunction shiftX    = getDF(node, "shift_x");
-        IDensityFunction shiftY    = getDF(node, "shift_y");
-        IDensityFunction shiftZ    = getDF(node, "shift_z");
+    private void emitShiftedNoiseFunc(IDensityFunctionFactory node) {
+        String                  noiseName = getDF(node, "noise");
+        double                  xzScale   = getFloat(node, "xz_scale");
+        double                  yScale    = getFloat(node, "y_scale");
+        IDensityFunctionFactory shiftX    = getDF(node, "shift_x");
+        IDensityFunctionFactory shiftY    = getDF(node, "shift_y");
+        IDensityFunctionFactory shiftZ    = getDF(node, "shift_z");
 
         int slotIdx = addNoiseSlot(noiseName);
         int sxVar   = nextSlot++;
@@ -1053,10 +1063,10 @@ public final class DensityFunctionCompiler implements Opcodes {
      * WeirdScaledSampler: rarity_value_mapper known at compile time → unrolled comparisons.
      * Result: rarity * sample(x * rarityInv, y * rarityInv, z * rarityInv)
      */
-    private void emitWeirdScaledSampler(IDensityFunction node) {
-        RarityType       rarityType = getDF(node, "rarity_value_mapper");
-        String           noiseName  = getDF(node, "noise");
-        IDensityFunction input      = getDF(node, "input");
+    private void emitWeirdScaledSampler(IDensityFunctionFactory node) {
+        RarityType              rarityType = getDF(node, "rarity_value_mapper");
+        String                  noiseName  = getDF(node, "noise");
+        IDensityFunctionFactory input      = getDF(node, "input");
 
         int slotIdx   = addNoiseSlot(noiseName);
         int valVar    = nextSlot++;
@@ -1171,9 +1181,9 @@ public final class DensityFunctionCompiler implements Opcodes {
      * LDC constants. Segment selection is unrolled; child value nodes are called via
      * emitChildCall (INVOKESPECIAL to their df_N method).
      */
-    private void emitSplineCurve(IDensityFunction node) {
-        IDensityFunction coordinate = getDF(node, "coordinate");
-        SplinePoint[]    points     = getDF(node, "points");
+    private void emitSplineCurve(IDensityFunctionFactory node) {
+        IDensityFunctionFactory coordinate = getDF(node, "coordinate");
+        SplinePoint[]           points     = getDF(node, "points");
         int              N          = points.length;
 
         int tVar    = nextSlot++;
@@ -1391,12 +1401,36 @@ public final class DensityFunctionCompiler implements Opcodes {
         mv.visitMethodInsn(INVOKEINTERFACE, IFACE, "compute", COMPUTE_DESC, true);
     }
 
-    private int addOpaque(IDensityFunction node) {
+    private int addOpaque(IDensityFunctionFactory node) {
         LOGGER.warn("DensityFunctionCompiler: uncompiled opaque node type '{}' — falling back to virtual dispatch",
                 node.getClass().getSimpleName());
         int idx = opaques.size();
-        opaques.add(node);
+        IDensityFunction opaque = ctx != null ? node.instantiate(ctx) : new LazyInstantiatedDF(node);
+        opaques.add(opaque);
         return idx;
+    }
+
+    /** Wraps an {@link IDensityFunctionFactory} and lazily instantiates it on first {@code compute()} call. */
+    private static final class LazyInstantiatedDF implements IDensityFunction {
+
+        private final IDensityFunctionFactory factory;
+        private volatile IDensityFunction instance;
+
+        LazyInstantiatedDF(IDensityFunctionFactory factory) {
+            this.factory = factory;
+        }
+
+        @Override
+        public float compute(WorldContext ctx, float x, float y, float z) {
+            if (instance == null) {
+                synchronized (this) {
+                    if (instance == null) {
+                        instance = factory.instantiate(ctx);
+                    }
+                }
+            }
+            return instance.compute(ctx, x, y, z);
+        }
     }
 
     /** Stores an arbitrary object in {@code extras[]} and returns its index. */
@@ -1492,7 +1526,7 @@ public final class DensityFunctionCompiler implements Opcodes {
         // Strip characters illegal in JVM method names (e.g. '/' in lambda class names).
         String simpleName = nodes.get(idx).getClass().getSimpleName()
                 .replaceAll("[^A-Za-z0-9_$]", "_");
-        return "df_" + idx + "_" + simpleName;
+        return "df_" + idx + "_" + (simpleName.isEmpty() ? "Lambda" : simpleName);
     }
 
     /** Emits the most compact integer push instruction for {@code value}. */
