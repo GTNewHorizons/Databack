@@ -3,9 +3,17 @@ package databack.common.dto.worldgen.density_function;
 import databack.common.context.WorldContext;
 import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
 
+import java.util.Collections;
+import java.util.List;
+
 public abstract class UnaryDensityFunction implements IDensityFunctionFactory {
 
     public IDensityFunctionFactory argument;
+
+    @Override
+    public List<IDensityFunctionFactory> children() {
+        return Collections.singletonList(argument);
+    }
 
     protected abstract float compute(float param);
 

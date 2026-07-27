@@ -1,6 +1,10 @@
 package databack.common.dto.worldgen.density_function;
 
 import java.lang.reflect.Type;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import net.minecraft.util.MathHelper;
 
@@ -144,6 +148,11 @@ public class BuiltinDensityFunctions {
         public IDensityFunctionFactory argument;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(argument);
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction arg = argument.instantiate(ctx);
 
@@ -218,6 +227,11 @@ public class BuiltinDensityFunctions {
         public IDensityFunctionFactory argument;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(argument);
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction arg = argument.instantiate(ctx);
 
@@ -278,6 +292,11 @@ public class BuiltinDensityFunctions {
     public static class CacheOnceUnary implements IDensityFunctionFactory {
 
         public IDensityFunctionFactory argument;
+
+        @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(argument);
+        }
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -348,6 +367,11 @@ public class BuiltinDensityFunctions {
     public static class InterpolatedFunc implements IDensityFunctionFactory {
 
         public IDensityFunctionFactory argument;
+
+        @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(argument);
+        }
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -557,6 +581,11 @@ public class BuiltinDensityFunctions {
         public float min, max;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(input);
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction inputFn = input.instantiate(ctx);
             float lo = min, hi = max;
@@ -628,6 +657,11 @@ public class BuiltinDensityFunctions {
 
         public IDensityFunctionFactory density, upper_bound;
         public int lower_bound, cell_height;
+
+        @Override
+        public List<IDensityFunctionFactory> children() {
+            return Arrays.asList(density, upper_bound);
+        }
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -735,6 +769,14 @@ public class BuiltinDensityFunctions {
         public IDensityFunctionFactory[] functions;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            List<IDensityFunctionFactory> result = new ArrayList<>(1 + functions.length);
+            result.add(input);
+            Collections.addAll(result, functions);
+            return result;
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction chooser = input.instantiate(ctx);
 
@@ -819,6 +861,11 @@ public class BuiltinDensityFunctions {
         public IDensityFunctionFactory when_in_range, when_out_of_range;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            return Arrays.asList(input, when_in_range, when_out_of_range);
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction inputFn = input.instantiate(ctx);
             IDensityFunction inRange = when_in_range.instantiate(ctx);
@@ -881,6 +928,11 @@ public class BuiltinDensityFunctions {
         public String noise;
         public float xz_scale, y_scale;
         public IDensityFunctionFactory shift_x, shift_y, shift_z;
+
+        @Override
+        public List<IDensityFunctionFactory> children() {
+            return Arrays.asList(shift_x, shift_y, shift_z);
+        }
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1094,6 +1146,11 @@ public class BuiltinDensityFunctions {
         public IDensityFunctionFactory input;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(input);
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), noise);
             IDensityFunction inputFn = input.instantiate(ctx);
@@ -1299,6 +1356,11 @@ public class BuiltinDensityFunctions {
         public ISpline spline;
 
         @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(spline);
+        }
+
+        @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             return spline.instantiate(ctx);
         }
@@ -1326,6 +1388,14 @@ public class BuiltinDensityFunctions {
 
         public IDensityFunctionFactory coordinate;
         public SplinePoint[] points;
+
+        @Override
+        public List<IDensityFunctionFactory> children() {
+            List<IDensityFunctionFactory> result = new ArrayList<>(1 + points.length);
+            result.add(coordinate);
+            for (SplinePoint p : points) result.add(p.value);
+            return result;
+        }
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {

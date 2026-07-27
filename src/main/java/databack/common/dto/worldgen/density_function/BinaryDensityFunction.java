@@ -3,9 +3,17 @@ package databack.common.dto.worldgen.density_function;
 import databack.common.context.WorldContext;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.ConstantDensityFunction;
 
+import java.util.Arrays;
+import java.util.List;
+
 public abstract class BinaryDensityFunction implements IDensityFunctionFactory {
 
     public IDensityFunctionFactory argument1, argument2;
+
+    @Override
+    public List<IDensityFunctionFactory> children() {
+        return Arrays.asList(argument1, argument2);
+    }
 
     protected abstract float compute(float param1, float param2);
 
