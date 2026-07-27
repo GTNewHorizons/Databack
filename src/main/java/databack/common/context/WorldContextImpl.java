@@ -1,11 +1,15 @@
 package databack.common.context;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 
 import net.minecraft.world.World;
+
+import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
+import databack.common.dto.worldgen.density_function.DensityMask;
 
 @SuppressWarnings("unchecked")
 public class WorldContextImpl implements WorldContext {
@@ -137,6 +141,32 @@ public class WorldContextImpl implements WorldContext {
         CACHE_RESETTERS.set(index, resetter);
 
         return new Slot<>(index);
+    }
+
+    private final ArrayDeque<DensityMask> maskPool = new ArrayDeque<>();
+    private final ArrayDeque<CubeBuffer> bufferPool = new ArrayDeque<>();
+
+    @Override
+    public DensityMask getMask() {
+        DensityMask mask = maskPool.poll();
+        return mask != null ? mask : new DensityMask();
+    }
+
+    @Override
+    public void releaseMask(DensityMask mask) {
+        mask.clear();
+        maskPool.push(mask);
+    }
+
+    @Override
+    public CubeBuffer getCubeBuffer() {
+        CubeBuffer buf = bufferPool.poll();
+        return buf != null ? buf : new CubeBuffer(this::releaseCubeBuffer);
+    }
+
+    @Override
+    public void releaseCubeBuffer(CubeBuffer buffer) {
+        bufferPool.push(buffer);
     }
 
     private static class Slot<T> implements StateSlot<T>, CacheSlot<T> {

@@ -6,6 +6,9 @@ import net.minecraft.world.World;
 
 import com.gtnewhorizon.gtnhlib.hash.Fnv1a64;
 import databack.common.annotation.ThreadSafe;
+import databack.common.dto.worldgen.density_function.DensityBuffer;
+import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
+import databack.common.dto.worldgen.density_function.DensityMask;
 import databack.common.mixinext.WorldExt;
 
 /// A context object that contains all useful information about a world. Can also store arbitrary data for density
@@ -47,6 +50,13 @@ public interface WorldContext {
     <T> void setCache(CacheSlot<T> slot, T value);
 
     <T> T getCache(CacheSlot<T> slot);
+
+    DensityMask getMask();
+    void releaseMask(DensityMask mask);
+
+    /// Gets a 16x16x16 float array from the pool. The contained values are undefined.
+    CubeBuffer getCubeBuffer();
+    void releaseCubeBuffer(CubeBuffer buffer);
 
     static WorldContext getContext(World world) {
         return ((WorldExt) world).db$getContext();

@@ -17,11 +17,12 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import com.gtnewhorizon.gtnhlib.util.data.BlockMeta;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 import databack.common.context.WorldContext;
-import databack.common.worldgen.compiler.DensityFunctionCompiler;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.MultiNoiseBiomes;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.NoiseDimensionGenerator;
 import databack.common.dto.dimension.Dimension;
 import databack.common.dto.dimension_type.DimensionType;
+import databack.common.dto.worldgen.density_function.DensityBuffer;
+import databack.common.dto.worldgen.density_function.DensityMask;
 import databack.common.dto.worldgen.density_function.IDensityFunction;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
@@ -71,18 +72,10 @@ public class ModernWorldGenerator implements IChunkProvider {
         this.generatorSettings = noise.settings.get();
 
         NoiseGeneratorSettings.NoiseRouter router = this.generatorSettings.noise_router;
-        IDensityFunctionFactory densityFactory = router.final_density;
+
         WorldContext context = WorldContext.getContext(world);
 
-        IDensityFunction finalDensity1;
-        try {
-            finalDensity1 = DensityFunctionCompiler.compile(densityFactory, context);
-        } catch (Exception e) {
-            System.err.println("[Databack] DF compilation failed, using interpreted fallback: " + e.getMessage());
-            finalDensity1 = densityFactory.instantiate(context);
-        }
-
-        this.finalDensity = finalDensity1;
+        this.finalDensity = router.final_density.instantiate(context);
 
         if (dimensionType == null) {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
@@ -114,14 +107,19 @@ public class ModernWorldGenerator implements IChunkProvider {
         ImmutableBlockMeta air = new BlockMeta(Blocks.air);
         ImmutableBlockMeta main = new BlockMeta(this.generatorSettings.default_block.getBlock(), this.generatorSettings.default_block.getBlockMeta(0));
 
+        DensityMask fullMask = context.getMask();
+        fullMask.setAll();
+
         for (int ebsY = 0; ebsY < 16; ebsY++) {
             ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
             chunk.getBlockStorageArray()[ebsY] = ebs;
 
+            DensityBuffer densityBuf = finalDensity.compute(chunkX, ebsY, chunkZ, fullMask);
+
             for (int y = 0; y < 16; y++) {
                 for (int z = 0; z < 16; z++) {
                     for (int x = 0; x < 16; x++) {
-                        float density = finalDensity.compute(context, x + (chunkX << 4), y + (ebsY << 4), z + (chunkZ << 4));
+                        float density = densityBuf.get(x, y, z);
 
                         ImmutableBlockMeta bm = air;
 
@@ -139,7 +137,11 @@ public class ModernWorldGenerator implements IChunkProvider {
                     }
                 }
             }
+
+            densityBuf.discard();
         }
+
+        context.releaseMask(fullMask);
 
         return chunk;
     }

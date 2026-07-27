@@ -12,15 +12,16 @@ import com.google.gson.JsonPrimitive;
 import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
-import databack.common.context.CacheSlot;
 import databack.common.context.WorldContext;
 import databack.common.context.WorldContextImpl;
+import databack.common.dto.worldgen.density_function.DensityBuffer.ConstantBuffer;
+import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
 import databack.common.handlers.DatapackNoiseList;
 import databack.common.handlers.DensityFunctionList;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
+import databack.common.util.DBDataUtils;
 import databack.common.util.QuantizedFloatMap2D;
-import databack.common.util.QuantizedFloatMap3D;
 
 @SuppressWarnings("unused")
 public class BuiltinDensityFunctions {
@@ -123,6 +124,21 @@ public class BuiltinDensityFunctions {
         }
     }
 
+    private static class Cache2DBuffer implements DensityBuffer {
+
+        public final float[] data = new float[256];
+
+        @Override
+        public float get(int relX, int relY, int relZ) {
+            return data[relZ << 4 | relX];
+        }
+
+        @Override
+        public void discard() {
+
+        }
+    }
+
     public static class Cache2DFunc implements IDensityFunctionFactory {
 
         public IDensityFunctionFactory argument;
@@ -130,21 +146,70 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction arg = argument.instantiate(ctx);
-            CacheSlot<QuantizedFloatMap2D> slot = WorldContextImpl.allocateCacheSlot(QuantizedFloatMap2D::clear);
-            return (context, blockX, blockY, blockZ) -> {
-                QuantizedFloatMap2D map = context.getCache(slot);
-                if (map == null) {
-                    map = new QuantizedFloatMap2D(1024);
-                    map.defaultReturnValue(Float.NaN);
-                    context.setCache(slot, map);
+
+            return new IDensityFunction() {
+
+                private int cacheX, cacheZ;
+                private boolean initialized;
+
+                private final DensityMask testMask = new DensityMask();
+                private final DensityMask cacheMask = new DensityMask();
+                private final Cache2DBuffer buffer = new Cache2DBuffer();
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return trait == DensityFuncTrait.Flat || arg.hasTrait(trait);
                 }
-                float value = map.get(blockX, blockZ);
-                if (Float.isNaN(value)) {
-                    value = arg.compute(context, blockX, blockY, blockZ);
-                    map.put(blockX, blockZ, value);
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    testMask.flatCopy(mask);
+
+                    if (cubeX != cacheX || cubeZ != cacheZ || !initialized || !cacheMask.allSet(testMask)) {
+                        if (cubeX != cacheX || cubeZ != cacheZ || !initialized) {
+                            cacheMask.clear();
+                        }
+
+                        cacheX = cubeX;
+                        cacheZ = cubeZ;
+                        initialized = true;
+
+                        testMask.removeAll(cacheMask);
+
+                        DensityBuffer result = arg.compute(cubeX, 0, cubeZ, testMask);
+
+                        cacheMask.or(testMask);
+
+                        for (int z = 0; z < 16; z++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (testMask.isSet(x, 0, z)) {
+                                    buffer.data[z << 4 | x] = result.get(x, 0, z);
+                                }
+                            }
+                        }
+                    }
+
+                    return buffer;
                 }
-                return value;
             };
+        }
+    }
+
+    private static class FlatCacheBuffer implements DensityBuffer {
+
+        public final float[] data = new float[16];
+
+        @Override
+        public float get(int relX, int relY, int relZ) {
+            relX >>= 2;
+            relZ >>= 2;
+
+            return data[relZ << 2 | relX];
+        }
+
+        @Override
+        public void discard() {
+
         }
     }
 
@@ -155,20 +220,49 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction arg = argument.instantiate(ctx);
-            CacheSlot<QuantizedFloatMap2D> slot = WorldContextImpl.allocateCacheSlot(QuantizedFloatMap2D::clear);
-            return (context, blockX, blockY, blockZ) -> {
-                QuantizedFloatMap2D map = context.getCache(slot);
-                if (map == null) {
-                    map = new QuantizedFloatMap2D(0.25f);
-                    map.defaultReturnValue(Float.NaN);
-                    context.setCache(slot, map);
+
+            return new IDensityFunction() {
+
+                private int cacheX, cacheZ;
+                private boolean initialized;
+
+                private final FlatCacheBuffer buffer = new FlatCacheBuffer();
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return trait == DensityFuncTrait.Flat || arg.hasTrait(trait);
                 }
-                float value = map.get(blockX, blockZ);
-                if (Float.isNaN(value)) {
-                    value = arg.compute(context, blockX, 0, blockZ);
-                    map.put(blockX, blockZ, value);
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    if (cubeX != cacheX || cubeZ != cacheZ || !initialized) {
+                        cacheX = cubeX;
+                        cacheZ = cubeZ;
+                        initialized = true;
+
+                        DensityMask next = ctx.getMask();
+
+                        for (int z = 0; z < 4; z++) {
+                            for (int x = 0; x < 4; x++) {
+                                next.set(x << 2, 0, z << 2);
+                            }
+                        }
+
+                        DensityBuffer result = arg.compute(cubeX, 0, cubeZ, next);
+
+                        ctx.releaseMask(next);
+
+                        for (int z = 0; z < 4; z++) {
+                            for (int x = 0; x < 4; x++) {
+                                buffer.data[z << 2 | x] = result.get(x << 2, 0, z << 2);
+                            }
+                        }
+
+                        result.discard();
+                    }
+
+                    return buffer;
                 }
-                return value;
             };
         }
     }
@@ -188,20 +282,49 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction arg = argument.instantiate(ctx);
-            CacheSlot<QuantizedFloatMap3D> slot = WorldContextImpl.allocateCacheSlot(QuantizedFloatMap3D::clear);
-            return (context, blockX, blockY, blockZ) -> {
-                QuantizedFloatMap3D map = context.getCache(slot);
-                if (map == null) {
-                    map = new QuantizedFloatMap3D(1024);
-                    map.defaultReturnValue(Float.NaN);
-                    context.setCache(slot, map);
+
+            return new IDensityFunction() {
+
+                private int cacheX, cacheY, cacheZ;
+                private boolean initialized;
+
+                private final DensityMask cacheMask = new DensityMask();
+                private final CubeBuffer buffer = new CubeBuffer(null);
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return arg.hasTrait(trait);
                 }
-                float value = map.get(blockX, blockY, blockZ);
-                if (Float.isNaN(value)) {
-                    value = arg.compute(context, blockX, blockY, blockZ);
-                    map.put(blockX, blockY, blockZ, value);
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    if (cubeX != cacheX
+                        || cubeY != cacheY
+                        || cubeZ != cacheZ
+                        || !initialized
+                        || !cacheMask.allSet(mask)) {
+                        if (cubeX != cacheX || cubeY != cacheY || cubeZ != cacheZ || !initialized) {
+                            cacheMask.clear();
+                        }
+
+                        cacheX = cubeX;
+                        cacheY = cubeY;
+                        cacheZ = cubeZ;
+                        initialized = true;
+
+                        DensityMask toCalculate = ctx.getMask().copy(mask).removeAll(cacheMask);
+
+                        DensityBuffer result = arg.compute(cubeX, cubeY, cubeZ, toCalculate);
+
+                        buffer.copyFrom(result, toCalculate);
+                        cacheMask.or(toCalculate);
+
+                        ctx.releaseMask(toCalculate);
+                        result.discard();
+                    }
+
+                    return buffer;
                 }
-                return value;
             };
         }
     }
@@ -229,36 +352,128 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction arg = argument.instantiate(ctx);
-            return (context, blockX, blockY, blockZ) -> {
-                int bx2 = ((int) blockX) & ~0b11;
-                int by2 = ((int) blockY) & ~0b11;
-                int bz2 = ((int) blockZ) & ~0b11;
 
-                float c000 = arg.compute(context, bx2, by2, bz2);
-                float c100 = arg.compute(context, bx2 + 4, by2, bz2);
-                float c010 = arg.compute(context, bx2, by2 + 4, bz2);
-                float c110 = arg.compute(context, bx2 + 4, by2 + 4, bz2);
-                float c001 = arg.compute(context, bx2, by2, bz2 + 4);
-                float c101 = arg.compute(context, bx2 + 4, by2, bz2 + 4);
-                float c011 = arg.compute(context, bx2, by2 + 4, bz2 + 4);
-                float c111 = arg.compute(context, bx2 + 4, by2 + 4, bz2 + 4);
+            // Static masks for the 8 sample regions of the 5x5x5 corner grid.
+            // Position 16 on any axis is fetched from the adjacent cube at position 0.
+            DensityMask innerMask = new DensityMask();
+            for (int gz = 0; gz < 4; gz++)
+                for (int gy = 0; gy < 4; gy++)
+                    for (int gx = 0; gx < 4; gx++) {
+                        innerMask.set(gx * 4, gy * 4, gz * 4);
+                    }
 
-                float kx = (((int) blockX) & 0b11) * 0.25f;
-                float ky = (((int) blockY) & 0b11) * 0.25f;
-                float kz = (((int) blockZ) & 0b11) * 0.25f;
+            DensityMask xFaceMask = new DensityMask();
+            for (int gz = 0; gz < 4; gz++)
+                for (int gy = 0; gy < 4; gy++) {
+                    xFaceMask.set(0, gy * 4, gz * 4);
+                }
 
-                float kxi = 1f - kx;
-                float kyi = 1f - ky;
-                float kzi = 1f - kz;
+            DensityMask yFaceMask = new DensityMask();
+            for (int gz = 0; gz < 4; gz++)
+                for (int gx = 0; gx < 4; gx++) {
+                    yFaceMask.set(gx * 4, 0, gz * 4);
+                }
 
-                return c000 * kxi * kyi * kzi
-                    + c100 * kx * kyi * kzi
-                    + c010 * kxi * ky * kzi
-                    + c110 * kx * ky * kzi
-                    + c001 * kxi * kyi * kz
-                    + c101 * kx * kyi * kz
-                    + c011 * kxi * ky * kz
-                    + c111 * kx * ky * kz;
+            DensityMask zFaceMask = new DensityMask();
+            for (int gy = 0; gy < 4; gy++)
+                for (int gx = 0; gx < 4; gx++) {
+                    zFaceMask.set(gx * 4, gy * 4, 0);
+                }
+
+            DensityMask xyEdgeMask = new DensityMask();
+            for (int gz = 0; gz < 4; gz++) xyEdgeMask.set(0, 0, gz * 4);
+
+            DensityMask xzEdgeMask = new DensityMask();
+            for (int gy = 0; gy < 4; gy++) xzEdgeMask.set(0, gy * 4, 0);
+
+            DensityMask yzEdgeMask = new DensityMask();
+            for (int gx = 0; gx < 4; gx++) yzEdgeMask.set(gx * 4, 0, 0);
+
+            DensityMask cornerMask = new DensityMask();
+            cornerMask.set(0, 0, 0);
+
+            float[][][] corners = new float[5][5][5];
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return false;
+                }
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    DensityBuffer inner = arg.compute(cubeX, cubeY, cubeZ, innerMask);
+                    for (int gz = 0; gz < 4; gz++)
+                        for (int gy = 0; gy < 4; gy++)
+                            for (int gx = 0; gx < 4; gx++) {
+                                corners[gx][gy][gz] = inner.get(gx * 4, gy * 4, gz * 4);
+                            }
+                    inner.discard();
+
+                    DensityBuffer xFace = arg.compute(cubeX + 1, cubeY, cubeZ, xFaceMask);
+                    for (int gz = 0; gz < 4; gz++)
+                        for (int gy = 0; gy < 4; gy++) {
+                            corners[4][gy][gz] = xFace.get(0, gy * 4, gz * 4);
+                        }
+                    xFace.discard();
+
+                    DensityBuffer yFace = arg.compute(cubeX, cubeY + 1, cubeZ, yFaceMask);
+                    for (int gz = 0; gz < 4; gz++)
+                        for (int gx = 0; gx < 4; gx++) {
+                            corners[gx][4][gz] = yFace.get(gx * 4, 0, gz * 4);
+                        }
+                    yFace.discard();
+
+                    DensityBuffer zFace = arg.compute(cubeX, cubeY, cubeZ + 1, zFaceMask);
+                    for (int gy = 0; gy < 4; gy++)
+                        for (int gx = 0; gx < 4; gx++) {
+                            corners[gx][gy][4] = zFace.get(gx * 4, gy * 4, 0);
+                        }
+                    zFace.discard();
+
+                    DensityBuffer xyEdge = arg.compute(cubeX + 1, cubeY + 1, cubeZ, xyEdgeMask);
+                    for (int gz = 0; gz < 4; gz++) corners[4][4][gz] = xyEdge.get(0, 0, gz * 4);
+                    xyEdge.discard();
+
+                    DensityBuffer xzEdge = arg.compute(cubeX + 1, cubeY, cubeZ + 1, xzEdgeMask);
+                    for (int gy = 0; gy < 4; gy++) corners[4][gy][4] = xzEdge.get(0, gy * 4, 0);
+                    xzEdge.discard();
+
+                    DensityBuffer yzEdge = arg.compute(cubeX, cubeY + 1, cubeZ + 1, yzEdgeMask);
+                    for (int gx = 0; gx < 4; gx++) corners[gx][4][4] = yzEdge.get(gx * 4, 0, 0);
+                    yzEdge.discard();
+
+                    DensityBuffer corner = arg.compute(cubeX + 1, cubeY + 1, cubeZ + 1, cornerMask);
+                    corners[4][4][4] = corner.get(0, 0, 0);
+                    corner.discard();
+
+                    CubeBuffer out = ctx.getCubeBuffer();
+                    for (int z = 0; z < 16; z++) {
+                        int gz = z >> 2;
+                        float kz = (z & 3) * 0.25f, kzi = 1f - kz;
+                        for (int y = 0; y < 16; y++) {
+                            int gy = y >> 2;
+                            float ky = (y & 3) * 0.25f, kyi = 1f - ky;
+                            for (int x = 0; x < 16; x++) {
+                                if (!mask.isSet(x, y, z)) continue;
+                                int gx = x >> 2;
+                                float kx = (x & 3) * 0.25f, kxi = 1f - kx;
+                                out.set(
+                                    x, y, z, corners[gx][gy][gz] * kxi * kyi * kzi
+                                        + corners[gx + 1][gy][gz] * kx * kyi * kzi
+                                        + corners[gx][gy + 1][gz] * kxi * ky * kzi
+                                        + corners[gx + 1][gy + 1][gz] * kx * ky * kzi
+                                        + corners[gx][gy][gz + 1] * kxi * kyi * kz
+                                        + corners[gx + 1][gy][gz + 1] * kx * kyi * kz
+                                        + corners[gx][gy + 1][gz + 1] * kxi * ky * kz
+                                        + corners[gx + 1][gy + 1][gz + 1] * kx * ky * kz
+                                );
+                            }
+                        }
+                    }
+                    return out;
+                }
             };
         }
     }
@@ -345,8 +560,57 @@ public class BuiltinDensityFunctions {
         public IDensityFunction instantiate(WorldContext ctx) {
             IDensityFunction inputFn = input.instantiate(ctx);
             float lo = min, hi = max;
-            return (context, blockX, blockY, blockZ) ->
-                MathHelper.clamp_float(inputFn.compute(context, blockX, blockY, blockZ), lo, hi);
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return inputFn.hasTrait(trait);
+                }
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    DensityBuffer input = inputFn.compute(cubeX, cubeY, cubeZ, mask);
+
+                    CubeBuffer out = ctx.getCubeBuffer();
+
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    out.set(x, y, z, MathHelper.clamp_float(input.get(x, y, z), lo, hi));
+                                }
+                            }
+                        }
+                    }
+
+                    input.discard();
+
+                    return out;
+                }
+            };
+        }
+    }
+
+    public static class ConstantDensityFunction implements IDensityFunction {
+
+        public static final ConstantDensityFunction ZERO = new ConstantDensityFunction(0f);
+        public static final ConstantDensityFunction ONE = new ConstantDensityFunction(1f);
+
+        private final ConstantBuffer buf;
+
+        public ConstantDensityFunction(float argument) {
+            buf = new ConstantBuffer(argument);
+        }
+
+        @Override
+        public boolean hasTrait(DensityFuncTrait trait) {
+            return trait == DensityFuncTrait.Flat || trait == DensityFuncTrait.Constant;
+        }
+
+        @Override
+        public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+            return buf;
         }
     }
 
@@ -356,8 +620,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            float v = argument;
-            return (context, blockX, blockY, blockZ) -> v;
+            return new ConstantDensityFunction(argument);
         }
     }
 
@@ -371,12 +634,97 @@ public class BuiltinDensityFunctions {
             IDensityFunction densityFn = density.instantiate(ctx);
             IDensityFunction upperBoundFn = upper_bound.instantiate(ctx);
             int lb = lower_bound, ch = cell_height;
-            return (context, blockX, blockY, blockZ) -> {
-                for (int y = (int) upperBoundFn.compute(context, blockX, blockY, blockZ); y > lb; y -= ch) {
-                    if (densityFn.compute(context, blockX, y, blockZ) > 0) return y;
+            float chInv = 1f / ch;
+
+            if (upperBoundFn.hasTrait(DensityFuncTrait.Flat)) {
+                // Flat implementation: no 3d heightmaps
+
+                int[] uppers = new int[256];
+                float[] result = new float[256];
+
+                return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return trait == DensityFuncTrait.Flat;
                 }
-                return lb;
-            };
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    DensityMask flatMask = ctx.getMask().flatCopy(mask);
+                    DensityBuffer upper = upperBoundFn.compute(cubeX, 0, cubeZ, flatMask);
+
+                    int highestUpper = Integer.MIN_VALUE;
+
+                    for (int z = 0; z < 16; z++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (flatMask.isSet(x, 0, z)) {
+                                int top = (int) (upper.get(x, 0, z) * chInv) * ch;
+                                if (top > highestUpper) highestUpper = top;
+                                uppers[z << 4 | x] = top;
+                                result[z << 4 | x] = lb;
+                            }
+                        }
+                    }
+
+                    upper.discard();
+
+                    DensityMask sampleMask = ctx.getMask();
+
+                    for (int y = highestUpper; y > lb; y -= ch) {
+                        int relY = y & 15;
+
+                        sampleMask.clear();
+                        boolean any = false;
+
+                        for (int z = 0; z < 16; z++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (flatMask.isSet(x, 0, z) && uppers[z << 4 | x] == y) {
+                                    sampleMask.set(x, relY, z);
+                                    any = true;
+                                }
+                            }
+                        }
+
+                        if (!any) continue;
+
+                        DensityBuffer densityBuf = densityFn.compute(cubeX, y >> 4, cubeZ, sampleMask);
+
+                        for (int z = 0; z < 16; z++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (flatMask.isSet(x, 0, z) && uppers[z << 4 | x] == y) {
+                                    if (densityBuf.get(x, relY, z) > 0) {
+                                        result[z << 4 | x] = y;
+                                        flatMask.remove(x, 0, z);
+                                    } else {
+                                        uppers[z << 4 | x] -= ch;
+                                    }
+                                }
+                            }
+                        }
+
+                        densityBuf.discard();
+                    }
+
+                    ctx.releaseMask(sampleMask);
+                    ctx.releaseMask(flatMask);
+
+                    CubeBuffer out = ctx.getCubeBuffer();
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    out.set(x, y, z, result[z << 4 | x]);
+                                }
+                            }
+                        }
+                    }
+                    return out;
+                }
+                };
+            }
+
+            throw new UnsupportedOperationException();
         }
     }
 
@@ -388,17 +736,78 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            IDensityFunction inputFn = input.instantiate(ctx);
-            IDensityFunction[] fns = new IDensityFunction[functions.length];
-            for (int i = 0; i < functions.length; i++) fns[i] = functions[i].instantiate(ctx);
+            IDensityFunction chooser = input.instantiate(ctx);
+
+            IDensityFunction[] fns = DBDataUtils.mapToArray(functions, IDensityFunction[]::new, f -> f.instantiate(ctx));
+
             float[] thresh = thresholds;
-            return (context, blockX, blockY, blockZ) -> {
-                float value = inputFn.compute(context, blockX, blockY, blockZ);
-                int len = thresh.length;
-                for (int i = 0; i < len; i++) {
-                    if (value < thresh[i]) return fns[i].compute(context, blockX, blockY, blockZ);
+            int len = thresh.length;
+
+            DensityMask[] masks = new DensityMask[fns.length];
+
+            for (int i = 0; i < masks.length; i++) {
+                masks[i] = new DensityMask();
+            }
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    if (!chooser.hasTrait(trait)) return false;
+                    for (IDensityFunction fn : fns) if (!fn.hasTrait(trait)) return false;
+                    return true;
                 }
-                return fns[len].compute(context, blockX, blockY, blockZ);
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    DensityBuffer chooserData = chooser.compute(cubeX, cubeY, cubeZ, mask);
+
+                    for (DensityMask densityMask : masks) {
+                        densityMask.clear();
+                    }
+
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    float value = chooserData.get(x, y, z);
+
+                                    boolean found = false;
+
+                                    for (int i = 0; i < len; i++) {
+                                        if (value < thresh[i]) {
+                                            masks[i].set(x, y, z);
+                                            found = true;
+                                            break;
+                                        }
+                                    }
+
+                                    if (!found) {
+                                        masks[len].set(x, y, z);
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    chooserData.discard();
+
+                    CubeBuffer out = ctx.getCubeBuffer();
+
+                    for (int i = 0; i < masks.length; i++) {
+                        DensityMask fnMask = masks[i];
+
+                        if (fnMask.isEmpty()) continue;
+
+                        DensityBuffer fnValues = fns[i].compute(cubeX, cubeY, cubeZ, mask);
+
+                        out.copyFrom(fnValues, fnMask);
+
+                        fnValues.discard();
+                    }
+
+                    return out;
+                }
             };
         }
     }
@@ -415,11 +824,54 @@ public class BuiltinDensityFunctions {
             IDensityFunction inRange = when_in_range.instantiate(ctx);
             IDensityFunction outOfRange = when_out_of_range.instantiate(ctx);
             float lo = min_inclusive, hi = max_exclusive;
-            return (context, blockX, blockY, blockZ) -> {
-                float value = inputFn.compute(context, blockX, blockY, blockZ);
-                return value >= lo && value < hi
-                    ? inRange.compute(context, blockX, blockY, blockZ)
-                    : outOfRange.compute(context, blockX, blockY, blockZ);
+
+            DensityMask inMask = new DensityMask();
+            DensityMask outMask = new DensityMask();
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return inputFn.hasTrait(trait) && inRange.hasTrait(trait) && outOfRange.hasTrait(trait);
+                }
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    DensityBuffer inputBuf = inputFn.compute(cubeX, cubeY, cubeZ, mask);
+
+                    inMask.clear();
+                    outMask.clear();
+
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    float v = inputBuf.get(x, y, z);
+                                    if (v >= lo && v < hi) inMask.set(x, y, z);
+                                    else outMask.set(x, y, z);
+                                }
+                            }
+                        }
+                    }
+
+                    inputBuf.discard();
+
+                    CubeBuffer out = ctx.getCubeBuffer();
+
+                    if (!inMask.isEmpty()) {
+                        DensityBuffer inBuf = inRange.compute(cubeX, cubeY, cubeZ, inMask);
+                        out.copyFrom(inBuf, inMask);
+                        inBuf.discard();
+                    }
+
+                    if (!outMask.isEmpty()) {
+                        DensityBuffer outBuf = outOfRange.compute(cubeX, cubeY, cubeZ, outMask);
+                        out.copyFrom(outBuf, outMask);
+                        outBuf.discard();
+                    }
+
+                    return out;
+                }
             };
         }
     }
@@ -437,11 +889,50 @@ public class BuiltinDensityFunctions {
             IDensityFunction sy = shift_y.instantiate(ctx);
             IDensityFunction sz = shift_z.instantiate(ctx);
             float xzs = xz_scale, ys = y_scale;
-            return (context, blockX, blockY, blockZ) -> {
-                int dx = (int) sx.compute(context, blockX, blockY, blockZ);
-                int dy = (int) sy.compute(context, blockX, blockY, blockZ);
-                int dz = (int) sz.compute(context, blockX, blockY, blockZ);
-                return (float) sampler.sample((blockX + dx) * xzs, (blockY + dy) * ys, (blockZ + dz) * xzs);
+
+            double[] xcoord = new double[4096];
+            double[] ycoord = new double[4096];
+            double[] zcoord = new double[4096];
+            double[] noiseout = new double[4096];
+
+            return (cubeX, cubeY, cubeZ, mask) -> {
+                DensityBuffer sxBuf = sx.compute(cubeX, cubeY, cubeZ, mask);
+                DensityBuffer syBuf = sy.compute(cubeX, cubeY, cubeZ, mask);
+                DensityBuffer szBuf = sz.compute(cubeX, cubeY, cubeZ, mask);
+
+                int count = 0;
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                double bx = cubeX << 4 | x, by = cubeY << 4 | y, bz = cubeZ << 4 | z;
+                                xcoord[count] = (bx + sxBuf.get(x, y, z)) * xzs;
+                                ycoord[count] = (by + syBuf.get(x, y, z)) * ys;
+                                zcoord[count] = (bz + szBuf.get(x, y, z)) * xzs;
+                                count++;
+                            }
+                        }
+                    }
+                }
+
+                sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+
+                count = 0;
+                CubeBuffer out = ctx.getCubeBuffer();
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                out.set(x, y, z, (float) noiseout[count++]);
+                            }
+                        }
+                    }
+                }
+
+                sxBuf.discard();
+                syBuf.discard();
+                szBuf.discard();
+                return out;
             };
         }
     }
@@ -453,8 +944,38 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), argument);
-            return (context, blockX, blockY, blockZ) ->
-                (float) (sampler.sample(blockX / 4, blockY / 4, blockZ / 4) * 4);
+
+            double[] xcoord = new double[4096];
+            double[] ycoord = new double[4096];
+            double[] zcoord = new double[4096];
+            double[] noiseout = new double[4096];
+
+            return (cubeX, cubeY, cubeZ, mask) -> {
+                int count = 0;
+                for (int z = 0; z < 16; z++)
+                    for (int y = 0; y < 16; y++)
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                xcoord[count] = (cubeX << 4 | x) * 0.25;
+                                ycoord[count] = (cubeY << 4 | y) * 0.25;
+                                zcoord[count] = (cubeZ << 4 | z) * 0.25;
+                                count++;
+                            }
+                        }
+
+                sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+
+                count = 0;
+                CubeBuffer out = ctx.getCubeBuffer();
+                for (int z = 0; z < 16; z++)
+                    for (int y = 0; y < 16; y++)
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                out.set(x, y, z, (float) (noiseout[count++] * 4));
+                            }
+                        }
+                return out;
+            };
         }
     }
 
@@ -465,8 +986,50 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), argument);
-            return (context, blockX, blockY, blockZ) ->
-                (float) (sampler.sample(blockX / 4, 0, blockZ / 4) * 4);
+
+            double[] xcoord = new double[4096];
+            double[] ycoord = new double[4096]; // stays zero: sample(bx, 0.0, bz)
+            double[] zcoord = new double[4096];
+            double[] noiseout = new double[4096];
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return trait == DensityFuncTrait.Flat;
+                }
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    int count = 0;
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    xcoord[count] = (cubeX << 4 | x) * 0.25;
+                                    zcoord[count] = (cubeZ << 4 | z) * 0.25;
+                                    count++;
+                                }
+                            }
+                        }
+                    }
+
+                    sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+
+                    count = 0;
+                    CubeBuffer out = ctx.getCubeBuffer();
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    out.set(x, y, z, (float) (noiseout[count++] * 4));
+                                }
+                            }
+                        }
+                    }
+                    return out;
+                }
+            };
         }
     }
 
@@ -477,8 +1040,50 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), argument);
-            return (context, blockX, blockY, blockZ) ->
-                (float) (sampler.sample(blockZ / 4, blockX / 4, 0) * 4);
+
+            double[] xcoord = new double[4096]; // bz: sample(bz, bx, 0.0)
+            double[] ycoord = new double[4096]; // bx
+            double[] zcoord = new double[4096]; // stays zero
+            double[] noiseout = new double[4096];
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    return trait == DensityFuncTrait.Flat;
+                }
+
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    int count = 0;
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    xcoord[count] = (cubeZ << 4 | z) * 0.25;
+                                    ycoord[count] = (cubeX << 4 | x) * 0.25;
+                                    count++;
+                                }
+                            }
+                        }
+                    }
+
+                    sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+
+                    count = 0;
+                    CubeBuffer out = ctx.getCubeBuffer();
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (mask.isSet(x, y, z)) {
+                                    out.set(x, y, z, (float) (noiseout[count++] * 4));
+                                }
+                            }
+                        }
+                    }
+                    return out;
+                }
+            };
         }
     }
 
@@ -493,32 +1098,101 @@ public class BuiltinDensityFunctions {
             NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), noise);
             IDensityFunction inputFn = input.instantiate(ctx);
             RarityType rarityMapper = rarity_value_mapper;
-            return (context, blockX, blockY, blockZ) -> {
-                float value = inputFn.compute(context, blockX, blockY, blockZ);
-                float rarity = 1f, rarityInv = 1f;
-                switch (rarityMapper) {
-                    case type_1 -> {
-                        if (value < -0.75f) { rarity = 0.5f; rarityInv = 2f; break; }
-                        if (value < -0.5f)  { rarity = 0.75f; rarityInv = 4f / 3f; break; }
-                        if (value < 0.5f)   { break; }
-                        if (value < 0.75f)  { rarity = 2f; rarityInv = 0.5f; break; }
-                        rarity = 3f; rarityInv = 1f / 3f;
-                    }
-                    case type_2 -> {
-                        if (value < -0.5f) { rarity = 0.75f; rarityInv = 4f / 3f; break; }
-                        if (value < 0f)    { break; }
-                        if (value < 0.5f)  { rarity = 1.5f; rarityInv = 2f / 3f; break; }
-                        rarity = 2f; rarityInv = 0.5f;
+
+            double[] xcoord = new double[4096];
+            double[] ycoord = new double[4096];
+            double[] zcoord = new double[4096];
+            double[] noiseout = new double[4096];
+            float[] rarityFactors = new float[4096];
+
+            return (cubeX, cubeY, cubeZ, mask) -> {
+                DensityBuffer inputBuf = inputFn.compute(cubeX, cubeY, cubeZ, mask);
+
+                int count = 0;
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (!mask.isSet(x, y, z)) continue;
+
+                            float value = inputBuf.get(x, y, z);
+                            float rarity = 1f, rarityInv = 1f;
+
+                            switch (rarityMapper) {
+                                case type_1 -> {
+                                    if (value < -0.75f) {
+                                        rarity = 0.5f;
+                                        rarityInv = 2f;
+                                        break;
+                                    }
+                                    if (value < -0.5f) {
+                                        rarity = 0.75f;
+                                        rarityInv = 4f / 3f;
+                                        break;
+                                    }
+                                    if (value < 0.5f) {
+                                        break;
+                                    }
+                                    if (value < 0.75f) {
+                                        rarity = 2f;
+                                        rarityInv = 0.5f;
+                                        break;
+                                    }
+                                    rarity = 3f;
+                                    rarityInv = 1f / 3f;
+                                }
+                                case type_2 -> {
+                                    if (value < -0.5f) {
+                                        rarity = 0.75f;
+                                        rarityInv = 4f / 3f;
+                                        break;
+                                    }
+                                    if (value < 0f) {
+                                        break;
+                                    }
+                                    if (value < 0.5f) {
+                                        rarity = 1.5f;
+                                        rarityInv = 2f / 3f;
+                                        break;
+                                    }
+                                    rarity = 2f;
+                                    rarityInv = 0.5f;
+                                }
+                            }
+
+                            double bx = cubeX << 4 | x, by = cubeY << 4 | y, bz = cubeZ << 4 | z;
+                            xcoord[count] = bx * rarityInv;
+                            ycoord[count] = by * rarityInv;
+                            zcoord[count] = bz * rarityInv;
+                            rarityFactors[count] = rarity;
+                            count++;
+                        }
                     }
                 }
-                return (float) (rarity * sampler.sample(blockX * rarityInv, blockY * rarityInv, blockZ * rarityInv));
+
+                sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+
+                count = 0;
+                CubeBuffer out = ctx.getCubeBuffer();
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (!mask.isSet(x, y, z)) continue;
+                            out.set(x, y, z, (float) (rarityFactors[count] * noiseout[count]));
+                            count++;
+                        }
+                    }
+                }
+
+                inputBuf.discard();
+
+                return out;
             };
         }
     }
 
     public enum RarityType {
         type_1,
-        type_2;
+        type_2
     }
 
     public static class YClampedGradientFunc implements IDensityFunctionFactory {
@@ -528,9 +1202,24 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            float inMin = from_y, inMax = to_y, outMin = from_value, outMax = to_value;
-            return (context, blockX, blockY, blockZ) ->
-                (blockY - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+            float inMin = from_y, scale = (to_value - from_value) / (to_y - from_y), outMin = from_value;
+            return (cubeX, cubeY, cubeZ, mask) -> {
+                CubeBuffer out = ctx.getCubeBuffer();
+
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        float val = (cubeY << 4 | y) - inMin;
+                        val = val * scale + outMin;
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                out.set(x, y, z, val);
+                            }
+                        }
+                    }
+                }
+
+                return out;
+            };
         }
     }
 
@@ -543,8 +1232,49 @@ public class BuiltinDensityFunctions {
         public IDensityFunction instantiate(WorldContext ctx) {
             NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), noise);
             float xzs = xz_scale, ys = y_scale;
-            return (context, blockX, blockY, blockZ) ->
-                (float) sampler.sample(blockX * xzs, blockY * ys, blockZ * xzs);
+
+            double[] xcoord = new double[4096];
+            double[] ycoord = new double[4096];
+            double[] zcoord = new double[4096];
+            double[] noiseout = new double[4096];
+
+            return (cubeX, cubeY, cubeZ, mask) -> {
+                int count = 0;
+
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                double bx = (cubeX << 4) | x;
+                                double by = (cubeY << 4) | y;
+                                double bz = (cubeZ << 4) | z;
+                                xcoord[count] = bx * xzs;
+                                ycoord[count] = by * ys;
+                                zcoord[count] = bz * xzs;
+                                count++;
+                            }
+                        }
+                    }
+                }
+
+                sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+
+                count = 0;
+
+                CubeBuffer out = ctx.getCubeBuffer();
+
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (mask.isSet(x, y, z)) {
+                                out.set(x, y, z, (float) noiseout[count++]);
+                            }
+                        }
+                    }
+                }
+
+                return out;
+            };
         }
     }
 
@@ -554,7 +1284,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return (context, blockX, blockY, blockZ) -> 0; // TODO
+            return ConstantDensityFunction.ZERO; // TODO
         }
     }
 
@@ -588,8 +1318,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            float v = coordinate;
-            return (context, blockX, blockY, blockZ) -> v;
+            return new ConstantDensityFunction(coordinate);
         }
     }
 
@@ -600,47 +1329,114 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            IDensityFunction coord = coordinate.instantiate(ctx);
             int N = points.length;
+
+            if (N == 0) {
+                return ConstantDensityFunction.ZERO;
+            }
+
+            IDensityFunction coord = coordinate.instantiate(ctx);
             IDensityFunction[] values = new IDensityFunction[N];
-            float[] locations = new float[N];
-            float[] derivatives = new float[N];
+            float[] locs = new float[N];
+            float[] derivs = new float[N];
             for (int i = 0; i < N; i++) {
                 values[i] = points[i].value.instantiate(ctx);
-                locations[i] = points[i].location;
-                derivatives[i] = points[i].derivative;
+                locs[i] = points[i].location;
+                derivs[i] = points[i].derivative;
             }
-            return (context, blockX, blockY, blockZ) -> {
-                float t = coord.compute(context, blockX, blockY, blockZ);
 
-                if (N == 0) return 0;
-                if (t <= locations[0]) return values[0].compute(context, blockX, blockY, blockZ);
-                if (t >= locations[N - 1]) return values[N - 1].compute(context, blockX, blockY, blockZ);
+            DensityMask[] segMasks = new DensityMask[N - 1];
+            for (int i = 0; i < N - 1; i++) segMasks[i] = new DensityMask();
+            DensityMask edgeLow = new DensityMask();
+            DensityMask edgeHigh = new DensityMask();
 
-                int lo = 0, hi = N - 1;
-                while (hi - lo > 1) {
-                    int mid = (lo + hi) >>> 1;
-                    if (locations[mid] <= t) lo = mid; else hi = mid;
+            DensityBuffer[] valueBufs = new DensityBuffer[N];
+
+            return new IDensityFunction() {
+
+                @Override
+                public boolean hasTrait(DensityFuncTrait trait) {
+                    if (!coord.hasTrait(trait)) return false;
+                    for (IDensityFunction v : values) if (!v.hasTrait(trait)) return false;
+                    return true;
                 }
 
-                float f0 = values[lo].compute(context, blockX, blockY, blockZ);
-                float f1 = values[hi].compute(context, blockX, blockY, blockZ);
-                float dx = locations[hi] - locations[lo];
-                float u = (t - locations[lo]) / dx;
-                float u2 = u * u;
-                float u3 = u2 * u;
+                @Override
+                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                    DensityBuffer coordBuf = coord.compute(cubeX, cubeY, cubeZ, mask);
 
-                float h00 = 2 * u3 - 3 * u2 + 1;
-                float h10 = u3 - 2 * u2 + u;
-                float h01 = -2 * u3 + 3 * u2;
-                float h11 = u3 - u2;
+                    edgeLow.clear();
+                    edgeHigh.clear();
+                    for (DensityMask m : segMasks) m.clear();
 
-                return h00 * f0 + h10 * dx * derivatives[lo] + h01 * f1 + h11 * dx * derivatives[hi];
+                    float lastLoc = locs[N - 1];
+                    for (int z = 0; z < 16; z++) {
+                        for (int y = 0; y < 16; y++) {
+                            for (int x = 0; x < 16; x++) {
+                                if (!mask.isSet(x, y, z)) continue;
+
+                                float t = coordBuf.get(x, y, z);
+
+                                if (t <= locs[0]) {
+                                    edgeLow.set(x, y, z);
+                                } else if (t >= lastLoc) {
+                                    edgeHigh.set(x, y, z);
+                                } else {
+                                    int seg = 0;
+                                    while (seg < N - 2 && locs[seg + 1] <= t) seg++;
+                                    segMasks[seg].set(x, y, z);
+                                }
+                            }
+                        }
+                    }
+
+                    DensityMask valMask = ctx.getMask();
+
+                    for (int i = 0; i < N; i++) {
+                        valMask.clear();
+                        if (i == 0) valMask.or(edgeLow);
+                        if (i > 0) valMask.or(segMasks[i - 1]);
+                        if (i < N - 1) valMask.or(segMasks[i]);
+                        if (i == N - 1) valMask.or(edgeHigh);
+                        valueBufs[i] = values[i].compute(cubeX, cubeY, cubeZ, valMask);
+                    }
+
+                    ctx.releaseMask(valMask);
+
+                    CubeBuffer out = ctx.getCubeBuffer();
+
+                    out.copyFrom(valueBufs[0], edgeLow);
+                    out.copyFrom(valueBufs[N - 1], edgeHigh);
+
+                    for (int lo = 0; lo < N - 1; lo++) {
+                        float dx = locs[lo + 1] - locs[lo];
+                        float k0 = dx * derivs[lo], k1 = dx * derivs[lo + 1];
+                        for (int bit = segMasks[lo].nextSetBit(0); bit != -1; bit = segMasks[lo].nextSetBit(bit + 1)) {
+                            int x = bit & 0xf, y = bit >> 4 & 0xf, z = bit >> 8;
+                            float t = coordBuf.get(x, y, z);
+                            float f0 = valueBufs[lo].get(x, y, z);
+                            float f1 = valueBufs[lo + 1].get(x, y, z);
+                            float u = (t - locs[lo]) / dx;
+                            float u2 = u * u, u3 = u2 * u;
+                            out.set(
+                                x, y, z, (2 * u3 - 3 * u2 + 1) * f0
+                                    + (u3 - 2 * u2 + u) * k0
+                                    + (-2 * u3 + 3 * u2) * f1
+                                    + (u3 - u2) * k1
+                            );
+                        }
+                    }
+
+                    coordBuf.discard();
+                    for (DensityBuffer vb : valueBufs) vb.discard();
+                    return out;
+                }
             };
         }
     }
 
     public static class SplinePoint {
+
         public float location, derivative;
         public ISpline value;
     }
@@ -668,7 +1464,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return (context, blockX, blockY, blockZ) -> 0; // TODO: this
+            return ConstantDensityFunction.ZERO; // TODO: this
         }
     }
 
@@ -676,7 +1472,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return (context, blockX, blockY, blockZ) -> 1f;
+            return ConstantDensityFunction.ONE;
         }
     }
 
@@ -684,7 +1480,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return (context, blockX, blockY, blockZ) -> 0;
+            return ConstantDensityFunction.ZERO;
         }
     }
 }
