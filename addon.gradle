@@ -2,6 +2,7 @@ import groovy.json.JsonSlurper
 
 def MC_VERSION = "26.1"
 def modernDataDir = layout.buildDirectory.dir("modernData").get().asFile
+def gradleUserHomeDir = project.gradle.gradleUserHomeDir
 
 tasks.register('downloadVanillaDatapack') {
     description = "Downloads and extracts the vanilla Minecraft ${MC_VERSION} data directory"
@@ -28,7 +29,7 @@ tasks.register('downloadVanillaDatapack') {
         def clientUrl = versionJson.downloads.client.url as String
 
         // Step 4: Cache the client jar under .gradle/caches to avoid re-downloading
-        def cacheDir = new File(gradle.gradleUserHomeDir, "caches/minecraft-client-jars")
+        def cacheDir = new File(gradleUserHomeDir, "caches/minecraft-client-jars")
         cacheDir.mkdirs()
         def jarFile = new File(cacheDir, "minecraft-${MC_VERSION}-client.jar")
 

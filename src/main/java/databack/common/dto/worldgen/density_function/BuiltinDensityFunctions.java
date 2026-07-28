@@ -1341,7 +1341,10 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return ConstantDensityFunction.ZERO; // TODO
+            return new databack.common.dto.worldgen.density_function.OldBlendedNoise(
+                new java.util.Random(ctx.getDimensionSeed()),
+                xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier
+            );
         }
     }
 

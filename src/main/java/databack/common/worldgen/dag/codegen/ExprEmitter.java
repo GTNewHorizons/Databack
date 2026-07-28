@@ -7,6 +7,7 @@ import databack.common.worldgen.dag.DispatchShape;
 import databack.common.worldgen.dag.InlineNode;
 import databack.common.worldgen.dag.KernelGroup;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
+import mcgpu.core.hwaccel.buffer.GPUBuffer;
 import mcgpu.core.hwaccel.buffer.OffsetBufferAccessor;
 import mcgpu.core.hwaccel.shader.KernelBuilder;
 
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Emits GLSL float variable declarations for each {@link InlineNode} in a {@link KernelGroup}.
@@ -37,6 +39,12 @@ public final class ExprEmitter {
      */
     public static List<String> emitNodes(KernelGroup group, KernelBuilder builder,
                                          IdentityHashMap<BarrierNode, String> barrierMacroNames) {
+        return emitNodes(group, builder, barrierMacroNames, null);
+    }
+
+    public static List<String> emitNodes(KernelGroup group, KernelBuilder builder,
+                                         IdentityHashMap<BarrierNode, String> barrierMacroNames,
+                                         Function<String, int[]> noiseDataProvider) {
 
         // name map: InlineNode → GLSL variable name "v_N"
         IdentityHashMap<InlineNode, String> nameMap = new IdentityHashMap<>();
@@ -74,7 +82,7 @@ public final class ExprEmitter {
                 }
             }
 
-            String expr = emitExpr(node.source(), args, builder, i, noiseMap, group.shape(), perlinIncluded);
+            String expr = emitExpr(node.source(), args, builder, i, noiseMap, group.shape(), perlinIncluded, noiseDataProvider);
             builder.logic.append("    float v_").append(i).append(" = ").append(expr).append(";\n");
             nameMap.put(node, "v_" + i);
         }
@@ -105,10 +113,17 @@ public final class ExprEmitter {
      */
     private static String registerNoise(String noiseId, KernelBuilder builder,
                                         LinkedHashMap<String, OffsetBufferAccessor> noiseMap,
-                                        boolean[] perlinIncluded) {
+                                        boolean[] perlinIncluded,
+                                        Function<String, int[]> noiseDataProvider) {
         if (!noiseMap.containsKey(noiseId)) {
+            int offset = 0;
+            if (noiseDataProvider != null && builder.constants != null) {
+                int[] gpuData = noiseDataProvider.apply(noiseId);
+                GPUBuffer gpuBuf = builder.constants.addConstant(gpuData);
+                offset = gpuBuf.getBufferOffset();
+            }
             OffsetBufferAccessor accessor = (OffsetBufferAccessor)
-                builder.pushConstants.addConstantOffset(BufferDataType.u32, 0, noiseId);
+                builder.pushConstants.addConstantOffset(BufferDataType.u32, offset, noiseId);
             noiseMap.put(noiseId, accessor);
             if (!perlinIncluded[0]) {
                 builder.preamble.append(PerlinGlsl.PERLIN_FUNCTION);
@@ -119,6 +134,14 @@ public final class ExprEmitter {
     }
 
     // ---- Expression dispatch ---------------------------------------------------------------
+
+    /**
+     * Returns the GLSL Y-world-coordinate expression for the given kernel shape.
+     * PER_COLUMN kernels have no Y dimension, so {@code 0.0f} is used as a safe constant.
+     */
+    private static String wy(DispatchShape kernelShape) {
+        return kernelShape == DispatchShape.PER_COLUMN ? "0.0f" : "wy";
+    }
 
     /**
      * Generates the GLSL expression string (right-hand side) for a single inline node.
@@ -135,7 +158,8 @@ public final class ExprEmitter {
      */
     static String emitExpr(Object src, String[] args, KernelBuilder builder, int nodeIdx,
                             LinkedHashMap<String, OffsetBufferAccessor> noiseMap,
-                            DispatchShape kernelShape, boolean[] perlinIncluded) {
+                            DispatchShape kernelShape, boolean[] perlinIncluded,
+                            Function<String, int[]> noiseDataProvider) {
 
         // ---- Constant ----
         if (src instanceof ConstantFunc c) {
@@ -168,6 +192,15 @@ public final class ExprEmitter {
         }
         // Pass-through unaries
         if (src instanceof BlendDensityUnary || src instanceof CacheAllInCellUnary || src instanceof SlideUnary) {
+            return args[0];
+        }
+        // Caching markers inlined in non-PER_VOXEL contexts (they are barriers only in PER_VOXEL).
+        if (src instanceof CacheOnceUnary) {
+            return args[0];
+        }
+        // InterpolatedFunc inlined in non-PER_VOXEL contexts — trilinear interp is meaningless at
+        // column/corner granularity, so pass through the argument as a best-effort approximation.
+        if (src instanceof InterpolatedFunc) {
             return args[0];
         }
 
@@ -221,33 +254,36 @@ public final class ExprEmitter {
 
         // ---- Noise sampling ----
         if (src instanceof NoiseFunc n) {
-            String pcRef = registerNoise(n.noise, builder, noiseMap, perlinIncluded);
-            return "sampleNoise(" + pcRef + ", wx * " + n.xz_scale + "f, wy * " + n.y_scale + "f, wz * " + n.xz_scale + "f)";
+            String pcRef = registerNoise(n.noise, builder, noiseMap, perlinIncluded, noiseDataProvider);
+            String wy = wy(kernelShape);
+            return "sampleNoise(" + pcRef + ", wx * " + n.xz_scale + "f, " + wy + " * " + n.y_scale + "f, wz * " + n.xz_scale + "f)";
         }
 
         if (src instanceof ShiftFunc s) {
-            String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded);
-            return "sampleNoise(" + pcRef + ", wx * 0.25f, wy * 0.25f, wz * 0.25f) * 4.0f";
+            String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded, noiseDataProvider);
+            String wy = wy(kernelShape);
+            return "sampleNoise(" + pcRef + ", wx * 0.25f, " + wy + " * 0.25f, wz * 0.25f) * 4.0f";
         }
 
         if (src instanceof ShiftAFunc s) {
-            String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded);
+            String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded, noiseDataProvider);
             return "sampleNoise(" + pcRef + ", wz * 0.25f, 0.0f, wx * 0.25f) * 4.0f";
         }
 
         if (src instanceof ShiftBFunc s) {
-            String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded);
+            String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded, noiseDataProvider);
             return "sampleNoise(" + pcRef + ", wz * 0.25f, wx * 0.25f, 0.0f) * 4.0f";
         }
 
         if (src instanceof ShiftedNoiseFunc sn) {
-            String pcRef = registerNoise(sn.noise, builder, noiseMap, perlinIncluded);
-            return "sampleNoise(" + pcRef + ", (wx + " + args[0] + ") * " + sn.xz_scale + "f, (wy + " + args[1] + ") * " + sn.y_scale + "f, (wz + " + args[2] + ") * " + sn.xz_scale + "f)";
+            String pcRef = registerNoise(sn.noise, builder, noiseMap, perlinIncluded, noiseDataProvider);
+            String wy = wy(kernelShape);
+            return "sampleNoise(" + pcRef + ", (wx + " + args[0] + ") * " + sn.xz_scale + "f, (" + wy + " + " + args[1] + ") * " + sn.y_scale + "f, (wz + " + args[2] + ") * " + sn.xz_scale + "f)";
         }
 
         // ---- Weird Scaled Sampler ----
         if (src instanceof WeirdScaledSampler ws) {
-            String pcRef = registerNoise(ws.noise, builder, noiseMap, perlinIncluded);
+            String pcRef = registerNoise(ws.noise, builder, noiseMap, perlinIncluded, noiseDataProvider);
             String rarityVar = "_rarity_" + nodeIdx;
             String rarityInvVar = "_rarityInv_" + nodeIdx;
 
@@ -267,13 +303,40 @@ public final class ExprEmitter {
             }
             builder.logic.append("    float ").append(rarityInvVar).append(" = 1.0f / ").append(rarityVar).append(";\n");
 
-            return rarityVar + " * sampleNoise(" + pcRef + ", wx * " + rarityInvVar + ", wy * " + rarityInvVar + ", wz * " + rarityInvVar + ")";
+            String wy = wy(kernelShape);
+            return rarityVar + " * sampleNoise(" + pcRef + ", wx * " + rarityInvVar + ", " + wy + " * " + rarityInvVar + ", wz * " + rarityInvVar + ")";
         }
 
         // ---- Old Blended Noise ----
-        if (src instanceof OldBlendedNoise) {
-            System.err.println("[DFKernelCodegen] WARNING: OldBlendedNoise is not yet implemented in GLSL codegen; returning 0.");
-            return "0.0f /* OldBlendedNoise: TODO */";
+        if (src instanceof OldBlendedNoise obn) {
+            // Unique ID: parameters fully determine the seeded noise (combined with dimension seed at upload time).
+            String noiseId = "old_blended_noise:" + obn.xz_scale + ":" + obn.y_scale + ":"
+                + obn.xz_factor + ":" + obn.y_factor + ":" + obn.smear_scale_multiplier;
+            if (!noiseMap.containsKey(noiseId)) {
+                OffsetBufferAccessor accessor = (OffsetBufferAccessor)
+                    builder.pushConstants.addConstantOffset(BufferDataType.u32, 0, noiseId);
+                noiseMap.put(noiseId, accessor);
+            }
+            String pcRef = "pc." + noiseMap.get(noiseId).pcName;
+
+            // Inject base noise preamble then OBN-specific functions
+            if (!perlinIncluded[0]) {
+                builder.preamble.append(PerlinGlsl.PERLIN_FUNCTION);
+                perlinIncluded[0] = true;
+            }
+            if (!builder.preamble.toString().contains("sampleOldBlendedNoise")) {
+                builder.preamble.append(PerlinGlsl.OBN_FUNCTION);
+            }
+
+            // Pre-compute parameters that match OldBlendedNoise constructor / compute()
+            float xzMul      = (float) (684.412 * obn.xz_scale);
+            float yMul       = (float) (684.412 * obn.y_scale);
+            float limitSmear = yMul * obn.smear_scale_multiplier;
+            float mainSmear  = limitSmear / obn.y_factor;
+            String wy = wy(kernelShape);
+            return "sampleOldBlendedNoise(" + pcRef + ", wx, " + wy + ", wz, "
+                + xzMul + "f, " + yMul + "f, " + obn.xz_factor + "f, " + obn.y_factor + "f, "
+                + limitSmear + "f, " + mainSmear + "f)";
         }
 
         // ---- Splines ----
@@ -281,8 +344,10 @@ public final class ExprEmitter {
             return ((SplineValue) src).coordinate + "f";
         }
 
-        if (src instanceof SplineCurve sc) {
-            return SplineEmitter.emit(sc, args, builder, nodeIdx);
+        // SplineCurve is only a barrier in PER_VOXEL context. In PER_COLUMN/PER_CORNER contexts
+        // it is inlined directly via SplineEmitter (same path as before spline barriers were added).
+        if (src instanceof SplineCurve) {
+            return SplineEmitter.emit((SplineCurve) src, args, builder, nodeIdx);
         }
 
         if (src instanceof SplineFunc) {

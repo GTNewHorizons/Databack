@@ -1,34 +1,38 @@
 package databack.common.dto.worldgen.noise;
 
+import java.util.Random;
+
 import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
-import com.gtnewhorizon.gtnhlib.noise.OctavesSampler;
-import com.gtnewhorizon.gtnhlib.noise.SimplexSampler;
-import com.gtnewhorizon.gtnhlib.util.StdLCG;
+
+import databack.common.worldgen.noise.NormalNoise;
 
 public class DatapackNoise {
 
     public int firstOctave;
     public double[] amplitudes;
 
-    public OctavesSampler createSampler(long seed) {
-        StdLCG rand = new StdLCG(seed);
+    /**
+     * Creates a {@link NoiseSampler} backed by a {@link NormalNoise} for the given seed.
+     * <p>
+     * The seed should already incorporate the noise name (mixed in by
+     * {@link databack.common.handlers.DatapackNoiseList#getSampler}) so that distinct
+     * noise entries produce distinct samplers even for the same world seed.
+     */
+    public NoiseSampler createSampler(long seed) {
+        NormalNoise noise = NormalNoise.create(
+            new Random(seed),
+            new NormalNoise.NoiseParameters(firstOctave, amplitudes)
+        );
+        return new NoiseSampler() {
+            @Override
+            public double sample(double x, double y) {
+                return noise.getValue(x, 0.0, y);
+            }
 
-        int n = this.amplitudes.length;
-
-        NoiseSampler[] octaves = new NoiseSampler[n];
-        double[] amp = new double[n];
-        double[] freq = new double[n];
-
-        for (int i = 0; i < n; i++) {
-            if (amplitudes[i] == 0) continue;
-
-            int octaveIndex = i - firstOctave;
-
-            octaves[i] = new SimplexSampler(rand);
-            amp[i] = Math.pow(2, octaveIndex);
-            freq[i] = amplitudes[i] * Math.pow(2, n - i - 1) / (Math.pow(2, n) - 1);
-        }
-
-        return new OctavesSampler(octaves, amp, freq);
+            @Override
+            public double sample(double x, double y, double z) {
+                return noise.getValue(x, y, z);
+            }
+        };
     }
 }

@@ -3,6 +3,7 @@ package databack.common.worldgen.dag;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
 import org.lwjgl.vulkan.VK10;
 import org.lwjgl.vulkan.VkCommandBuffer;
@@ -43,6 +44,9 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
 
     private final KernelGroup group;
 
+    /** Set before compile() to enable real noise-data upload during kernel compilation. */
+    private Function<String, int[]> noiseDataProvider = null;
+
     // Populated during compile() on the worker thread.
     private Kernel pipeline;
     private PushConstantLayout pushConstants;
@@ -51,6 +55,17 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
 
     public DensityFunctionExecutor(KernelGroup group) {
         this.group = group;
+    }
+
+    /**
+     * Sets the provider used during {@link #compile} to serialize named noise entries into
+     * GPU data. The function receives a noise slot ID (e.g. {@code "minecraft:temperature"})
+     * and returns the {@code int[]} produced by
+     * {@link databack.common.worldgen.noise.NormalNoiseGpuSerializer#toGpuData}.
+     * Must be called before {@code compile()} for noise uploads to take effect.
+     */
+    public void setNoiseProvider(Function<String, int[]> provider) {
+        this.noiseDataProvider = provider;
     }
 
     /**
@@ -89,7 +104,7 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
     @Override
     public void compile(ConstantBuffer constants) {
         KernelBuilder builder = new KernelBuilder(constants);
-        GeneratedKernel gen = KernelBodyEmitter.emit(group, builder);
+        GeneratedKernel gen = KernelBodyEmitter.emit(group, builder, this.noiseDataProvider);
 
         this.pipeline      = new Kernel("DFKernel/" + group.shape(), gen.glslSource);
         this.pushConstants = builder.pushConstants;
@@ -130,9 +145,13 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
                 allBuffers,
                 params);
 
-            // Local sizes already span the full dispatch shape (16³, 16×1×16, or 5³),
-            // so a single workgroup (1×1×1) covers the entire chunk section.
-            VK10.vkCmdDispatch(commands, 1, 1, 1);
+            // PER_VOXEL uses local_size(16,4,16)=1024 and four Y workgroups to reach 16×16×16.
+            // PER_COLUMN (256) and PER_CORNER (125) fit within one workgroup.
+            if (group.shape() == DispatchShape.PER_VOXEL) {
+                VK10.vkCmdDispatch(commands, 1, 4, 1);
+            } else {
+                VK10.vkCmdDispatch(commands, 1, 1, 1);
+            }
         }
 
         return results;

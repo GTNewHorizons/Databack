@@ -30,6 +30,10 @@ import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
 import databack.common.handlers.WorldPresetList;
+import databack.common.worldgen.dag.DFDagBuilder;
+import databack.common.worldgen.dag.DFKernelPlan;
+import databack.common.worldgen.dag.DFPlanBuilder;
+import mcgpu.core.hwaccel.KernelContext;
 
 public class ModernWorldGenerator implements IChunkProvider {
 
@@ -42,6 +46,9 @@ public class ModernWorldGenerator implements IChunkProvider {
     private final BiomeProvider biomeProvider;
 
     private final IDensityFunction finalDensity;
+
+    /** Non-null when GPU compute is available; null falls back to the CPU path. */
+    private final GpuChunkCache gpuCache;
 
     public ModernWorldGenerator(World world, String generatorOptions) {
         this.world = world;
@@ -77,6 +84,15 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         this.finalDensity = router.final_density.instantiate(context);
 
+        if (KernelContext.isEnabled()) {
+            DFKernelPlan kernelPlan = DFDagBuilder.build(router.final_density);
+            DFPlanBuilder planBuilder = DFPlanBuilder.create(kernelPlan);
+            planBuilder.getExecutors().forEach(KernelContext.getScheduler()::compileExecutor);
+            this.gpuCache = new GpuChunkCache(planBuilder, KernelContext.getScheduler());
+        } else {
+            this.gpuCache = null;
+        }
+
         if (dimensionType == null) {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
         }
@@ -99,49 +115,63 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         Arrays.fill(chunk.getBiomeArray(), (byte) BiomeGenBase.plains.biomeID);
 
-        IDensityFunction finalDensity = this.finalDensity;
+        ImmutableBlockMeta main = new BlockMeta(
+            this.generatorSettings.default_block.getBlock(),
+            this.generatorSettings.default_block.getBlockMeta(0));
 
-        WorldContext context = WorldContext.getContext(world);
-        context.resetCache();
-
-        ImmutableBlockMeta air = new BlockMeta(Blocks.air);
-        ImmutableBlockMeta main = new BlockMeta(this.generatorSettings.default_block.getBlock(), this.generatorSettings.default_block.getBlockMeta(0));
-
-        DensityMask fullMask = context.getMask();
-        fullMask.setAll();
-
-        for (int ebsY = 0; ebsY < 16; ebsY++) {
-            ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
-            chunk.getBlockStorageArray()[ebsY] = ebs;
-
-            DensityBuffer densityBuf = finalDensity.compute(chunkX, ebsY, chunkZ, fullMask);
-
-            for (int y = 0; y < 16; y++) {
-                for (int z = 0; z < 16; z++) {
-                    for (int x = 0; x < 16; x++) {
-                        float density = densityBuf.get(x, y, z);
-
-                        ImmutableBlockMeta bm = air;
-
-                        if (density > 0) {
-                            bm = main;
-                        }
-
-                        if (bm.getBlock() != Blocks.air) {
-                            ebs.func_150818_a(x, y, z, bm.getBlock());
-                        }
-
-                        if (bm.getBlockMeta() != 0) {
-                            ebs.setExtBlockMetadata(x, y, z, bm.getBlockMeta());
+        if (gpuCache != null) {
+            // GPU path: density data was pre-computed in a batch; just read from cache.
+            float[][] densities = gpuCache.getOrCompute(chunkX, chunkZ);
+            for (int ebsY = 0; ebsY < 16; ebsY++) {
+                ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
+                chunk.getBlockStorageArray()[ebsY] = ebs;
+                float[] section = densities[ebsY];
+                for (int y = 0; y < 16; y++) {
+                    for (int z = 0; z < 16; z++) {
+                        for (int x = 0; x < 16; x++) {
+                            if (section[z * 256 + y * 16 + x] > 0) {
+                                ebs.func_150818_a(x, y, z, main.getBlock());
+                                if (main.getBlockMeta() != 0)
+                                    ebs.setExtBlockMetadata(x, y, z, main.getBlockMeta());
+                            }
                         }
                     }
                 }
             }
+        } else {
+            // CPU fallback path.
+            ImmutableBlockMeta air = new BlockMeta(Blocks.air);
+            WorldContext context = WorldContext.getContext(world);
+            context.resetCache();
+            DensityMask fullMask = context.getMask();
+            fullMask.setAll();
 
-            densityBuf.discard();
+            for (int ebsY = 0; ebsY < 16; ebsY++) {
+                ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
+                chunk.getBlockStorageArray()[ebsY] = ebs;
+
+                DensityBuffer densityBuf = finalDensity.compute(chunkX, ebsY, chunkZ, fullMask);
+
+                for (int y = 0; y < 16; y++) {
+                    for (int z = 0; z < 16; z++) {
+                        for (int x = 0; x < 16; x++) {
+                            float density = densityBuf.get(x, y, z);
+                            ImmutableBlockMeta bm = density > 0 ? main : air;
+                            if (bm.getBlock() != Blocks.air) {
+                                ebs.func_150818_a(x, y, z, bm.getBlock());
+                            }
+                            if (bm.getBlockMeta() != 0) {
+                                ebs.setExtBlockMetadata(x, y, z, bm.getBlockMeta());
+                            }
+                        }
+                    }
+                }
+
+                densityBuf.discard();
+            }
+
+            context.releaseMask(fullMask);
         }
-
-        context.releaseMask(fullMask);
 
         return chunk;
     }

@@ -1,9 +1,13 @@
 package databack.common.worldgen.dag.codegen;
 
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.FindTopSurfaceFunc;
+import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.SplineCurve;
+import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.SplineValue;
 import databack.common.worldgen.dag.BarrierKind;
 import databack.common.worldgen.dag.BarrierNode;
+import databack.common.worldgen.dag.DFDagNode;
 import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.InlineNode;
 import databack.common.worldgen.dag.KernelGroup;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
 import mcgpu.core.hwaccel.buffer.BufferLayout;
@@ -13,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Compiles a single {@link KernelGroup} into a {@link GeneratedKernel} containing
@@ -44,6 +49,11 @@ public final class KernelBodyEmitter {
      * @return a {@link GeneratedKernel} with full GLSL source and metadata
      */
     public static GeneratedKernel emit(KernelGroup group, KernelBuilder builder) {
+        return emit(group, builder, null);
+    }
+
+    public static GeneratedKernel emit(KernelGroup group, KernelBuilder builder,
+                                       Function<String, int[]> noiseDataProvider) {
 
         // ---- 1. Local sizes ----
         int[] localSize = localSizes(group.shape());
@@ -88,9 +98,12 @@ public final class KernelBodyEmitter {
         } else if (!group.isTerminal() && group.output().kind() == BarrierKind.COLUMN_REDUCE) {
             // COLUMN_REDUCE: Y-scan to find first solid voxel.
             noiseSlotIds = emitColumnReduce(group, builder, barrierMacroNames);
+        } else if (!group.isTerminal() && group.output().kind() == BarrierKind.SPLINE_EVAL) {
+            // SPLINE_EVAL: read coordinate from buffer, evaluate cubic-Hermite spline.
+            noiseSlotIds = emitSplineEval(group, builder, barrierMacroNames, noiseDataProvider);
         } else {
             // Standard body: emit inline nodes and optionally write result to output.
-            noiseSlotIds = ExprEmitter.emitNodes(group, builder, barrierMacroNames);
+            noiseSlotIds = ExprEmitter.emitNodes(group, builder, barrierMacroNames, noiseDataProvider);
             if (!group.nodes().isEmpty()) {
                 String lastVar = "v_" + (group.nodes().size() - 1);
                 builder.logic.append("    SET_OUTPUT(threadIdx, ").append(lastVar).append(");\n");
@@ -220,10 +233,72 @@ public final class KernelBodyEmitter {
         return Collections.emptyList();
     }
 
+    // ---- Special body: SPLINE_EVAL ---------------------------------------------------------
+
+    /**
+     * Emits cubic-Hermite spline evaluation for a {@link BarrierKind#SPLINE_EVAL} kernel.
+     * <p>
+     * The eval barrier's inputs are laid out as:
+     * <ul>
+     *   <li>inputs[0] — the coordinate: either a BarrierNode (read via GET macro) or an
+     *       InlineNode (inlined directly when the coord is barrier-free)</li>
+     *   <li>inputs[1..N] — spline point values: either a nested-spline BarrierNode,
+     *       a {@link SplineValue} InlineNode (float literal), or a general InlineNode</li>
+     * </ul>
+     * InlineNode variables are emitted first via {@link ExprEmitter#emitNodes} so their
+     * variable names ({@code v_N}) are available when building the args array.
+     */
+    private static List<String> emitSplineEval(KernelGroup group, KernelBuilder builder,
+                                                IdentityHashMap<BarrierNode, String> barrierMacroNames,
+                                                Function<String, int[]> noiseDataProvider) {
+        BarrierNode evalBarrier = group.output();
+        SplineCurve sc = (SplineCurve) evalBarrier.source();
+        List<DFDagNode> evalInputs = evalBarrier.inputs();
+
+        // Emit InlineNode variables first (handles barrier-free coord subtrees).
+        List<String> noiseSlotIds = ExprEmitter.emitNodes(group, builder, barrierMacroNames, noiseDataProvider);
+
+        List<InlineNode> nodes = group.nodes();
+        String[] args = new String[evalInputs.size()];
+        for (int i = 0; i < evalInputs.size(); i++) {
+            DFDagNode inp = evalInputs.get(i);
+            if (inp instanceof BarrierNode) {
+                BarrierNode b = (BarrierNode) inp;
+                args[i] = "GET_" + barrierMacroNames.get(b) + "(threadIdx)";
+            } else if (inp instanceof InlineNode) {
+                InlineNode in = (InlineNode) inp;
+                if (in.source() instanceof SplineValue) {
+                    // Constant spline point value — inline as float literal.
+                    args[i] = ((SplineValue) in.source()).coordinate + "f";
+                } else {
+                    // Barrier-free coord subtree — find the variable emitted by ExprEmitter.
+                    int idx = identityIndexOf(nodes, in);
+                    args[i] = idx >= 0 ? "v_" + idx : "0.0f /* coord node not in kernel */";
+                }
+            } else {
+                args[i] = "0.0f /* unknown spline eval input type */";
+            }
+        }
+
+        String splineExpr = SplineEmitter.emit(sc, args, builder, 0);
+        builder.logic.append("    SET_OUTPUT(threadIdx, ").append(splineExpr).append(");\n");
+        return noiseSlotIds;
+    }
+
+    /** Finds the index of {@code target} in {@code nodes} using reference equality. */
+    private static int identityIndexOf(List<InlineNode> nodes, InlineNode target) {
+        for (int i = 0; i < nodes.size(); i++) {
+            if (nodes.get(i) == target) return i;
+        }
+        return -1;
+    }
+
     // ---- Local size helper -----------------------------------------------------------------
 
     private static int[] localSizes(DispatchShape shape) {
-        if (shape == DispatchShape.PER_VOXEL)  return new int[]{16, 16, 16};
+        // PER_VOXEL uses 16×4×16 = 1024 threads per workgroup (Vulkan minimum guaranteed limit).
+        // Four workgroups in Y cover the full 16 voxel height: dispatch(1, 4, 1).
+        if (shape == DispatchShape.PER_VOXEL)  return new int[]{16, 4, 16};
         if (shape == DispatchShape.PER_COLUMN) return new int[]{16, 1, 16};
         // PER_CORNER
         return new int[]{5, 5, 5};

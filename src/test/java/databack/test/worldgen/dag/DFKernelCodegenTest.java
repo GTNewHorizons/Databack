@@ -462,14 +462,85 @@ public class DFKernelCodegenTest {
         SplineFunc root = spline(curve);
         List<GeneratedKernel> kernels = compile(root);
 
-        assertEquals(1, kernels.size(), "SplineFunc should produce a single kernel");
+        // Constant coord is barrier-free → inlined into SPLINE_EVAL, no SPLINE_COORD kernel.
+        // So: SPLINE_EVAL + terminal = 2 kernels.
+        assertEquals(2, kernels.size(),
+            "SplineCurve with constant coord should produce 2 kernels: EVAL + terminal");
+
+        // Find the SPLINE_EVAL kernel.
+        GeneratedKernel evalKernel = null;
+        for (GeneratedKernel k : kernels) {
+            if (k.outputBarrierId != null && k.outputBarrierId.startsWith("SplineEval")) {
+                evalKernel = k;
+            }
+        }
+        assertNotNull(evalKernel, "Expected a SPLINE_EVAL kernel");
+        assertTrue(evalKernel.glslSource.contains("if ("),
+            "SPLINE_EVAL kernel should contain if blocks for edge/segment selection");
+        // The Hermite basis contains coefficient 2.0f (from "2.0f * u³")
+        assertTrue(evalKernel.glslSource.contains("2.0f"),
+            "SPLINE_EVAL kernel should contain Hermite coefficient 2.0f");
+        assertTrue(evalKernel.glslSource.contains("GET_"),
+            "SPLINE_EVAL kernel should read the coordinate via a GET_ buffer macro");
+    }
+
+    /**
+     * Test 14: FlatCache wrapping a SplineFunc(SplineCurve) — regression for the case where
+     * SplineCurve inside a PER_COLUMN context must NOT create a PER_VOXEL SPLINE_EVAL barrier
+     * (which would make the FLAT_CACHE kernel depend on a Y-dependent buffer and crash DFPlanBuilder).
+     * The spline must be inlined into the FLAT_CACHE kernel instead.
+     */
+    @Test
+    public void testFlatCacheWithSpline() {
+        SplineCurve curve = splineCurve(
+            constant(0.5f),
+            splinePoint(-1.0f, 0.0f, splineValue(-1.0f)),
+            splinePoint(1.0f,  0.0f, splineValue(1.0f))
+        );
+        // FlatCache wraps SplineFunc(SplineCurve) — common vanilla pattern
+        IDensityFunctionFactory root = flatCache(spline(curve));
+        List<GeneratedKernel> kernels = compile(root);
+
+        // Only 2 kernels: FLAT_CACHE (with inlined spline) + terminal.
+        // No SPLINE_EVAL barrier should exist.
+        assertEquals(2, kernels.size(),
+            "FlatCache(SplineFunc(SplineCurve)) should produce 2 kernels: FLAT_CACHE + terminal, "
+            + "not 3+ (no PER_VOXEL SPLINE_EVAL barrier)");
+
+        // The FLAT_CACHE kernel should contain the spline Hermite coefficient.
+        GeneratedKernel flatCacheKernel = kernels.get(0);
+        assertNotNull(flatCacheKernel.outputBarrierId, "First kernel should be non-terminal");
+        assertTrue(flatCacheKernel.glslSource.contains("2.0f"),
+            "FLAT_CACHE kernel should contain inlined Hermite spline coefficient 2.0f");
+        // No separate SplineEval barrier should appear.
+        for (GeneratedKernel k : kernels) {
+            assertFalse(k.outputBarrierId != null && k.outputBarrierId.startsWith("SplineEval"),
+                "No SPLINE_EVAL barrier should be created inside a FlatCache context");
+        }
+    }
+
+    /**
+     * Test 14: CSE — when the same factory instance is used in two positions, only one
+     * GLSL variable is emitted for it (the second reference reuses the first's variable).
+     */
+    @Test
+    public void testCSEDeduplication() {
+        ConstantFunc shared = constant(1.0f);
+        AddBinary root = add(shared, shared);
+
+        List<GeneratedKernel> kernels = compile(root);
+        assertEquals(1, kernels.size(), "add(shared, shared) should produce one kernel");
+
         String glsl = kernels.get(0).glslSource;
 
-        assertTrue(glsl.contains("if ("),
-            "Spline GLSL should contain an if block for edge/segment selection");
-        // The Hermite basis contains coefficient 2.0f (from "2.0f * u³")
-        assertTrue(glsl.contains("2.0f"),
-            "Spline GLSL should contain Hermite coefficient 2.0f");
+        // With CSE: v_0 = 1.0f once, then (v_0 + v_0).
+        // Without CSE: v_0 = 1.0f, v_1 = 1.0f, then (v_0 + v_1).
+        int count = 0;
+        int pos = 0;
+        while ((pos = glsl.indexOf("= 1.0f", pos)) != -1) { count++; pos++; }
+        assertEquals(1, count, "CSE: shared constant should be emitted exactly once");
+        assertTrue(glsl.contains("(v_0 + v_0)"),
+            "CSE: add of shared input should be '(v_0 + v_0)', not '(v_0 + v_1)'");
     }
 
     /**
@@ -574,6 +645,124 @@ public class DFKernelCodegenTest {
             "IntervalSelectFunc should contain first threshold -0.5f");
         assertTrue(glsl.contains("0.5f"),
             "IntervalSelectFunc should contain second threshold 0.5f");
+    }
+
+    private static OldBlendedNoise oldBlendedNoise(
+            float xzScale, float yScale, float xzFactor, float yFactor, float smear) {
+        OldBlendedNoise obn = new OldBlendedNoise();
+        obn.xz_scale = xzScale;
+        obn.y_scale = yScale;
+        obn.xz_factor = xzFactor;
+        obn.y_factor = yFactor;
+        obn.smear_scale_multiplier = smear;
+        return obn;
+    }
+
+    /**
+     * Test 15: OldBlendedNoise codegen.
+     * Verifies that OldBlendedNoise emits a sampleOldBlendedNoise() call, registers exactly one
+     * noise slot, and bakes xzMul (684.412 * xzScale) into the GLSL as a float literal.
+     */
+    @Test
+    public void testOldBlendedNoiseCodegen() {
+        OldBlendedNoise obn = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        List<GeneratedKernel> kernels = compile(obn);
+
+        assertEquals(1, kernels.size(), "OldBlendedNoise alone should produce one kernel");
+
+        GeneratedKernel k = kernels.get(0);
+        String glsl = k.glslSource;
+
+        assertTrue(glsl.contains("sampleOldBlendedNoise("),
+            "GLSL should call sampleOldBlendedNoise()");
+        assertTrue(glsl.contains("obnSampleOctave("),
+            "GLSL preamble should define obnSampleOctave()");
+        assertTrue(glsl.contains("obnWrap("),
+            "GLSL preamble should define obnWrap()");
+        assertTrue(glsl.contains("constantOffset"),
+            "GLSL should contain 'constantOffset' push constant for the OBN table base");
+
+        assertEquals(1, k.noiseSlotIds.size(),
+            "Exactly one noise slot should be registered for OldBlendedNoise");
+        assertTrue(k.noiseSlotIds.get(0).startsWith("old_blended_noise:"),
+            "Noise slot ID should start with 'old_blended_noise:'");
+
+        // xzMul = 684.412 * 1.0 = 684.412; verify baked as float literal
+        assertTrue(glsl.contains("684.412"),
+            "GLSL should contain baked xzMul literal (684.412 * xzScale)");
+    }
+
+    /**
+     * Test 16: Two OldBlendedNoise with same params → one shared noise slot (CSE).
+     * Two OldBlendedNoise with different params → two distinct noise slots.
+     */
+    @Test
+    public void testOldBlendedNoiseSameParamsSharesSlot() {
+        OldBlendedNoise obn1 = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoise obn2 = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoise obn3 = oldBlendedNoise(2.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+
+        // Same params: same noise slot
+        AddBinary sameParams = add(obn1, obn2);
+        List<GeneratedKernel> kernels = compile(sameParams);
+        GeneratedKernel k = kernels.get(kernels.size() - 1);
+        assertEquals(1, k.noiseSlotIds.size(),
+            "Two OBN nodes with identical params should share one noise slot");
+
+        // Different params: two distinct slots
+        AddBinary diffParams = add(obn1, obn3);
+        kernels = compile(diffParams);
+        k = kernels.get(kernels.size() - 1);
+        assertEquals(2, k.noiseSlotIds.size(),
+            "Two OBN nodes with different params should produce two noise slots");
+    }
+
+    /**
+     * Test 17: NoiseFunc GLSL includes obnSampleOctave and obnWrap (now part of PERLIN_FUNCTION).
+     * Previously these were only in OBN_FUNCTION; they must be present whenever sampleNoise is used.
+     */
+    @Test
+    public void testNoiseFuncIncludesOctaveHelpers() {
+        NoiseFunc root = noise("minecraft:temperature", 1.0f, 1.0f);
+        List<GeneratedKernel> kernels = compile(root);
+
+        assertEquals(1, kernels.size());
+        String glsl = kernels.get(0).glslSource;
+
+        assertTrue(glsl.contains("obnSampleOctave("),
+            "sampleNoise depends on obnSampleOctave — it must be present in the preamble");
+        assertTrue(glsl.contains("obnWrap("),
+            "sampleNoise depends on obnWrap — it must be present in the preamble");
+        assertTrue(glsl.contains("OBN_GRADIENT"),
+            "obnSampleOctave depends on OBN_GRADIENT — it must be declared in the preamble");
+        // sampleOldBlendedNoise must NOT be present (no OBN node)
+        assertFalse(glsl.contains("sampleOldBlendedNoise("),
+            "sampleOldBlendedNoise must not appear in a NoiseFunc-only kernel");
+    }
+
+    /**
+     * Test 18: A kernel with both a NoiseFunc and an OldBlendedNoise gets both preamble sections,
+     * but neither obnPerm nor obnSampleOctave is duplicated.
+     */
+    @Test
+    public void testMixedNoiseAndObnNoDuplication() {
+        OldBlendedNoise obn = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        NoiseFunc nf = noise("minecraft:temperature", 1.0f, 1.0f);
+        AddBinary root = add(obn, nf);
+        List<GeneratedKernel> kernels = compile(root);
+
+        // Find the kernel that computes this add (last non-terminal or only terminal kernel).
+        GeneratedKernel k = kernels.get(kernels.size() - 1);
+        String glsl = k.glslSource;
+
+        assertTrue(glsl.contains("sampleNoise("),        "sampleNoise must be present");
+        assertTrue(glsl.contains("sampleOldBlendedNoise("), "sampleOldBlendedNoise must be present");
+        assertTrue(glsl.contains("obnSampleOctave("),    "obnSampleOctave must be present");
+
+        // Check no duplicate declaration of obnPerm (should appear exactly once as a definition).
+        int first = glsl.indexOf("int obnPerm(");
+        int second = glsl.indexOf("int obnPerm(", first + 1);
+        assertEquals(-1, second, "obnPerm must not be defined twice");
     }
 
     /**

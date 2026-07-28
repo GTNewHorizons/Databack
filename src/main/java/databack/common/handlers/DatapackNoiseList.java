@@ -1,5 +1,8 @@
 package databack.common.handlers;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,11 +49,26 @@ public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
 
             if (data == null) throw new IllegalStateException("Unknown noise: " + name);
 
-            sampler = data.createSampler(dimensionSeed);
+            long noiseSeed = hashNoiseName(name) ^ dimensionSeed;
+            sampler = data.createSampler(noiseSeed);
 
             cache.put(dimensionSeed, sampler);
         }
 
         return sampler;
+    }
+
+    private static long hashNoiseName(String name) {
+        try {
+            MessageDigest md5 = MessageDigest.getInstance("MD5");
+            byte[] digest = md5.digest(name.getBytes(StandardCharsets.UTF_8));
+            long seed = 0L;
+            for (int i = 0; i < 8; i++) {
+                seed |= (long) (digest[i] & 0xFF) << (i * 8);
+            }
+            return seed;
+        } catch (NoSuchAlgorithmException e) {
+            throw new AssertionError("MD5 not available", e);
+        }
     }
 }

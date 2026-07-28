@@ -14,3 +14,9 @@ The fourth is various shim systems, that convert 1.7's world state into somethin
 The fifth (not yet implemented) system is the world generator, which will use all of the above to generate worlds.
 
 All systems must 1:1 compatible with modern. While we will likely have to make manual edits to some datapacks, most should work natively and without edits. Unimplemented/out-of-scope features should emit a warning and safely no-op.
+
+The vanilla 26.1 datapack is automatically extracted to build/modernData/data/minecraft, and should be used as a reference.
+
+When examining the structure of json files in a datapack, use the `jq` command as much as possible (when on linux).
+
+Write tests for as much code as possible.

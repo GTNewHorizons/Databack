@@ -22,4 +22,17 @@ public enum BarrierKind {
      * This is the node visible to consumers of an Interpolated function.
      */
     INTERPOLATED_INTERP,
+
+    /**
+     * Spline, coordinate pass: evaluates the spline's coordinate expression — PER_VOXEL output.
+     * Always paired with {@link #SPLINE_EVAL}; never appears standalone.
+     */
+    SPLINE_COORD,
+
+    /**
+     * Spline, evaluation pass: reads the coordinate from the {@link #SPLINE_COORD} buffer and
+     * evaluates the cubic-Hermite spline — PER_VOXEL output.
+     * This is the node visible to consumers of a SplineCurve.
+     */
+    SPLINE_EVAL,
 }
