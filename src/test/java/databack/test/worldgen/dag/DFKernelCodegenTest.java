@@ -647,9 +647,9 @@ public class DFKernelCodegenTest {
             "IntervalSelectFunc should contain second threshold 0.5f");
     }
 
-    private static OldBlendedNoise oldBlendedNoise(
+    private static OldBlendedNoiseFunc oldBlendedNoise(
             float xzScale, float yScale, float xzFactor, float yFactor, float smear) {
-        OldBlendedNoise obn = new OldBlendedNoise();
+        OldBlendedNoiseFunc obn = new OldBlendedNoiseFunc();
         obn.xz_scale = xzScale;
         obn.y_scale = yScale;
         obn.xz_factor = xzFactor;
@@ -665,7 +665,7 @@ public class DFKernelCodegenTest {
      */
     @Test
     public void testOldBlendedNoiseCodegen() {
-        OldBlendedNoise obn = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoiseFunc obn = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
         List<GeneratedKernel> kernels = compile(obn);
 
         assertEquals(1, kernels.size(), "OldBlendedNoise alone should produce one kernel");
@@ -698,9 +698,9 @@ public class DFKernelCodegenTest {
      */
     @Test
     public void testOldBlendedNoiseSameParamsSharesSlot() {
-        OldBlendedNoise obn1 = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
-        OldBlendedNoise obn2 = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
-        OldBlendedNoise obn3 = oldBlendedNoise(2.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoiseFunc obn1 = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoiseFunc obn2 = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoiseFunc obn3 = oldBlendedNoise(2.0f, 1.0f, 80.0f, 160.0f, 8.0f);
 
         // Same params: same noise slot
         AddBinary sameParams = add(obn1, obn2);
@@ -746,7 +746,7 @@ public class DFKernelCodegenTest {
      */
     @Test
     public void testMixedNoiseAndObnNoDuplication() {
-        OldBlendedNoise obn = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
+        OldBlendedNoiseFunc obn = oldBlendedNoise(1.0f, 1.0f, 80.0f, 160.0f, 8.0f);
         NoiseFunc nf = noise("minecraft:temperature", 1.0f, 1.0f);
         AddBinary root = add(obn, nf);
         List<GeneratedKernel> kernels = compile(root);
@@ -766,8 +766,90 @@ public class DFKernelCodegenTest {
     }
 
     /**
+     * Test 19: PER_CORNER reading PER_COLUMN — index must not use threadIdx.
+     * <p>
+     * {@code interpolated(flatCache(constant(1.0f)))} creates:
+     * <ol>
+     *   <li>FLAT_CACHE kernel (PER_COLUMN) — writes 16×16 column buffer</li>
+     *   <li>INTERPOLATED_SAMPLE kernel (PER_CORNER) — reads the PER_COLUMN buffer</li>
+     *   <li>INTERPOLATED_INTERP + terminal (PER_VOXEL)</li>
+     * </ol>
+     * The PER_CORNER kernel must access the PER_COLUMN buffer with the column-plane formula
+     * ({@code min(cornerZ*4,15)*16 + min(cornerX*4,15)}), not with {@code threadIdx}
+     * ({@code cornerZ*25 + cornerY*5 + cornerX}).  Using threadIdx would contaminate the
+     * Y-independent offset/factor reads with the corner Y-index and produce wrong terrain.
+     */
+    @Test
+    public void testInterpolatedFlatCacheColumnIndex() {
+        // interpolated(add(constant, flatCache(constant))) — the add is an inline node in the
+        // INTERPOLATED_SAMPLE (PER_CORNER) kernel; flatCache is a PER_COLUMN barrier that the
+        // PER_CORNER kernel must read with a column-plane index, not threadIdx.
+        InterpolatedFunc root = interpolated(add(constant(0.5f), flatCache(constant(1.0f))));
+        List<GeneratedKernel> kernels = compile(root);
+
+        // Find the PER_CORNER (INTERPOLATED_SAMPLE) kernel.
+        GeneratedKernel cornerKernel = null;
+        for (GeneratedKernel k : kernels) {
+            if (k.shape == DispatchShape.PER_CORNER) {
+                cornerKernel = k;
+                break;
+            }
+        }
+        assertNotNull(cornerKernel, "Expected a PER_CORNER INTERPOLATED_SAMPLE kernel");
+
+        String glsl = cornerKernel.glslSource;
+        // Must use the column-plane index (no Y contamination).
+        assertTrue(glsl.contains("min(cornerZ * 4, 15) * 16 + min(cornerX * 4, 15)"),
+            "PER_CORNER reading PER_COLUMN must use 'min(cornerZ * 4, 15) * 16 + min(cornerX * 4, 15)', "
+            + "not threadIdx (which mixes in cornerY and maps to wrong column entries).\nGLSL:\n" + glsl);
+    }
+
+    /**
      * Test 13: All kernels in a moderately complex plan have a void main() entry point.
      * Plan: CacheOnce(Add(NoiseFunc, NoiseFunc)) → Interpolated reads that, terminal reads INTERP.
+     */
+    /**
+     * Test 20: FlatCacheUnary wrapping Cache2DFunc — the degenerate pass-through case.
+     * <p>
+     * The FlatCacheUnary kernel has no inline nodes; its only work is to copy the
+     * Cache2DFunc output into the flat_cache buffer.  Before the fix, void main() was
+     * empty and SET_OUTPUT was never called, leaving the output buffer uninitialised.
+     */
+    @Test
+    public void testFlatCachePassThrough() {
+        Cache2DFunc cache2d = new Cache2DFunc();
+        cache2d.argument = constant(1.0f);
+        FlatCacheUnary root = flatCache(cache2d);
+
+        List<GeneratedKernel> kernels = compile(root);
+
+        // Find the FlatCacheUnary kernel (PER_COLUMN, non-terminal output is FLAT_CACHE).
+        GeneratedKernel flatCacheKernel = null;
+        for (GeneratedKernel k : kernels) {
+            if (k.shape == DispatchShape.PER_COLUMN && k.outputBarrierId != null) {
+                // There may be two PER_COLUMN kernels (cache2d and flatCache); pick the
+                // one whose GLSL reads a Cache2DFunc buffer.
+                if (k.glslSource.contains("GET_CACHE2_D_FUNC")) {
+                    flatCacheKernel = k;
+                    break;
+                }
+            }
+        }
+        assertNotNull(flatCacheKernel, "Expected a PER_COLUMN FlatCacheUnary kernel that reads Cache2DFunc");
+
+        String glsl = flatCacheKernel.glslSource;
+        assertTrue(glsl.contains("SET_OUTPUT"),
+            "FlatCacheUnary pass-through kernel must call SET_OUTPUT; found:\n" + glsl);
+        assertTrue(glsl.contains("GET_CACHE2_D_FUNC"),
+            "FlatCacheUnary pass-through kernel must read the Cache2DFunc barrier; found:\n" + glsl);
+        // The index must be threadIdx (both buffers are PER_COLUMN with the same layout).
+        assertTrue(glsl.contains("SET_OUTPUT(threadIdx, GET_CACHE2_D_FUNC") &&
+                   glsl.contains("(threadIdx)"),
+            "FlatCacheUnary pass-through must be SET_OUTPUT(threadIdx, GET_CACHE2_D_FUNC_*(threadIdx)); found:\n" + glsl);
+    }
+
+    /**
+     * Test 21: All kernels in any plan must contain SET_OUTPUT (no silent empty-body kernels).
      */
     @Test
     public void testAllKernelsHaveMain() {

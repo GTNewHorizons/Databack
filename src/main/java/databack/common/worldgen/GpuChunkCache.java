@@ -18,6 +18,8 @@ import mcgpu.core.hwaccel.scheduling.ComputePlan;
 import mcgpu.core.hwaccel.scheduling.KernelScheduler;
 
 import databack.common.worldgen.dag.DFPlanBuilder;
+import databack.common.worldgen.debug.ChunkDebugCapture;
+import databack.common.worldgen.debug.DebugCaptureStore;
 
 /**
  * Batches GPU density-function evaluation across chunk columns and caches the results.
@@ -106,6 +108,9 @@ public class GpuChunkCache {
 
     private void submitBatchGpu(List<XZAddressable> columns) {
         List<ComputePlan> plans = new ArrayList<>(columns.size());
+        DebugCaptureStore store = DebugCaptureStore.getInstance();
+        boolean debug = store.isEnabled();
+        List<ChunkDebugCapture.Builder> builders = debug ? new ArrayList<>(columns.size()) : null;
 
         for (XZAddressable col : columns) {
             float[][] densities = new float[16][4096];
@@ -118,10 +123,40 @@ public class GpuChunkCache {
                 consumers.put(y, buf -> buf.get(section));
             }
 
-            plans.add(planBuilder.createPlan(col.getX(), col.getZ(), consumers));
+            if (debug) {
+                ChunkDebugCapture.Builder builder =
+                    new ChunkDebugCapture.Builder(col.getX(), col.getZ());
+                builders.add(builder);
+                // Builder implements KernelDispatchListener — no debug type leaks into DFPlanBuilder.
+                plans.add(planBuilder.createPlan(col.getX(), col.getZ(), consumers, builder));
+            } else {
+                plans.add(planBuilder.createPlan(col.getX(), col.getZ(), consumers));
+            }
         }
 
         // Blocking: spins until all GPU work and terminal callbacks complete.
         scheduler.submit(plans);
+
+        // Finalize captures — densities[][] are fully populated now that submit() has returned.
+        if (debug) {
+            for (int i = 0; i < columns.size(); i++) {
+                XZAddressable col = columns.get(i);
+                store.store(builders.get(i).build(computed.get(col)));
+            }
+        }
+    }
+
+    /**
+     * Bypasses the cache and forces GPU re-evaluation of the given chunk column.
+     * Removes the column from both the result cache and the submission guard so that the next
+     * {@link #getOrCompute} call re-submits a full batch (which will also re-submit neighbours).
+     * <p>
+     * Must only be called from the server thread (or a thread not concurrent with it).
+     * Intended for use by the debug UI replay feature.
+     */
+    public void forceRecompute(int chunkX, int chunkZ) {
+        computed.remove(chunkX, chunkZ);
+        submitted.remove(chunkX, chunkZ);
+        getOrCompute(chunkX, chunkZ);
     }
 }

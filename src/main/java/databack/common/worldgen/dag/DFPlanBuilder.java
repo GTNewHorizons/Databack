@@ -1,14 +1,18 @@
 package databack.common.worldgen.dag;
 
+import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Consumer;
 
+import mcgpu.core.hwaccel.buffer.BufferDataType;
 import mcgpu.core.hwaccel.buffer.BufferDescriptor;
 import mcgpu.core.hwaccel.scheduling.ComputePlan;
 
@@ -75,6 +79,19 @@ public class DFPlanBuilder {
     }
 
     /**
+     * Returns all unique noise slot IDs referenced across every kernel in this plan.
+     * Call this on the server thread to pre-fetch noise data before handing it off to
+     * {@link DensityFunctionExecutor#setNoiseProvider}.
+     */
+    public Set<String> getNoiseSlotIds() {
+        Set<String> ids = new LinkedHashSet<>();
+        for (GeneratedKernel k : kernels) {
+            ids.addAll(k.noiseSlotIds);
+        }
+        return ids;
+    }
+
+    /**
      * Wires density-function kernel submissions for every entry in {@code yLevelConsumers} into a
      * new {@link ComputePlan}, deduplicating Y-independent ({@link BarrierKind#FLAT_CACHE}) kernel
      * stages so they dispatch only once per chunk column. Terminal readback tasks are registered
@@ -90,6 +107,23 @@ public class DFPlanBuilder {
      */
     public ComputePlan createPlan(int chunkX, int chunkZ,
             Map<Integer, Consumer<FloatBuffer>> yLevelConsumers) {
+        return createPlan(chunkX, chunkZ, yLevelConsumers, null);
+    }
+
+    /**
+     * Like {@link #createPlan(int, int, Map)} but also notifies a {@link KernelDispatchListener}
+     * with the captured output of every intermediate (non-terminal) kernel stage.
+     * <p>
+     * When {@code listener} is non-null, an extra {@code plan.terminal()} call is registered for
+     * each intermediate buffer so its GPU readback data is delivered to the listener inside
+     * {@code KernelScheduler.submit()}. The terminal kernel's output is never sent to the
+     * listener — it is delivered to the normal consumer and available via the density arrays.
+     *
+     * @param listener optional capture listener; {@code null} disables capture with no overhead
+     */
+    public ComputePlan createPlan(int chunkX, int chunkZ,
+            Map<Integer, Consumer<FloatBuffer>> yLevelConsumers,
+            KernelDispatchListener listener) {
         ComputePlan plan = new ComputePlan();
 
         // Y-independent buffer descriptors (FLAT_CACHE outputs) — dispatched once, shared by all Y.
@@ -112,7 +146,20 @@ public class DFPlanBuilder {
                     resolveInputs(kernel, gi, sharedBuffers, null);
                 Map<String, BufferDescriptor> outputs =
                     plan.submit(executor, new int[]{chunkX, 0, chunkZ}, inputs);
-                sharedBuffers.put(kernel.outputBarrierId, outputs.get("output"));
+                BufferDescriptor outDesc = outputs.get("output");
+                sharedBuffers.put(kernel.outputBarrierId, outDesc);
+
+                // FLAT_CACHE kernels always write f32.
+                if (listener != null) {
+                    final GeneratedKernel gk = kernel;
+                    final int[] key = {chunkX, 0, chunkZ};
+                    plan.terminal(
+                        Collections.singletonMap("output", outDesc),
+                        buffers -> listener.onKernelOutput(
+                            gk.shape, key, gk.outputBarrierId, gk.inputBarrierIds,
+                            gk.glslSource, BufferDataType.f32,
+                            extractFloats(buffers.get("output"))));
+                }
 
             } else {
                 // Y-dependent: dispatch once per Y-level.
@@ -124,9 +171,25 @@ public class DFPlanBuilder {
                         plan.submit(executor, new int[]{chunkX, chunkY, chunkZ}, inputs);
 
                     if (kernel.outputBarrierId != null) {
-                        perYBuffers.get(chunkY).put(kernel.outputBarrierId, outputs.get("output"));
+                        BufferDescriptor outDesc = outputs.get("output");
+                        perYBuffers.get(chunkY).put(kernel.outputBarrierId, outDesc);
+
+                        if (listener != null) {
+                            final GeneratedKernel gk = kernel;
+                            final int[] key = {chunkX, chunkY, chunkZ};
+                            final BufferDataType dtype =
+                                executor.isColumnReduce() ? BufferDataType.u32 : BufferDataType.f32;
+                            plan.terminal(
+                                Collections.singletonMap("output", outDesc),
+                                buffers -> listener.onKernelOutput(
+                                    gk.shape, key, gk.outputBarrierId, gk.inputBarrierIds,
+                                    gk.glslSource, dtype,
+                                    extractFloats(buffers.get("output"))));
+                        }
                     } else {
                         // Terminal group: wire readback → consumer.
+                        // The terminal output is not sent to the listener — it is available via
+                        // the densities array in ChunkDebugCapture after submit() returns.
                         Consumer<FloatBuffer> consumer = yEntry.getValue();
                         plan.terminal(
                             Collections.singletonMap("output", outputs.get("output")),
@@ -138,6 +201,15 @@ public class DFPlanBuilder {
         }
 
         return plan;
+    }
+
+    /** Copies a ByteBuffer's content into a new float[] using native byte order. */
+    private static float[] extractFloats(ByteBuffer buf) {
+        buf.order(ByteOrder.nativeOrder());
+        FloatBuffer fb = buf.asFloatBuffer();
+        float[] arr = new float[fb.remaining()];
+        fb.get(arr);
+        return arr;
     }
 
     /**

@@ -17,6 +17,7 @@ import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import com.gtnewhorizon.gtnhlib.util.data.BlockMeta;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 import databack.common.context.WorldContext;
+import databack.common.context.WorldContextImpl;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.MultiNoiseBiomes;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.NoiseDimensionGenerator;
 import databack.common.dto.dimension.Dimension;
@@ -30,9 +31,25 @@ import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
 import databack.common.handlers.WorldPresetList;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.function.Function;
+
+import databack.common.dto.worldgen.density_function.OldBlendedNoise;
+import databack.common.handlers.DatapackNoiseList;
 import databack.common.worldgen.dag.DFDagBuilder;
 import databack.common.worldgen.dag.DFKernelPlan;
 import databack.common.worldgen.dag.DFPlanBuilder;
+import databack.common.worldgen.dag.DensityFunctionExecutor;
+import databack.common.worldgen.debug.DebugCaptureStore;
+import databack.common.worldgen.noise.NormalNoiseGpuSerializer;
+import databack.common.worldgen.noise.OldBlendedNoiseGpuSerializer;
+import databack.common.worldgen.rng.RandomFactory;
+import databack.common.worldgen.rng.RandomSource;
+import databack.common.worldgen.rng.StandardRandom;
+import databack.common.worldgen.rng.StandardRandomFactory;
+import databack.common.worldgen.rng.XoroshiroRandom;
+import databack.common.worldgen.rng.XoroshiroRandomFactory;
 import mcgpu.core.hwaccel.KernelContext;
 
 public class ModernWorldGenerator implements IChunkProvider {
@@ -92,8 +109,38 @@ public class ModernWorldGenerator implements IChunkProvider {
         if (KernelContext.isEnabled()) {
             DFKernelPlan kernelPlan = DFDagBuilder.build(router.final_density);
             DFPlanBuilder planBuilder = DFPlanBuilder.create(kernelPlan);
-            planBuilder.getExecutors().forEach(KernelContext.getScheduler()::compileExecutor);
+
+            // Pre-serialize all noise tables on the server thread (DatapackNoiseList is thread-local).
+            DatapackNoiseList noiseList = DatapackNoiseList.RT.getHandler();
+
+            Map<String, int[]> noiseData = new HashMap<>();
+
+            for (String id : planBuilder.getNoiseSlotIds()) {
+                if (noiseList.getNoise(id) != null) {
+                    // NormalNoise registry entry.
+                    noiseData.put(id, NormalNoiseGpuSerializer.toGpuData(noiseList.getNormalNoise(rng.fromHashOf(id), id)));
+                } else if (id.startsWith("old_blended_noise:")) {
+                    // OBN synthetic ID — parse params and re-create with same seed as instantiate().
+                    String[] parts = id.split(":");
+                    float xzScale  = Float.parseFloat(parts[1]);
+                    float yScale   = Float.parseFloat(parts[2]);
+                    float xzFactor = Float.parseFloat(parts[3]);
+                    float yFactor  = Float.parseFloat(parts[4]);
+                    float smear    = Float.parseFloat(parts[5]);
+
+                    OldBlendedNoise obn = new OldBlendedNoise(rng, xzScale, yScale, xzFactor, yFactor, smear);
+                    noiseData.put(id, OldBlendedNoiseGpuSerializer.toGpuData(obn));
+                }
+            }
+
+            Function<String, int[]> noiseProvider = noiseData::get;
+
+            for (DensityFunctionExecutor executor : planBuilder.getExecutors()) {
+                executor.setNoiseProvider(noiseProvider);
+                KernelContext.getScheduler().compileExecutor(executor);
+            }
             this.gpuCache = new GpuChunkCache(planBuilder, KernelContext.getScheduler());
+            DebugCaptureStore.getInstance().registerCache(this.gpuCache);
         } else {
             this.gpuCache = null;
         }

@@ -88,6 +88,15 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
         return !group.isTerminal() && group.output().kind() == BarrierKind.FLAT_CACHE;
     }
 
+    /**
+     * Returns true if this kernel's output buffer contains {@code u32} values.
+     * Only {@link BarrierKind#COLUMN_REDUCE} kernels write u32 (surface Y values);
+     * all other kernels write f32.
+     */
+    boolean isColumnReduce() {
+        return !group.isTerminal() && group.output().kind() == BarrierKind.COLUMN_REDUCE;
+    }
+
     // -------------------------------------------------------------------------
     // KernelExecutor — worker-thread methods
     // -------------------------------------------------------------------------
