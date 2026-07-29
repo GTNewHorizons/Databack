@@ -1,15 +1,17 @@
 package databack.common.dto.worldgen.density_function;
 
-import java.util.Random;
-
+import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.OldBlendedNoiseFunc;
 import databack.common.worldgen.noise.ImprovedNoise;
 import databack.common.worldgen.noise.PerlinNoise;
+import databack.common.worldgen.rng.RandomFactory;
+import databack.common.worldgen.rng.RandomSource;
+import databack.common.worldgen.rng.StandardRandomFactory;
 
 /**
  * Runtime density function for minecraft:old_blended_noise.
  *
  * Ported from net.minecraft.world.level.levelgen.synth.BlendedNoise.
- * Seeded and instantiated by {@link BuiltinDensityFunctions.OldBlendedNoise}.
+ * Seeded and instantiated by {@link OldBlendedNoiseFunc}.
  */
 public class OldBlendedNoise implements IDensityFunction {
 
@@ -26,12 +28,22 @@ public class OldBlendedNoise implements IDensityFunction {
     // Reused each compute() call; valid only until the next compute() call on this instance.
     private final DensityBuffer.CubeBuffer buffer = new DensityBuffer.CubeBuffer(null);
 
-    public OldBlendedNoise(Random random, double xzScale, double yScale,
-                            double xzFactor, double yFactor, double smearScaleMultiplier) {
-        // Consume RNG in the same order as the modern BlendedNoise(RandomSource, ...) constructor.
-        this.minLimitNoise = PerlinNoise.createLegacyForBlendedNoise(random, -15, 16);
-        this.maxLimitNoise = PerlinNoise.createLegacyForBlendedNoise(random, -15, 16);
-        this.mainNoise     = PerlinNoise.createLegacyForBlendedNoise(random,  -7,  8);
+    public OldBlendedNoise(
+        RandomFactory random, double xzScale, double yScale, double xzFactor, double yFactor,
+        double smearScaleMultiplier
+    ) {
+
+        RandomSource rng;
+
+        if (random instanceof StandardRandomFactory) {
+            rng = random.newInstance();
+        } else {
+            rng = random.fromHashOf("minecraft:terrain");
+        }
+
+        this.minLimitNoise = PerlinNoise.createLegacyForBlendedNoise(rng, -15, 16);
+        this.maxLimitNoise = PerlinNoise.createLegacyForBlendedNoise(rng, -15, 16);
+        this.mainNoise     = PerlinNoise.createLegacyForBlendedNoise(rng,  -7,  8);
         this.xzMultiplier = 684.412 * xzScale;
         this.yMultiplier  = 684.412 * yScale;
         this.xzFactor = xzFactor;
@@ -115,6 +127,10 @@ public class OldBlendedNoise implements IDensityFunction {
 
         return buffer;
     }
+
+    public PerlinNoise getMainNoise()     { return mainNoise; }
+    public PerlinNoise getMinLimitNoise() { return minLimitNoise; }
+    public PerlinNoise getMaxLimitNoise() { return maxLimitNoise; }
 
     public double minValue() {
         return -maxValue;

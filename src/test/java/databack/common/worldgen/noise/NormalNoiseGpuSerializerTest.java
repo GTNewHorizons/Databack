@@ -4,12 +4,12 @@ import static org.junit.jupiter.api.Assertions.*;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.Random;
+import databack.common.worldgen.rng.StandardRandom;
 
 public class NormalNoiseGpuSerializerTest {
 
     private static NormalNoise makeNoise(long seed, int firstOctave, double... amplitudes) {
-        return NormalNoise.create(new Random(seed),
+        return NormalNoise.create(new StandardRandom(seed),
             new NormalNoise.NoiseParameters(firstOctave, amplitudes));
     }
 

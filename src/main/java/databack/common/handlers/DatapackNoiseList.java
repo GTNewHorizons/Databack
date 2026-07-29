@@ -1,8 +1,5 @@
 package databack.common.handlers;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -10,6 +7,9 @@ import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
 import databack.common.dto.worldgen.noise.DatapackNoise;
+import databack.common.worldgen.noise.NormalNoise;
+import databack.common.worldgen.rng.RandomFactory;
+import databack.common.worldgen.rng.RandomSource;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
@@ -39,36 +39,31 @@ public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
         samplerCache.clear();
     }
 
-    public NoiseSampler getSampler(long dimensionSeed, String name) {
-        var cache = samplerCache.computeIfAbsent(name, $ -> new Long2ObjectOpenHashMap<>());
-
-        var sampler = cache.get(dimensionSeed);
-
-        if (sampler == null) {
-            DatapackNoise data = getNoise(name);
-
-            if (data == null) throw new IllegalStateException("Unknown noise: " + name);
-
-            long noiseSeed = hashNoiseName(name) ^ dimensionSeed;
-            sampler = data.createSampler(noiseSeed);
-
-            cache.put(dimensionSeed, sampler);
-        }
-
-        return sampler;
+    /**
+     * Creates a {@link NormalNoise} for the given noise name and dimension seed,
+     * using the same seeding as {@link #getSampler}.
+     */
+    public NormalNoise getNormalNoise(RandomSource rng, String name) {
+        DatapackNoise data = getNoise(name);
+        if (data == null) throw new IllegalStateException("Unknown noise: " + name);
+        return NormalNoise.create(
+            rng,
+            new NormalNoise.NoiseParameters(data.firstOctave, data.amplitudes));
     }
 
-    private static long hashNoiseName(String name) {
-        try {
-            MessageDigest md5 = MessageDigest.getInstance("MD5");
-            byte[] digest = md5.digest(name.getBytes(StandardCharsets.UTF_8));
-            long seed = 0L;
-            for (int i = 0; i < 8; i++) {
-                seed |= (long) (digest[i] & 0xFF) << (i * 8);
+    public NoiseSampler getSampler(RandomFactory rng, String name) {
+        NormalNoise noise = getNormalNoise(rng.fromHashOf(name), name);
+
+        return new NoiseSampler() {
+            @Override
+            public double sample(double x, double y) {
+                return noise.getValue(x, 0.0, y);
             }
-            return seed;
-        } catch (NoSuchAlgorithmException e) {
-            throw new AssertionError("MD5 not available", e);
-        }
+
+            @Override
+            public double sample(double x, double y, double z) {
+                return noise.getValue(x, y, z);
+            }
+        };
     }
 }

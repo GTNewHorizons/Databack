@@ -1,6 +1,6 @@
 package databack.common.worldgen.noise;
 
-import java.util.Random;
+import databack.common.worldgen.rng.RandomSource;
 
 /**
  * Port of net.minecraft.world.level.levelgen.synth.ImprovedNoise (legacy sampling path only).
@@ -20,7 +20,7 @@ public final class ImprovedNoise {
     public final double yo;
     public final double zo;
 
-    public ImprovedNoise(Random random) {
+    public ImprovedNoise(RandomSource random) {
         this.xo = random.nextDouble() * 256.0;
         this.yo = random.nextDouble() * 256.0;
         this.zo = random.nextDouble() * 256.0;

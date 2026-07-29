@@ -82,6 +82,11 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         WorldContext context = WorldContext.getContext(world);
 
+        RandomFactory rng = generatorSettings.legacy_random_source
+            ? new StandardRandom(world.getSeed()).forkFactory()
+            : new XoroshiroRandom(world.getSeed()).forkFactory();
+        ((WorldContextImpl) context).setRandom(rng);
+
         this.finalDensity = router.final_density.instantiate(context);
 
         if (KernelContext.isEnabled()) {

@@ -10,6 +10,8 @@ import net.minecraft.world.World;
 
 import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
 import databack.common.dto.worldgen.density_function.DensityMask;
+import databack.common.worldgen.rng.RandomFactory;
+import databack.common.worldgen.rng.RandomSource;
 
 @SuppressWarnings("unchecked")
 public class WorldContextImpl implements WorldContext {
@@ -28,6 +30,8 @@ public class WorldContextImpl implements WorldContext {
     @SuppressWarnings("rawtypes")
     private final ArrayList cache = new ArrayList();
 
+    private RandomFactory rng;
+
     public WorldContextImpl(World world) {
         this.world = world;
     }
@@ -37,9 +41,13 @@ public class WorldContextImpl implements WorldContext {
         return world;
     }
 
+    public void setRandom(RandomFactory rng) {
+        this.rng = rng;
+    }
+
     @Override
-    public long getSeed() {
-        return world.getSeed();
+    public RandomFactory getRandom() {
+        return rng;
     }
 
     @Override

@@ -1,6 +1,6 @@
 package databack.common.worldgen.noise;
 
-import java.util.Random;
+import databack.common.worldgen.rng.RandomSource;
 
 /**
  * Port of net.minecraft.world.level.levelgen.synth.NormalNoise.
@@ -32,7 +32,7 @@ public final class NormalNoise {
      * Creates a NormalNoise using modern positional initialization.
      * Matches {@code NormalNoise.create(RandomSource, NoiseParameters)} in vanilla 1.21.
      */
-    public static NormalNoise create(Random random, NoiseParameters parameters) {
+    public static NormalNoise create(RandomSource random, NoiseParameters parameters) {
         return new NormalNoise(random, parameters, true);
     }
 
@@ -40,13 +40,13 @@ public final class NormalNoise {
      * Creates a NormalNoise using the deprecated legacy-nether-biome sequential initialization.
      * Matches {@code NormalNoise.createLegacyNetherBiome(RandomSource, NoiseParameters)}.
      */
-    public static NormalNoise createLegacyNetherBiome(Random random, NoiseParameters parameters) {
+    public static NormalNoise createLegacyNetherBiome(RandomSource random, NoiseParameters parameters) {
         return new NormalNoise(random, parameters, false);
     }
 
     // ---- Constructor ----
 
-    private NormalNoise(Random random, NoiseParameters parameters, boolean useNewInit) {
+    private NormalNoise(RandomSource random, NoiseParameters parameters, boolean useNewInit) {
         this.parameters = parameters;
         int firstOctave = parameters.firstOctave;
         double[] amplitudes = parameters.amplitudes;

@@ -17,7 +17,6 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.gtnewhorizon.gtnhlib.noise.NoiseSampler;
 import databack.common.context.WorldContext;
-import databack.common.context.WorldContextImpl;
 import databack.common.dto.worldgen.density_function.DensityBuffer.ConstantBuffer;
 import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
 import databack.common.handlers.DatapackNoiseList;
@@ -25,7 +24,6 @@ import databack.common.handlers.DensityFunctionList;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
 import databack.common.util.DBDataUtils;
-import databack.common.util.QuantizedFloatMap2D;
 
 @SuppressWarnings("unused")
 public class BuiltinDensityFunctions {
@@ -44,7 +42,6 @@ public class BuiltinDensityFunctions {
         densityFunctions.addVariant("minecraft:interpolated", InterpolatedFunc.class);
         densityFunctions.addVariant("minecraft:invert", InvertUnary.class);
         densityFunctions.addVariant("minecraft:quarter_negative", QuarterNegativeUnary.class);
-        densityFunctions.addVariant("minecraft:slide", SlideUnary.class);
         densityFunctions.addVariant("minecraft:square", SquareUnary.class);
         densityFunctions.addVariant("minecraft:squeeze", SqueezeUnary.class);
 
@@ -65,7 +62,7 @@ public class BuiltinDensityFunctions {
         densityFunctions.addVariant("minecraft:weird_scaled_sampler", WeirdScaledSampler.class);
         densityFunctions.addVariant("minecraft:y_clamped_gradient", YClampedGradientFunc.class);
         densityFunctions.addVariant("minecraft:noise", NoiseFunc.class);
-        densityFunctions.addVariant("minecraft:old_blended_noise", OldBlendedNoise.class);
+        densityFunctions.addVariant("minecraft:old_blended_noise", OldBlendedNoiseFunc.class);
 
         DatapackSerialization.getBuilder().registerTypeAdapter(ISpline.class, new SplineAdapter());
         densityFunctions.addVariant("minecraft:spline", SplineFunc.class);
@@ -128,7 +125,7 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class Cache2DBuffer implements DensityBuffer {
+    private static class FlatBuffer implements DensityBuffer {
 
         public final float[] data = new float[256];
 
@@ -163,7 +160,7 @@ public class BuiltinDensityFunctions {
 
                 private final DensityMask testMask = new DensityMask();
                 private final DensityMask cacheMask = new DensityMask();
-                private final Cache2DBuffer buffer = new Cache2DBuffer();
+                private final FlatBuffer buffer = new FlatBuffer();
 
                 @Override
                 public boolean hasTrait(DensityFuncTrait trait) {
@@ -515,14 +512,6 @@ public class BuiltinDensityFunctions {
         @Override
         protected float compute(float param) {
             return param < 0 ? param * 0.25f : param;
-        }
-    }
-
-    public static class SlideUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return 0;
         }
     }
 
@@ -936,7 +925,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), noise);
+            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getRandom(), noise);
             IDensityFunction sx = shift_x.instantiate(ctx);
             IDensityFunction sy = shift_y.instantiate(ctx);
             IDensityFunction sz = shift_z.instantiate(ctx);
@@ -967,6 +956,10 @@ public class BuiltinDensityFunctions {
                     }
                 }
 
+                sxBuf.discard();
+                syBuf.discard();
+                szBuf.discard();
+
                 sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
 
                 count = 0;
@@ -981,9 +974,6 @@ public class BuiltinDensityFunctions {
                     }
                 }
 
-                sxBuf.discard();
-                syBuf.discard();
-                szBuf.discard();
                 return out;
             };
         }
@@ -995,7 +985,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), argument);
+            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getRandom(), argument);
 
             double[] xcoord = new double[4096];
             double[] ycoord = new double[4096];
@@ -1004,8 +994,8 @@ public class BuiltinDensityFunctions {
 
             return (cubeX, cubeY, cubeZ, mask) -> {
                 int count = 0;
-                for (int z = 0; z < 16; z++)
-                    for (int y = 0; y < 16; y++)
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
                         for (int x = 0; x < 16; x++) {
                             if (mask.isSet(x, y, z)) {
                                 xcoord[count] = (cubeX << 4 | x) * 0.25;
@@ -1014,18 +1004,24 @@ public class BuiltinDensityFunctions {
                                 count++;
                             }
                         }
+                    }
+                }
 
                 sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
 
                 count = 0;
                 CubeBuffer out = ctx.getCubeBuffer();
-                for (int z = 0; z < 16; z++)
-                    for (int y = 0; y < 16; y++)
+
+                for (int z = 0; z < 16; z++) {
+                    for (int y = 0; y < 16; y++) {
                         for (int x = 0; x < 16; x++) {
                             if (mask.isSet(x, y, z)) {
                                 out.set(x, y, z, (float) (noiseout[count++] * 4));
                             }
                         }
+                    }
+                }
+
                 return out;
             };
         }
@@ -1037,12 +1033,13 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), argument);
+            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getRandom(), argument);
 
             double[] xcoord = new double[4096];
-            double[] ycoord = new double[4096]; // stays zero: sample(bx, 0.0, bz)
             double[] zcoord = new double[4096];
             double[] noiseout = new double[4096];
+
+            FlatBuffer buffer = new FlatBuffer();
 
             return new IDensityFunction() {
 
@@ -1053,35 +1050,55 @@ public class BuiltinDensityFunctions {
 
                 @Override
                 public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+
+                    DensityMask flat = ctx.getMask().flatCopy(mask);
+
                     int count = 0;
                     for (int z = 0; z < 16; z++) {
-                        for (int y = 0; y < 16; y++) {
-                            for (int x = 0; x < 16; x++) {
-                                if (mask.isSet(x, y, z)) {
-                                    xcoord[count] = (cubeX << 4 | x) * 0.25;
-                                    zcoord[count] = (cubeZ << 4 | z) * 0.25;
-                                    count++;
-                                }
+                        for (int x = 0; x < 16; x++) {
+                            if (flat.isSet(x, 0, z)) {
+                                xcoord[count] = (cubeX << 4 | x) * 0.25;
+                                zcoord[count] = (cubeZ << 4 | z) * 0.25;
+                                count++;
                             }
                         }
                     }
 
-                    sampler.fill3D(xcoord, ycoord, zcoord, noiseout, count);
+                    sampler.fill2D(xcoord, zcoord, noiseout, count);
+
+                    Arrays.fill(buffer.data, 0f);
 
                     count = 0;
-                    CubeBuffer out = ctx.getCubeBuffer();
                     for (int z = 0; z < 16; z++) {
-                        for (int y = 0; y < 16; y++) {
-                            for (int x = 0; x < 16; x++) {
-                                if (mask.isSet(x, y, z)) {
-                                    out.set(x, y, z, (float) (noiseout[count++] * 4));
-                                }
+                        for (int x = 0; x < 16; x++) {
+                            if (flat.isSet(x, 0, z)) {
+                                float sample = (float) (noiseout[count++] * 4);
+
+                                buffer.data[z << 4 | x] = sample;
                             }
                         }
                     }
-                    return out;
+
+                    ctx.releaseMask(flat);
+
+                    return buffer;
                 }
             };
+        }
+    }
+
+    private static class VerticalBuffer implements DensityBuffer {
+
+        public final float[] data = new float[256];
+
+        @Override
+        public float get(int relX, int relY, int relZ) {
+            return data[relY << 4 | relX];
+        }
+
+        @Override
+        public void discard() {
+
         }
     }
 
@@ -1091,7 +1108,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), argument);
+            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getRandom(), argument);
 
             double[] xcoord = new double[4096]; // bz: sample(bz, bx, 0.0)
             double[] ycoord = new double[4096]; // bx
@@ -1152,7 +1169,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), noise);
+            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getRandom(), noise);
             IDensityFunction inputFn = input.instantiate(ctx);
             RarityType rarityMapper = rarity_value_mapper;
 
@@ -1287,7 +1304,7 @@ public class BuiltinDensityFunctions {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getDimensionSeed(), noise);
+            NoiseSampler sampler = DatapackNoiseList.RT.getHandler().getSampler(ctx.getRandom(), noise);
             float xzs = xz_scale, ys = y_scale;
 
             double[] xcoord = new double[4096];
@@ -1335,14 +1352,14 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class OldBlendedNoise implements IDensityFunctionFactory {
+    public static class OldBlendedNoiseFunc implements IDensityFunctionFactory {
 
         public float xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier;
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return new databack.common.dto.worldgen.density_function.OldBlendedNoise(
-                new java.util.Random(ctx.getDimensionSeed()),
+            return new OldBlendedNoise(
+                ctx.getRandom(),
                 xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier
             );
         }

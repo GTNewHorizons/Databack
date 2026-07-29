@@ -3,7 +3,8 @@ package databack.common.worldgen.noise;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Random;
+
+import databack.common.worldgen.rng.RandomSource;
 
 /**
  * Port of net.minecraft.world.level.levelgen.synth.PerlinNoise.
@@ -35,7 +36,7 @@ public final class PerlinNoise {
      * Creates a legacy PerlinNoise for use in OldBlendedNoise.
      * All amplitudes are 1.0; RNG consumed sequentially.
      */
-    public static PerlinNoise createLegacyForBlendedNoise(Random random, int firstOctave, int numOctaves) {
+    public static PerlinNoise createLegacyForBlendedNoise(RandomSource random, int firstOctave, int numOctaves) {
         double[] amplitudes = new double[numOctaves];
         for (int i = 0; i < numOctaves; i++) amplitudes[i] = 1.0;
         return new PerlinNoise(random, firstOctave, amplitudes);
@@ -47,7 +48,7 @@ public final class PerlinNoise {
      * {@code "octave_N"} XOR'd with a fork seed drawn from {@code random}, approximating
      * modern MC's {@code PositionalRandomFactory.fromHashOf}.
      */
-    public static PerlinNoise create(Random random, int firstOctave, double... amplitudes) {
+    public static PerlinNoise create(RandomSource random, int firstOctave, double... amplitudes) {
         return new PerlinNoise(random, firstOctave, amplitudes, true);
     }
 
@@ -55,7 +56,7 @@ public final class PerlinNoise {
      * Creates a legacy PerlinNoise for the deprecated legacy-nether-biome {@link NormalNoise}.
      * RNG consumed sequentially, same as the blended-noise path.
      */
-    public static PerlinNoise createLegacyForLegacyNetherBiome(Random random, int firstOctave, double... amplitudes) {
+    public static PerlinNoise createLegacyForLegacyNetherBiome(RandomSource random, int firstOctave, double... amplitudes) {
         return new PerlinNoise(random, firstOctave, amplitudes, false);
     }
 
@@ -65,7 +66,7 @@ public final class PerlinNoise {
      * Legacy blended-noise constructor (used only by {@link #createLegacyForBlendedNoise}).
      * Kept separate so OldBlendedNoise's call-sites are unchanged.
      */
-    private PerlinNoise(Random random, int firstOctave, double[] amplitudes) {
+    private PerlinNoise(RandomSource random, int firstOctave, double[] amplitudes) {
         int numOctaves = amplitudes.length;
         int zeroOctaveIndex = -firstOctave;
 
@@ -96,7 +97,7 @@ public final class PerlinNoise {
      *
      * @param newInit {@code true} for positional (new) seeding, {@code false} for legacy-nether sequential seeding
      */
-    private PerlinNoise(Random random, int firstOctave, double[] amplitudes, boolean newInit) {
+    private PerlinNoise(RandomSource random, int firstOctave, double[] amplitudes, boolean newInit) {
         int numOctaves = amplitudes.length;
         this.amplitudes = amplitudes;
         this.noiseLevels = new ImprovedNoise[numOctaves];
@@ -104,13 +105,11 @@ public final class PerlinNoise {
 
         if (newInit) {
             // Each octave gets its own independently seeded RNG.
-            // Approximates: PositionalRandomFactory fork = random.forkPositional();
-            //               noiseLevels[i] = new ImprovedNoise(fork.fromHashOf("octave_" + (firstOctave + i)));
-            long forkSeed = random.nextLong();
+            var fork = random.forkFactory();
+
             for (int i = 0; i < numOctaves; i++) {
                 if (amplitudes[i] != 0.0) {
-                    long seed = hashOctaveKey("octave_" + (firstOctave + i)) ^ forkSeed;
-                    this.noiseLevels[i] = new ImprovedNoise(new Random(seed));
+                    this.noiseLevels[i] = new ImprovedNoise(fork.fromHashOf("octave_" + (firstOctave + i)));
                 }
             }
         } else {
@@ -141,17 +140,17 @@ public final class PerlinNoise {
      */
     public double getValue(double x, double y, double z) {
         double value = 0.0;
-        double amplitude = this.lowestFreqValueFactor;
-        double inputFactor = this.lowestFreqInputFactor;
+        double factor = this.lowestFreqInputFactor;
+        double valueFactor = this.lowestFreqValueFactor;
         for (int i = 0; i < this.noiseLevels.length; i++) {
             ImprovedNoise noise = this.noiseLevels[i];
             if (noise != null) {
                 value += this.amplitudes[i]
-                    * noise.noise(wrap(x * inputFactor), wrap(y * inputFactor), wrap(z * inputFactor), 0.0, 0.0)
-                    * amplitude;
+                    * noise.noise(wrap(x * factor), wrap(y * factor), wrap(z * factor), 0.0, 0.0)
+                    * valueFactor;
             }
-            amplitude /= 2.0;
-            inputFactor *= 2.0;
+            factor *= 2.0;
+            valueFactor /= 2.0;
         }
         return value;
     }
@@ -193,10 +192,10 @@ public final class PerlinNoise {
     }
 
     /**
-     * Advances the RNG by exactly the number of calls that {@link ImprovedNoise#ImprovedNoise(Random)} makes:
+     * Advances the RNG by exactly the number of calls that {@link ImprovedNoise#ImprovedNoise(RandomSource)} makes:
      * 3 nextDouble (xo/yo/zo) + 256 nextInt (Fisher-Yates shuffle).
      */
-    private static void skipOctave(Random random) {
+    private static void skipOctave(RandomSource random) {
         random.nextDouble();
         random.nextDouble();
         random.nextDouble();
