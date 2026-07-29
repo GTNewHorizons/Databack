@@ -97,9 +97,15 @@ public final class ExprEmitter {
      * When a PER_VOXEL kernel reads from a PER_COLUMN buffer the column index
      * (relZ * 16 + relX) is used instead of the thread's linear index.
      */
-    private static String indexExpr(DispatchShape kernelShape, DispatchShape barrierShape) {
+    static String indexExpr(DispatchShape kernelShape, DispatchShape barrierShape) {
         if (kernelShape == DispatchShape.PER_VOXEL && barrierShape == DispatchShape.PER_COLUMN) {
             return "relZ * 16 + relX";
+        }
+        if (kernelShape == DispatchShape.PER_CORNER && barrierShape == DispatchShape.PER_COLUMN) {
+            // Corner (cornerX, cornerZ) maps to block (cornerX*4, cornerZ*4).
+            // Clamp to 15 for the boundary corner (index 4 → block 16, which falls in the
+            // adjacent chunk and has no entry in this chunk's 16×16 PER_COLUMN buffer).
+            return "min(cornerZ * 4, 15) * 16 + min(cornerX * 4, 15)";
         }
         return "threadIdx";
     }
@@ -186,12 +192,14 @@ public final class ExprEmitter {
             return "(1.0f / " + args[0] + ")";
         }
         if (src instanceof SqueezeUnary) {
-            // clamp(x, -1, 1) * 0.5 - x³/24
-            return "(clamp(" + args[0] + ", -1.0f, 1.0f) * 0.5f - "
-                + args[0] + " * " + args[0] + " * " + args[0] + " / 24.0f)";
+            // Vanilla: clamp x first, then apply the polynomial using the clamped value for both terms.
+            String clamped = "_sc_" + nodeIdx;
+            builder.logic.append("    float ").append(clamped)
+                .append(" = clamp(").append(args[0]).append(", -1.0f, 1.0f);\n");
+            return "(" + clamped + " * 0.5f - " + clamped + " * " + clamped + " * " + clamped + " / 24.0f)";
         }
         // Pass-through unaries
-        if (src instanceof BlendDensityUnary || src instanceof CacheAllInCellUnary || src instanceof SlideUnary) {
+        if (src instanceof BlendDensityUnary || src instanceof CacheAllInCellUnary) {
             return args[0];
         }
         // Caching markers inlined in non-PER_VOXEL contexts (they are barriers only in PER_VOXEL).
@@ -267,7 +275,7 @@ public final class ExprEmitter {
 
         if (src instanceof ShiftAFunc s) {
             String pcRef = registerNoise(s.argument, builder, noiseMap, perlinIncluded, noiseDataProvider);
-            return "sampleNoise(" + pcRef + ", wz * 0.25f, 0.0f, wx * 0.25f) * 4.0f";
+            return "sampleNoise(" + pcRef + ", wx * 0.25f, 0.0f, wz * 0.25f) * 4.0f";
         }
 
         if (src instanceof ShiftBFunc s) {
@@ -308,7 +316,7 @@ public final class ExprEmitter {
         }
 
         // ---- Old Blended Noise ----
-        if (src instanceof OldBlendedNoise obn) {
+        if (src instanceof OldBlendedNoiseFunc obn) {
             // Unique ID: parameters fully determine the seeded noise (combined with dimension seed at upload time).
             String noiseId = "old_blended_noise:" + obn.xz_scale + ":" + obn.y_scale + ":"
                 + obn.xz_factor + ":" + obn.y_factor + ":" + obn.smear_scale_multiplier;

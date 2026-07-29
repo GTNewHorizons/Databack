@@ -107,8 +107,14 @@ public final class KernelBodyEmitter {
             if (!group.nodes().isEmpty()) {
                 String lastVar = "v_" + (group.nodes().size() - 1);
                 builder.logic.append("    SET_OUTPUT(threadIdx, ").append(lastVar).append(");\n");
+            } else if (!group.reads().isEmpty()) {
+                // Degenerate pass-through: no inline nodes — copy single barrier directly to output.
+                BarrierNode read = group.reads().get(0);
+                String macro = barrierMacroNames.get(read);
+                String idx = ExprEmitter.indexExpr(group.shape(), read.outputShape());
+                builder.logic.append("    SET_OUTPUT(threadIdx, GET_").append(macro)
+                    .append("(").append(idx).append("));\n");
             }
-            // Degenerate case (no nodes, root is a barrier): nothing to emit in body.
         }
 
         // ---- 8. Assemble GLSL ----
