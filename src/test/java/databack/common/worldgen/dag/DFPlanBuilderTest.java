@@ -64,7 +64,7 @@ public class DFPlanBuilderTest {
             exec.initForTesting(b.inputs, b.outputs);
             executors.add(exec);
         }
-        return new DFPlanBuilder(executors, kernels);
+        return new DFPlanBuilder(executors, kernels, kernelPlan.buildKernelGroupLabels());
     }
 
     /** Returns all jobs in the plan whose executor is {@code exec}. */

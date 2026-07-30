@@ -125,7 +125,8 @@ public class GpuChunkCache {
 
             if (debug) {
                 ChunkDebugCapture.Builder builder =
-                    new ChunkDebugCapture.Builder(col.getX(), col.getZ());
+                    new ChunkDebugCapture.Builder(col.getX(), col.getZ(),
+                        planBuilder.getKernelGroupLabels());
                 builders.add(builder);
                 // Builder implements KernelDispatchListener — no debug type leaks into DFPlanBuilder.
                 plans.add(planBuilder.createPlan(col.getX(), col.getZ(), consumers, builder));

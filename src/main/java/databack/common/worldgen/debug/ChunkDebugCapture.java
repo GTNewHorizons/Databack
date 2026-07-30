@@ -7,6 +7,7 @@ import mcgpu.core.hwaccel.buffer.BufferDataType;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Immutable snapshot of all GPU kernel dispatches for a single chunk column evaluation.
@@ -19,7 +20,7 @@ public final class ChunkDebugCapture {
     public final int chunkZ;
     public final long timestampMs;
 
-    /** All kernel records in topological dispatch order (excludes the terminal kernel). */
+    /** All kernel records in topological dispatch order, including the terminal kernel. */
     public final List<KernelRecord> kernelRecords;
 
     /**
@@ -29,13 +30,22 @@ public final class ChunkDebugCapture {
      */
     public final float[][] densities;
 
+    /**
+     * Ordered map (topological plan order) from barrier ID → label strings.
+     * Key = outputBarrierId, or {@code "(terminal)"} for the terminal group.
+     * Value = {@code String[]{kind, sourceDFType, inlinedDFTypes}}.
+     */
+    public final Map<String, String[]> kernelGroupLabels;
+
     private ChunkDebugCapture(int chunkX, int chunkZ, long timestampMs,
-                              List<KernelRecord> kernelRecords, float[][] densities) {
-        this.chunkX        = chunkX;
-        this.chunkZ        = chunkZ;
-        this.timestampMs   = timestampMs;
-        this.kernelRecords = kernelRecords;
-        this.densities     = densities;
+                              List<KernelRecord> kernelRecords, float[][] densities,
+                              Map<String, String[]> kernelGroupLabels) {
+        this.chunkX            = chunkX;
+        this.chunkZ            = chunkZ;
+        this.timestampMs       = timestampMs;
+        this.kernelRecords     = kernelRecords;
+        this.densities         = densities;
+        this.kernelGroupLabels = kernelGroupLabels;
     }
 
     // -------------------------------------------------------------------------
@@ -57,10 +67,12 @@ public final class ChunkDebugCapture {
         public final int chunkX;
         public final int chunkZ;
         private final List<KernelRecord> records = new ArrayList<>();
+        private final Map<String, String[]> kernelGroupLabels;
 
-        public Builder(int chunkX, int chunkZ) {
-            this.chunkX = chunkX;
-            this.chunkZ = chunkZ;
+        public Builder(int chunkX, int chunkZ, Map<String, String[]> kernelGroupLabels) {
+            this.chunkX             = chunkX;
+            this.chunkZ             = chunkZ;
+            this.kernelGroupLabels  = kernelGroupLabels;
         }
 
         @Override
@@ -82,7 +94,8 @@ public final class ChunkDebugCapture {
             return new ChunkDebugCapture(
                 chunkX, chunkZ, System.currentTimeMillis(),
                 Collections.unmodifiableList(new ArrayList<>(records)),
-                densities);
+                densities,
+                kernelGroupLabels);
         }
     }
 }

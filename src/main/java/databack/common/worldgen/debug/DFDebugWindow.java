@@ -11,7 +11,9 @@ import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Swing debug window for GPU density function introspection.
@@ -57,6 +59,7 @@ public final class DFDebugWindow extends JFrame {
     private final DefaultListModel<ChunkDebugCapture> chunkListModel = new DefaultListModel<>();
     private final KernelTableModel kernelTableModel = new KernelTableModel();
     private final ValueTableModel  valueTableModel  = new ValueTableModel();
+    private final DFMapTableModel  dfMapTableModel  = new DFMapTableModel();
 
     // ---- Component references needed for updates ----
     private JList<ChunkDebugCapture> chunkList;
@@ -174,6 +177,11 @@ public final class DFDebugWindow extends JFrame {
         heatmapPanel = new HeatmapPanel();
         tabs.addTab("Heatmap", heatmapPanel);
 
+        // Tab 4: DF Map
+        JTable dfMapTable = new JTable(dfMapTableModel);
+        dfMapTable.setAutoResizeMode(JTable.AUTO_RESIZE_ALL_COLUMNS);
+        tabs.addTab("DF Map", new JScrollPane(dfMapTable));
+
         return tabs;
     }
 
@@ -185,6 +193,7 @@ public final class DFDebugWindow extends JFrame {
         glslArea.setText("");
         valueTableModel.setRecord(null);
         heatmapPanel.setData(null, null);
+        dfMapTableModel.setCapture(capture);
     }
 
     private void onRecordSelected(KernelRecord record) {
@@ -433,6 +442,55 @@ public final class DFDebugWindow extends JFrame {
             int r = (int)(norm * 255);
             int b = (int)((1f - norm) * 255);
             return new Color(r, 0, b);
+        }
+    }
+
+    // ---- Inner: DFMapTableModel ----------------------------------------------------
+
+    /**
+     * Table model for the "DF Map" tab. One row per kernel group (topological order),
+     * showing the density function types that make up each partitioned kernel.
+     */
+    private static final class DFMapTableModel extends AbstractTableModel {
+
+        private static final String[] COLUMNS =
+            {"Barrier", "Kind", "Source DF", "Inlined DFs", "Dispatches"};
+
+        /** Each element: {barrierId, kind, sourceDFType, inlinedDFTypes, dispatchCount}. */
+        private List<Object[]> rows = Collections.emptyList();
+
+        void setCapture(ChunkDebugCapture c) {
+            if (c == null) {
+                rows = Collections.emptyList();
+                fireTableDataChanged();
+                return;
+            }
+
+            // Count dispatches per barrier ID from captured records.
+            Map<String, Integer> dispatchCounts = new HashMap<>();
+            for (KernelRecord r : c.kernelRecords) {
+                String key = r.outputBarrierId != null ? r.outputBarrierId : "(terminal)";
+                dispatchCounts.merge(key, 1, Integer::sum);
+            }
+
+            List<Object[]> newRows = new ArrayList<>();
+            for (Map.Entry<String, String[]> e : c.kernelGroupLabels.entrySet()) {
+                String bid  = e.getKey();
+                String[] lbl = e.getValue();
+                newRows.add(new Object[]{bid, lbl[0], lbl[1], lbl[2],
+                    dispatchCounts.getOrDefault(bid, 0)});
+            }
+            rows = newRows;
+            fireTableDataChanged();
+        }
+
+        @Override public int getRowCount()    { return rows.size(); }
+        @Override public int getColumnCount() { return COLUMNS.length; }
+        @Override public String getColumnName(int col) { return COLUMNS[col]; }
+
+        @Override
+        public Object getValueAt(int row, int col) {
+            return rows.get(row)[col];
         }
     }
 

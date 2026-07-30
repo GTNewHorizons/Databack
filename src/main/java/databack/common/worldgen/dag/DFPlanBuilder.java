@@ -49,10 +49,13 @@ public class DFPlanBuilder {
 
     private final List<DensityFunctionExecutor> executors;
     private final List<GeneratedKernel> kernels;
+    private final Map<String, String[]> kernelGroupLabels;
 
-    DFPlanBuilder(List<DensityFunctionExecutor> executors, List<GeneratedKernel> kernels) {
-        this.executors = executors;
-        this.kernels   = kernels;
+    DFPlanBuilder(List<DensityFunctionExecutor> executors, List<GeneratedKernel> kernels,
+                  Map<String, String[]> kernelGroupLabels) {
+        this.executors          = executors;
+        this.kernels            = kernels;
+        this.kernelGroupLabels  = kernelGroupLabels;
     }
 
     /**
@@ -65,7 +68,7 @@ public class DFPlanBuilder {
         for (KernelGroup group : plan.groups()) {
             executors.add(new DensityFunctionExecutor(group));
         }
-        return new DFPlanBuilder(executors, kernels);
+        return new DFPlanBuilder(executors, kernels, plan.buildKernelGroupLabels());
     }
 
     /**
@@ -83,6 +86,13 @@ public class DFPlanBuilder {
      * Call this on the server thread to pre-fetch noise data before handing it off to
      * {@link DensityFunctionExecutor#setNoiseProvider}.
      */
+    /**
+     * Returns the kernel group label map built from the plan at construction time.
+     * Keyed by outputBarrierId (or {@code "(terminal)"}); values are
+     * {@code String[]{kind, sourceDFType, inlinedDFTypes}}.
+     */
+    public Map<String, String[]> getKernelGroupLabels() { return kernelGroupLabels; }
+
     public Set<String> getNoiseSlotIds() {
         Set<String> ids = new LinkedHashSet<>();
         for (GeneratedKernel k : kernels) {
@@ -187,14 +197,30 @@ public class DFPlanBuilder {
                                     extractFloats(buffers.get("output"))));
                         }
                     } else {
-                        // Terminal group: wire readback → consumer.
-                        // The terminal output is not sent to the listener — it is available via
-                        // the densities array in ChunkDebugCapture after submit() returns.
+                        // Terminal group: wire readback → consumer (and listener if present).
                         Consumer<FloatBuffer> consumer = yEntry.getValue();
-                        plan.terminal(
-                            Collections.singletonMap("output", outputs.get("output")),
-                            buffers -> consumer.accept(
-                                buffers.get("output").order(ByteOrder.nativeOrder()).asFloatBuffer()));
+                        if (listener != null) {
+                            final GeneratedKernel gk = kernel;
+                            final int[] key = {chunkX, chunkY, chunkZ};
+                            plan.terminal(
+                                Collections.singletonMap("output", outputs.get("output")),
+                                buffers -> {
+                                    // extractFloats reads via a FloatBuffer view; the ByteBuffer
+                                    // position is unaffected, so the consumer gets a clean view.
+                                    ByteBuffer raw =
+                                        buffers.get("output").order(ByteOrder.nativeOrder());
+                                    float[] vals = extractFloats(raw);
+                                    listener.onKernelOutput(
+                                        gk.shape, key, null, gk.inputBarrierIds,
+                                        gk.glslSource, BufferDataType.f32, vals);
+                                    consumer.accept(raw.asFloatBuffer());
+                                });
+                        } else {
+                            plan.terminal(
+                                Collections.singletonMap("output", outputs.get("output")),
+                                buffers -> consumer.accept(
+                                    buffers.get("output").order(ByteOrder.nativeOrder()).asFloatBuffer()));
+                        }
                     }
                 }
             }
