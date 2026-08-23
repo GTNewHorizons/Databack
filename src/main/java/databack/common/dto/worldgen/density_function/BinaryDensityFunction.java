@@ -2,13 +2,22 @@ package databack.common.dto.worldgen.density_function;
 
 import databack.common.context.WorldContext;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.ConstantDensityFunction;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.util.Arrays;
 import java.util.List;
 
+@EqualsAndHashCode
+@ToString
 public abstract class BinaryDensityFunction implements IDensityFunctionFactory {
 
-    public IDensityFunctionFactory argument1, argument2;
+    public final IDensityFunctionFactory argument1, argument2;
+
+    public BinaryDensityFunction(IDensityFunctionFactory argument1, IDensityFunctionFactory argument2) {
+        this.argument1 = argument1;
+        this.argument2 = argument2;
+    }
 
     @Override
     public List<IDensityFunctionFactory> children() {

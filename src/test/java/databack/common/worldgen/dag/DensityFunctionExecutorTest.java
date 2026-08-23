@@ -2,6 +2,7 @@ package databack.common.worldgen.dag;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import com.gtnewhorizon.gtnhlib.space.ImmutableXYZ;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.*;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.worldgen.dag.codegen.KernelBodyEmitter;
@@ -28,26 +29,24 @@ public class DensityFunctionExecutorTest {
     // ---- Factory helpers -------------------------------------------------------------------
 
     private static ConstantFunc constant(float v) {
-        ConstantFunc c = new ConstantFunc(); c.argument = v; return c;
+        return new ConstantFunc(v);
     }
     private static FlatCacheUnary flatCache(IDensityFunctionFactory arg) {
-        FlatCacheUnary f = new FlatCacheUnary(); f.argument = arg; return f;
+        return new FlatCacheUnary(arg);
     }
     private static CacheOnceUnary cacheOnce(IDensityFunctionFactory arg) {
-        CacheOnceUnary c = new CacheOnceUnary(); c.argument = arg; return c;
+        return new CacheOnceUnary(arg);
     }
     private static InterpolatedFunc interpolated(IDensityFunctionFactory arg) {
-        InterpolatedFunc i = new InterpolatedFunc(); i.argument = arg; return i;
+        return new InterpolatedFunc(arg);
     }
     private static MulBinary mul(IDensityFunctionFactory a, IDensityFunctionFactory b) {
-        MulBinary m = new MulBinary(); m.argument1 = a; m.argument2 = b; return m;
+        return new MulBinary(a, b);
     }
+
     private static FindTopSurfaceFunc findTopSurface(IDensityFunctionFactory density,
             IDensityFunctionFactory upperBound, int lowerBound, int cellHeight) {
-        FindTopSurfaceFunc f = new FindTopSurfaceFunc();
-        f.density = density; f.upper_bound = upperBound;
-        f.lower_bound = lowerBound; f.cell_height = cellHeight;
-        return f;
+        return new FindTopSurfaceFunc(density, upperBound, lowerBound, cellHeight);
     }
 
     // ---- Helper: create and init executor for a specific group ----------------------------
@@ -153,10 +152,10 @@ public class DensityFunctionExecutorTest {
         inputs.put(inputId, inputDesc);
 
         ComputePlan computePlan = new ComputePlan();
-        KernelSubmissionToken token = new KernelSubmissionToken(exec, new int[]{0, 0, 0}, 1, 0);
+        KernelSubmissionToken token = new KernelSubmissionToken(exec, new ImmutableXYZ(0, 0, 0), 1, 0);
 
         Map<String, BufferDescriptor> outputs =
-            exec.getOutputs(computePlan, token, new int[]{0, 0, 0}, inputs);
+            exec.getOutputs(computePlan, token, new ImmutableXYZ(0, 0, 0), inputs);
 
         assertNotNull(outputs.get("output"), "getOutputs should return a descriptor for 'output'");
     }
@@ -173,11 +172,11 @@ public class DensityFunctionExecutorTest {
         DensityFunctionExecutor exec = initExec(terminalGroup);
 
         ComputePlan computePlan = new ComputePlan();
-        KernelSubmissionToken token = new KernelSubmissionToken(exec, new int[]{0, 0, 0}, 1, 0);
+        KernelSubmissionToken token = new KernelSubmissionToken(exec, new ImmutableXYZ(0, 0, 0), 1, 0);
 
         // Pass an empty input map — the required flat-cache buffer is absent.
         assertThrows(IllegalStateException.class,
-            () -> exec.getOutputs(computePlan, token, new int[]{0, 0, 0}, new HashMap<>()),
+            () -> exec.getOutputs(computePlan, token, new ImmutableXYZ(0, 0, 0), new HashMap<>()),
             "Missing input buffer should throw IllegalStateException");
     }
 }

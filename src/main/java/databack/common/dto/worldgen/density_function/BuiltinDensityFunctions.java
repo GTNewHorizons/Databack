@@ -8,6 +8,7 @@ import java.util.List;
 
 import net.minecraft.util.MathHelper;
 
+import com.github.bsideup.jabel.Desugar;
 import com.google.gson.JsonDeserializationContext;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
@@ -25,7 +26,6 @@ import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
 import databack.common.util.DBDataUtils;
 
-@SuppressWarnings("unused")
 public class BuiltinDensityFunctions {
 
     public static void init() {
@@ -75,41 +75,31 @@ public class BuiltinDensityFunctions {
             JsonPrimitive prim = (JsonPrimitive) json;
 
             if (prim.isString()) {
-                var ref = new DensityFunctionRef();
-                ref.name = prim.getAsString();
-                return ref;
+                return new DensityFunctionRef(prim.getAsString());
             } else {
-                var ref = new ConstantFunc();
-                ref.argument = prim.getAsFloat();
-                return ref;
+                return new ConstantFunc(prim.getAsFloat());
             }
         });
     }
 
-    public static class DensityFunctionRef implements IDensityFunctionFactory {
+    @Desugar
+    public record DensityFunctionRef(String name) implements IDensityFunctionFactory {
 
-        private String name;
-
-        private transient volatile IDensityFunctionFactory cache;
-
-        public IDensityFunctionFactory getFactory() {
-            if (this.cache == null) {
-                synchronized (this) {
-                    if (this.cache == null) {
-                        this.cache = DensityFunctionList.RT.getHandler().getDensityFunction(this.name);
-                    }
-                }
-            }
-            return this.cache;
+        public IDensityFunctionFactory dereference() {
+            return DensityFunctionList.RT.getHandler().getDensityFunction(this.name);
         }
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return getFactory().instantiate(ctx);
+            return dereference().instantiate(ctx);
         }
     }
 
     public static class AbsUnary extends UnaryDensityFunction {
+
+        public AbsUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
 
         @Override
         protected float compute(float param) {
@@ -119,9 +109,148 @@ public class BuiltinDensityFunctions {
 
     public static class BlendDensityUnary extends UnaryDensityFunction {
 
+        public BlendDensityUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
         @Override
         protected float compute(float param) {
             return param;
+        }
+    }
+
+    public static class CubeUnary extends UnaryDensityFunction {
+
+        public CubeUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
+        @Override
+        protected float compute(float param) {
+            return param * param * param;
+        }
+    }
+
+    public static class HalfNegativeUnary extends UnaryDensityFunction {
+
+        public HalfNegativeUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
+        @Override
+        protected float compute(float param) {
+            return param < 0 ? param * 0.5f : param;
+        }
+    }
+
+    public static class InvertUnary extends UnaryDensityFunction {
+
+        public InvertUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
+        @Override
+        protected float compute(float param) {
+            return 1f / param;
+        }
+    }
+
+    public static class QuarterNegativeUnary extends UnaryDensityFunction {
+
+        public QuarterNegativeUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
+        @Override
+        protected float compute(float param) {
+            return param < 0 ? param * 0.25f : param;
+        }
+    }
+
+    public static class SquareUnary extends UnaryDensityFunction {
+
+        public SquareUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
+        @Override
+        protected float compute(float param) {
+            return param * param;
+        }
+    }
+
+    public static class SqueezeUnary extends UnaryDensityFunction {
+
+        public SqueezeUnary(IDensityFunctionFactory argument) {
+            super(argument);
+        }
+
+        @Override
+        protected float compute(float param) {
+            param = MathHelper.clamp_float(param, -1f, 1f);
+            return param / 2 - param * param * param / 24;
+        }
+    }
+
+    @Desugar
+    public record CacheAllInCellUnary(IDensityFunctionFactory argument) implements IDensityFunctionFactory {
+
+        @Override
+        public IDensityFunction instantiate(WorldContext ctx) {
+            return argument.instantiate(ctx);
+        }
+
+        @Override
+        public List<IDensityFunctionFactory> children() {
+            return Collections.singletonList(argument);
+        }
+    }
+
+    public static class AddBinary extends BinaryDensityFunction {
+
+        public AddBinary(IDensityFunctionFactory argument1, IDensityFunctionFactory argument2) {
+            super(argument1, argument2);
+        }
+
+        @Override
+        protected float compute(float param1, float param2) {
+            return param1 + param2;
+        }
+    }
+
+    public static class MaxBinary extends BinaryDensityFunction {
+
+        public MaxBinary(IDensityFunctionFactory argument1, IDensityFunctionFactory argument2) {
+            super(argument1, argument2);
+        }
+
+        @Override
+        protected float compute(float param1, float param2) {
+            return Math.max(param1, param2);
+        }
+    }
+
+    public static class MinBinary extends BinaryDensityFunction {
+
+        public MinBinary(IDensityFunctionFactory argument1, IDensityFunctionFactory argument2) {
+            super(argument1, argument2);
+        }
+
+        @Override
+        protected float compute(float param1, float param2) {
+            return Math.min(param1, param2);
+        }
+    }
+
+    public static class MulBinary extends BinaryDensityFunction {
+
+        public MulBinary(IDensityFunctionFactory argument1, IDensityFunctionFactory argument2) {
+            super(argument1, argument2);
+        }
+
+        @Override
+        protected float compute(float param1, float param2) {
+            return param1 * param2;
         }
     }
 
@@ -140,9 +269,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class Cache2DFunc implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory argument;
+    @Desugar
+    public record Cache2DFunc(IDensityFunctionFactory argument) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -219,9 +347,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class FlatCacheUnary implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory argument;
+    @Desugar
+    public record FlatCacheUnary(IDensityFunctionFactory argument) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -278,17 +405,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class CacheAllInCellUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return param;
-        }
-    }
-
-    public static class CacheOnceUnary implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory argument;
+    @Desugar
+    public record CacheOnceUnary(IDensityFunctionFactory argument) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -345,25 +463,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class CubeUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return param * param * param;
-        }
-    }
-
-    public static class HalfNegativeUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return param < 0 ? param * 0.5f : param;
-        }
-    }
-
-    public static class InterpolatedFunc implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory argument;
+    @Desugar
+    public record InterpolatedFunc(IDensityFunctionFactory argument) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -377,197 +478,145 @@ public class BuiltinDensityFunctions {
             // Static masks for the 8 sample regions of the 5x5x5 corner grid.
             // Position 16 on any axis is fetched from the adjacent cube at position 0.
             DensityMask innerMask = new DensityMask();
-            for (int gz = 0; gz < 4; gz++)
-                for (int gy = 0; gy < 4; gy++)
+            for (int gz = 0; gz < 4; gz++) {
+                for (int gy = 0; gy < 4; gy++) {
                     for (int gx = 0; gx < 4; gx++) {
                         innerMask.set(gx * 4, gy * 4, gz * 4);
                     }
+                }
+            }
 
             DensityMask xFaceMask = new DensityMask();
-            for (int gz = 0; gz < 4; gz++)
+            for (int gz = 0; gz < 4; gz++) {
                 for (int gy = 0; gy < 4; gy++) {
                     xFaceMask.set(0, gy * 4, gz * 4);
                 }
+            }
 
             DensityMask yFaceMask = new DensityMask();
-            for (int gz = 0; gz < 4; gz++)
+            for (int gz = 0; gz < 4; gz++) {
                 for (int gx = 0; gx < 4; gx++) {
                     yFaceMask.set(gx * 4, 0, gz * 4);
                 }
+            }
 
             DensityMask zFaceMask = new DensityMask();
-            for (int gy = 0; gy < 4; gy++)
+            for (int gy = 0; gy < 4; gy++) {
                 for (int gx = 0; gx < 4; gx++) {
                     zFaceMask.set(gx * 4, gy * 4, 0);
                 }
+            }
 
             DensityMask xyEdgeMask = new DensityMask();
-            for (int gz = 0; gz < 4; gz++) xyEdgeMask.set(0, 0, gz * 4);
+            for (int gz = 0; gz < 4; gz++) {
+                xyEdgeMask.set(0, 0, gz * 4);
+            }
 
             DensityMask xzEdgeMask = new DensityMask();
-            for (int gy = 0; gy < 4; gy++) xzEdgeMask.set(0, gy * 4, 0);
+            for (int gy = 0; gy < 4; gy++) {
+                xzEdgeMask.set(0, gy * 4, 0);
+            }
 
             DensityMask yzEdgeMask = new DensityMask();
-            for (int gx = 0; gx < 4; gx++) yzEdgeMask.set(gx * 4, 0, 0);
+            for (int gx = 0; gx < 4; gx++) {
+                yzEdgeMask.set(gx * 4, 0, 0);
+            }
 
             DensityMask cornerMask = new DensityMask();
             cornerMask.set(0, 0, 0);
 
             float[][][] corners = new float[5][5][5];
 
-            return new IDensityFunction() {
-
-                @Override
-                public boolean hasTrait(DensityFuncTrait trait) {
-                    return false;
-                }
-
-                @Override
-                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
-                    DensityBuffer inner = arg.compute(cubeX, cubeY, cubeZ, innerMask);
-                    for (int gz = 0; gz < 4; gz++)
-                        for (int gy = 0; gy < 4; gy++)
-                            for (int gx = 0; gx < 4; gx++) {
-                                corners[gx][gy][gz] = inner.get(gx * 4, gy * 4, gz * 4);
-                            }
-                    inner.discard();
-
-                    DensityBuffer xFace = arg.compute(cubeX + 1, cubeY, cubeZ, xFaceMask);
-                    for (int gz = 0; gz < 4; gz++)
-                        for (int gy = 0; gy < 4; gy++) {
-                            corners[4][gy][gz] = xFace.get(0, gy * 4, gz * 4);
-                        }
-                    xFace.discard();
-
-                    DensityBuffer yFace = arg.compute(cubeX, cubeY + 1, cubeZ, yFaceMask);
-                    for (int gz = 0; gz < 4; gz++)
+            return (cubeX, cubeY, cubeZ, mask) -> {
+                DensityBuffer inner = arg.compute(cubeX, cubeY, cubeZ, innerMask);
+                for (int gz = 0; gz < 4; gz++) {
+                    for (int gy = 0; gy < 4; gy++) {
                         for (int gx = 0; gx < 4; gx++) {
-                            corners[gx][4][gz] = yFace.get(gx * 4, 0, gz * 4);
-                        }
-                    yFace.discard();
-
-                    DensityBuffer zFace = arg.compute(cubeX, cubeY, cubeZ + 1, zFaceMask);
-                    for (int gy = 0; gy < 4; gy++)
-                        for (int gx = 0; gx < 4; gx++) {
-                            corners[gx][gy][4] = zFace.get(gx * 4, gy * 4, 0);
-                        }
-                    zFace.discard();
-
-                    DensityBuffer xyEdge = arg.compute(cubeX + 1, cubeY + 1, cubeZ, xyEdgeMask);
-                    for (int gz = 0; gz < 4; gz++) corners[4][4][gz] = xyEdge.get(0, 0, gz * 4);
-                    xyEdge.discard();
-
-                    DensityBuffer xzEdge = arg.compute(cubeX + 1, cubeY, cubeZ + 1, xzEdgeMask);
-                    for (int gy = 0; gy < 4; gy++) corners[4][gy][4] = xzEdge.get(0, gy * 4, 0);
-                    xzEdge.discard();
-
-                    DensityBuffer yzEdge = arg.compute(cubeX, cubeY + 1, cubeZ + 1, yzEdgeMask);
-                    for (int gx = 0; gx < 4; gx++) corners[gx][4][4] = yzEdge.get(gx * 4, 0, 0);
-                    yzEdge.discard();
-
-                    DensityBuffer corner = arg.compute(cubeX + 1, cubeY + 1, cubeZ + 1, cornerMask);
-                    corners[4][4][4] = corner.get(0, 0, 0);
-                    corner.discard();
-
-                    CubeBuffer out = ctx.getCubeBuffer();
-                    for (int z = 0; z < 16; z++) {
-                        int gz = z >> 2;
-                        float kz = (z & 3) * 0.25f, kzi = 1f - kz;
-                        for (int y = 0; y < 16; y++) {
-                            int gy = y >> 2;
-                            float ky = (y & 3) * 0.25f, kyi = 1f - ky;
-                            for (int x = 0; x < 16; x++) {
-                                if (!mask.isSet(x, y, z)) continue;
-                                int gx = x >> 2;
-                                float kx = (x & 3) * 0.25f, kxi = 1f - kx;
-                                out.set(
-                                    x, y, z, corners[gx][gy][gz] * kxi * kyi * kzi
-                                        + corners[gx + 1][gy][gz] * kx * kyi * kzi
-                                        + corners[gx][gy + 1][gz] * kxi * ky * kzi
-                                        + corners[gx + 1][gy + 1][gz] * kx * ky * kzi
-                                        + corners[gx][gy][gz + 1] * kxi * kyi * kz
-                                        + corners[gx + 1][gy][gz + 1] * kx * kyi * kz
-                                        + corners[gx][gy + 1][gz + 1] * kxi * ky * kz
-                                        + corners[gx + 1][gy + 1][gz + 1] * kx * ky * kz
-                                );
-                            }
+                            corners[gx][gy][gz] = inner.get(gx * 4, gy * 4, gz * 4);
                         }
                     }
-                    return out;
                 }
+                inner.discard();
+
+                DensityBuffer xFace = arg.compute(cubeX + 1, cubeY, cubeZ, xFaceMask);
+                for (int gz = 0; gz < 4; gz++) {
+                    for (int gy = 0; gy < 4; gy++) {
+                        corners[4][gy][gz] = xFace.get(0, gy * 4, gz * 4);
+                    }
+                }
+                xFace.discard();
+
+                DensityBuffer yFace = arg.compute(cubeX, cubeY + 1, cubeZ, yFaceMask);
+                for (int gz = 0; gz < 4; gz++) {
+                    for (int gx = 0; gx < 4; gx++) {
+                        corners[gx][4][gz] = yFace.get(gx * 4, 0, gz * 4);
+                    }
+                }
+                yFace.discard();
+
+                DensityBuffer zFace = arg.compute(cubeX, cubeY, cubeZ + 1, zFaceMask);
+                for (int gy = 0; gy < 4; gy++) {
+                    for (int gx = 0; gx < 4; gx++) {
+                        corners[gx][gy][4] = zFace.get(gx * 4, gy * 4, 0);
+                    }
+                }
+                zFace.discard();
+
+                DensityBuffer xyEdge = arg.compute(cubeX + 1, cubeY + 1, cubeZ, xyEdgeMask);
+                for (int gz = 0; gz < 4; gz++) {
+                    corners[4][4][gz] = xyEdge.get(0, 0, gz * 4);
+                }
+                xyEdge.discard();
+
+                DensityBuffer xzEdge = arg.compute(cubeX + 1, cubeY, cubeZ + 1, xzEdgeMask);
+                for (int gy = 0; gy < 4; gy++) {
+                    corners[4][gy][4] = xzEdge.get(0, gy * 4, 0);
+                }
+                xzEdge.discard();
+
+                DensityBuffer yzEdge = arg.compute(cubeX, cubeY + 1, cubeZ + 1, yzEdgeMask);
+                for (int gx = 0; gx < 4; gx++) {
+                    corners[gx][4][4] = yzEdge.get(gx * 4, 0, 0);
+                }
+                yzEdge.discard();
+
+                DensityBuffer corner = arg.compute(cubeX + 1, cubeY + 1, cubeZ + 1, cornerMask);
+                corners[4][4][4] = corner.get(0, 0, 0);
+                corner.discard();
+
+                CubeBuffer out = ctx.getCubeBuffer();
+                for (int z = 0; z < 16; z++) {
+                    int gz = z >> 2;
+                    float kz = (z & 3) * 0.25f, kzi = 1f - kz;
+                    for (int y = 0; y < 16; y++) {
+                        int gy = y >> 2;
+                        float ky = (y & 3) * 0.25f, kyi = 1f - ky;
+                        for (int x = 0; x < 16; x++) {
+                            if (!mask.isSet(x, y, z)) {
+                                continue;
+                            }
+                            int gx = x >> 2;
+                            float kx = (x & 3) * 0.25f, kxi = 1f - kx;
+                            out.set(
+                                x, y, z, corners[gx][gy][gz] * kxi * kyi * kzi
+                                    + corners[gx + 1][gy][gz] * kx * kyi * kzi
+                                    + corners[gx][gy + 1][gz] * kxi * ky * kzi
+                                    + corners[gx + 1][gy + 1][gz] * kx * ky * kzi
+                                    + corners[gx][gy][gz + 1] * kxi * kyi * kz
+                                    + corners[gx + 1][gy][gz + 1] * kx * kyi * kz
+                                    + corners[gx][gy + 1][gz + 1] * kxi * ky * kz
+                                    + corners[gx + 1][gy + 1][gz + 1] * kx * ky * kz
+                            );
+                        }
+                    }
+                }
+                return out;
             };
         }
     }
 
-    public static class InvertUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return 1f / param;
-        }
-    }
-
-    public static class QuarterNegativeUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return param < 0 ? param * 0.25f : param;
-        }
-    }
-
-    public static class SquareUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            return param * param;
-        }
-    }
-
-    public static class SqueezeUnary extends UnaryDensityFunction {
-
-        @Override
-        protected float compute(float param) {
-            param = MathHelper.clamp_float(param, -1f, 1f);
-            return param / 2 - param * param * param / 24;
-        }
-    }
-
-    public static class AddBinary extends BinaryDensityFunction {
-
-        @Override
-        protected float compute(float param1, float param2) {
-            return param1 + param2;
-        }
-    }
-
-    public static class MaxBinary extends BinaryDensityFunction {
-
-        @Override
-        protected float compute(float param1, float param2) {
-            return Math.max(param1, param2);
-        }
-    }
-
-    public static class MinBinary extends BinaryDensityFunction {
-
-        @Override
-        protected float compute(float param1, float param2) {
-            return Math.min(param1, param2);
-        }
-    }
-
-    public static class MulBinary extends BinaryDensityFunction {
-
-        @Override
-        protected float compute(float param1, float param2) {
-            return param1 * param2;
-        }
-    }
-
-    public static class ClampFunc implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory input;
-        public float min, max;
+    @Desugar
+    public record ClampFunc(IDensityFunctionFactory input, float min, float max) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -632,9 +681,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class ConstantFunc implements IDensityFunctionFactory {
-
-        public float argument;
+    @Desugar
+    public record ConstantFunc(float argument) implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -642,10 +690,10 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class FindTopSurfaceFunc implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory density, upper_bound;
-        public int lower_bound, cell_height;
+    @Desugar
+    public record FindTopSurfaceFunc(
+        IDensityFunctionFactory density, IDensityFunctionFactory upper_bound, int lower_bound, int cell_height
+    ) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -667,83 +715,87 @@ public class BuiltinDensityFunctions {
 
                 return new IDensityFunction() {
 
-                @Override
-                public boolean hasTrait(DensityFuncTrait trait) {
-                    return trait == DensityFuncTrait.Flat;
-                }
-
-                @Override
-                public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
-                    DensityMask flatMask = ctx.getMask().flatCopy(mask);
-                    DensityBuffer upper = upperBoundFn.compute(cubeX, 0, cubeZ, flatMask);
-
-                    int highestUpper = Integer.MIN_VALUE;
-
-                    for (int z = 0; z < 16; z++) {
-                        for (int x = 0; x < 16; x++) {
-                            if (flatMask.isSet(x, 0, z)) {
-                                int top = (int) (upper.get(x, 0, z) * chInv) * ch;
-                                if (top > highestUpper) highestUpper = top;
-                                uppers[z << 4 | x] = top;
-                                result[z << 4 | x] = lb;
-                            }
-                        }
+                    @Override
+                    public boolean hasTrait(DensityFuncTrait trait) {
+                        return trait == DensityFuncTrait.Flat;
                     }
 
-                    upper.discard();
+                    @Override
+                    public DensityBuffer compute(int cubeX, int cubeY, int cubeZ, DensityMask mask) {
+                        DensityMask flatMask = ctx.getMask().flatCopy(mask);
+                        DensityBuffer upper = upperBoundFn.compute(cubeX, 0, cubeZ, flatMask);
 
-                    DensityMask sampleMask = ctx.getMask();
-
-                    for (int y = highestUpper; y > lb; y -= ch) {
-                        int relY = y & 15;
-
-                        sampleMask.clear();
-                        boolean any = false;
+                        int highestUpper = Integer.MIN_VALUE;
 
                         for (int z = 0; z < 16; z++) {
                             for (int x = 0; x < 16; x++) {
-                                if (flatMask.isSet(x, 0, z) && uppers[z << 4 | x] == y) {
-                                    sampleMask.set(x, relY, z);
-                                    any = true;
+                                if (flatMask.isSet(x, 0, z)) {
+                                    int top = (int) (upper.get(x, 0, z) * chInv) * ch;
+                                    if (top > highestUpper) {
+                                        highestUpper = top;
+                                    }
+                                    uppers[z << 4 | x] = top;
+                                    result[z << 4 | x] = lb;
                                 }
                             }
                         }
 
-                        if (!any) continue;
+                        upper.discard();
 
-                        DensityBuffer densityBuf = densityFn.compute(cubeX, y >> 4, cubeZ, sampleMask);
+                        DensityMask sampleMask = ctx.getMask();
 
+                        for (int y = highestUpper; y > lb; y -= ch) {
+                            int relY = y & 15;
+
+                            sampleMask.clear();
+                            boolean any = false;
+
+                            for (int z = 0; z < 16; z++) {
+                                for (int x = 0; x < 16; x++) {
+                                    if (flatMask.isSet(x, 0, z) && uppers[z << 4 | x] == y) {
+                                        sampleMask.set(x, relY, z);
+                                        any = true;
+                                    }
+                                }
+                            }
+
+                            if (!any) {
+                                continue;
+                            }
+
+                            DensityBuffer densityBuf = densityFn.compute(cubeX, y >> 4, cubeZ, sampleMask);
+
+                            for (int z = 0; z < 16; z++) {
+                                for (int x = 0; x < 16; x++) {
+                                    if (flatMask.isSet(x, 0, z) && uppers[z << 4 | x] == y) {
+                                        if (densityBuf.get(x, relY, z) > 0) {
+                                            result[z << 4 | x] = y;
+                                            flatMask.remove(x, 0, z);
+                                        } else {
+                                            uppers[z << 4 | x] -= ch;
+                                        }
+                                    }
+                                }
+                            }
+
+                            densityBuf.discard();
+                        }
+
+                        ctx.releaseMask(sampleMask);
+                        ctx.releaseMask(flatMask);
+
+                        CubeBuffer out = ctx.getCubeBuffer();
                         for (int z = 0; z < 16; z++) {
-                            for (int x = 0; x < 16; x++) {
-                                if (flatMask.isSet(x, 0, z) && uppers[z << 4 | x] == y) {
-                                    if (densityBuf.get(x, relY, z) > 0) {
-                                        result[z << 4 | x] = y;
-                                        flatMask.remove(x, 0, z);
-                                    } else {
-                                        uppers[z << 4 | x] -= ch;
+                            for (int y = 0; y < 16; y++) {
+                                for (int x = 0; x < 16; x++) {
+                                    if (mask.isSet(x, y, z)) {
+                                        out.set(x, y, z, result[z << 4 | x]);
                                     }
                                 }
                             }
                         }
-
-                        densityBuf.discard();
+                        return out;
                     }
-
-                    ctx.releaseMask(sampleMask);
-                    ctx.releaseMask(flatMask);
-
-                    CubeBuffer out = ctx.getCubeBuffer();
-                    for (int z = 0; z < 16; z++) {
-                        for (int y = 0; y < 16; y++) {
-                            for (int x = 0; x < 16; x++) {
-                                if (mask.isSet(x, y, z)) {
-                                    out.set(x, y, z, result[z << 4 | x]);
-                                }
-                            }
-                        }
-                    }
-                    return out;
-                }
                 };
             }
 
@@ -751,11 +803,10 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class IntervalSelectFunc implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory input;
-        public float[] thresholds;
-        public IDensityFunctionFactory[] functions;
+    @Desugar
+    public record IntervalSelectFunc(
+        IDensityFunctionFactory input, float[] thresholds, IDensityFunctionFactory[] functions
+    ) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -784,8 +835,14 @@ public class BuiltinDensityFunctions {
 
                 @Override
                 public boolean hasTrait(DensityFuncTrait trait) {
-                    if (!chooser.hasTrait(trait)) return false;
-                    for (IDensityFunction fn : fns) if (!fn.hasTrait(trait)) return false;
+                    if (!chooser.hasTrait(trait)) {
+                        return false;
+                    }
+                    for (IDensityFunction fn : fns) {
+                        if (!fn.hasTrait(trait)) {
+                            return false;
+                        }
+                    }
                     return true;
                 }
 
@@ -828,7 +885,9 @@ public class BuiltinDensityFunctions {
                     for (int i = 0; i < masks.length; i++) {
                         DensityMask fnMask = masks[i];
 
-                        if (fnMask.isEmpty()) continue;
+                        if (fnMask.isEmpty()) {
+                            continue;
+                        }
 
                         DensityBuffer fnValues = fns[i].compute(cubeX, cubeY, cubeZ, mask);
 
@@ -843,11 +902,11 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class RangeChoiceFunc implements IDensityFunctionFactory {
-
-        public IDensityFunctionFactory input;
-        public float min_inclusive, max_exclusive;
-        public IDensityFunctionFactory when_in_range, when_out_of_range;
+    @Desugar
+    public record RangeChoiceFunc(
+        IDensityFunctionFactory input, float min_inclusive, float max_exclusive, IDensityFunctionFactory when_in_range,
+        IDensityFunctionFactory when_out_of_range
+    ) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -883,8 +942,11 @@ public class BuiltinDensityFunctions {
                             for (int x = 0; x < 16; x++) {
                                 if (mask.isSet(x, y, z)) {
                                     float v = inputBuf.get(x, y, z);
-                                    if (v >= lo && v < hi) inMask.set(x, y, z);
-                                    else outMask.set(x, y, z);
+                                    if (v >= lo && v < hi) {
+                                        inMask.set(x, y, z);
+                                    } else {
+                                        outMask.set(x, y, z);
+                                    }
                                 }
                             }
                         }
@@ -912,11 +974,11 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class ShiftedNoiseFunc implements IDensityFunctionFactory {
-
-        public String noise;
-        public float xz_scale, y_scale;
-        public IDensityFunctionFactory shift_x, shift_y, shift_z;
+    @Desugar
+    public record ShiftedNoiseFunc(
+        String noise, float xz_scale, float y_scale, IDensityFunctionFactory shift_x, IDensityFunctionFactory shift_y,
+        IDensityFunctionFactory shift_z
+    ) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -979,9 +1041,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class ShiftFunc implements IDensityFunctionFactory {
-
-        public String argument;
+    @Desugar
+    public record ShiftFunc(String argument) implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1027,9 +1088,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class ShiftAFunc implements IDensityFunctionFactory {
-
-        public String argument;
+    @Desugar
+    public record ShiftAFunc(String argument) implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1087,24 +1147,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    private static class VerticalBuffer implements DensityBuffer {
-
-        public final float[] data = new float[256];
-
-        @Override
-        public float get(int relX, int relY, int relZ) {
-            return data[relY << 4 | relX];
-        }
-
-        @Override
-        public void discard() {
-
-        }
-    }
-
-    public static class ShiftBFunc implements IDensityFunctionFactory {
-
-        public String argument;
+    @Desugar
+    public record ShiftBFunc(String argument) implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1156,11 +1200,9 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class WeirdScaledSampler implements IDensityFunctionFactory {
-
-        public RarityType rarity_value_mapper;
-        public String noise;
-        public IDensityFunctionFactory input;
+    @Desugar
+    public record WeirdScaledSampler(RarityType rarity_value_mapper, String noise, IDensityFunctionFactory input)
+        implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -1186,7 +1228,9 @@ public class BuiltinDensityFunctions {
                 for (int z = 0; z < 16; z++) {
                     for (int y = 0; y < 16; y++) {
                         for (int x = 0; x < 16; x++) {
-                            if (!mask.isSet(x, y, z)) continue;
+                            if (!mask.isSet(x, y, z)) {
+                                continue;
+                            }
 
                             float value = inputBuf.get(x, y, z);
                             float rarity = 1f, rarityInv = 1f;
@@ -1250,7 +1294,9 @@ public class BuiltinDensityFunctions {
                 for (int z = 0; z < 16; z++) {
                     for (int y = 0; y < 16; y++) {
                         for (int x = 0; x < 16; x++) {
-                            if (!mask.isSet(x, y, z)) continue;
+                            if (!mask.isSet(x, y, z)) {
+                                continue;
+                            }
                             out.set(x, y, z, (float) (rarityFactors[count] * noiseout[count]));
                             count++;
                         }
@@ -1269,10 +1315,9 @@ public class BuiltinDensityFunctions {
         type_2
     }
 
-    public static class YClampedGradientFunc implements IDensityFunctionFactory {
-
-        public int from_y, to_y;
-        public float from_value, to_value;
+    @Desugar
+    public record YClampedGradientFunc(int from_y, int to_y, float from_value, float to_value)
+        implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1297,10 +1342,8 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class NoiseFunc implements IDensityFunctionFactory {
-
-        public String noise;
-        public float xz_scale, y_scale;
+    @Desugar
+    public record NoiseFunc(String noise, float xz_scale, float y_scale) implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1319,9 +1362,9 @@ public class BuiltinDensityFunctions {
                     for (int y = 0; y < 16; y++) {
                         for (int x = 0; x < 16; x++) {
                             if (mask.isSet(x, y, z)) {
-                                double bx = (cubeX << 4) | x;
-                                double by = (cubeY << 4) | y;
-                                double bz = (cubeZ << 4) | z;
+                                double bx = cubeX << 4 | x;
+                                double by = cubeY << 4 | y;
+                                double bz = cubeZ << 4 | z;
                                 xcoord[count] = bx * xzs;
                                 ycoord[count] = by * ys;
                                 zcoord[count] = bz * xzs;
@@ -1352,28 +1395,19 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class OldBlendedNoiseFunc implements IDensityFunctionFactory {
-
-        public float xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier;
+    @Desugar
+    public record OldBlendedNoiseFunc(
+        float xz_scale, float y_scale, float xz_factor, float y_factor, float smear_scale_multiplier
+    ) implements IDensityFunctionFactory {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
-            return new OldBlendedNoise(
-                ctx.getRandom(),
-                xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier
-            );
+            return new OldBlendedNoise(ctx.getRandom(), xz_scale, y_scale, xz_factor, y_factor, smear_scale_multiplier);
         }
     }
 
-    public enum SplineType {
-        offset,
-        factor,
-        jaggedness
-    }
-
-    public static class SplineFunc implements IDensityFunctionFactory {
-
-        public ISpline spline;
+    @Desugar
+    public record SplineFunc(ISpline spline) implements IDensityFunctionFactory {
 
         @Override
         public List<IDensityFunctionFactory> children() {
@@ -1390,13 +1424,8 @@ public class BuiltinDensityFunctions {
 
     }
 
-    public static class SplineValue implements ISpline {
-
-        public float coordinate;
-
-        public SplineValue(float coordinate) {
-            this.coordinate = coordinate;
-        }
+    @Desugar
+    public record SplineValue(float coordinate) implements ISpline {
 
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
@@ -1404,16 +1433,16 @@ public class BuiltinDensityFunctions {
         }
     }
 
-    public static class SplineCurve implements ISpline {
-
-        public IDensityFunctionFactory coordinate;
-        public SplinePoint[] points;
+    @Desugar
+    public record SplineCurve(IDensityFunctionFactory coordinate, SplinePoint[] points) implements ISpline {
 
         @Override
         public List<IDensityFunctionFactory> children() {
             List<IDensityFunctionFactory> result = new ArrayList<>(1 + points.length);
             result.add(coordinate);
-            for (SplinePoint p : points) result.add(p.value);
+            for (SplinePoint p : points) {
+                result.add(p.value);
+            }
             return result;
         }
 
@@ -1436,7 +1465,9 @@ public class BuiltinDensityFunctions {
             }
 
             DensityMask[] segMasks = new DensityMask[N - 1];
-            for (int i = 0; i < N - 1; i++) segMasks[i] = new DensityMask();
+            for (int i = 0; i < N - 1; i++) {
+                segMasks[i] = new DensityMask();
+            }
             DensityMask edgeLow = new DensityMask();
             DensityMask edgeHigh = new DensityMask();
 
@@ -1446,8 +1477,14 @@ public class BuiltinDensityFunctions {
 
                 @Override
                 public boolean hasTrait(DensityFuncTrait trait) {
-                    if (!coord.hasTrait(trait)) return false;
-                    for (IDensityFunction v : values) if (!v.hasTrait(trait)) return false;
+                    if (!coord.hasTrait(trait)) {
+                        return false;
+                    }
+                    for (IDensityFunction v : values) {
+                        if (!v.hasTrait(trait)) {
+                            return false;
+                        }
+                    }
                     return true;
                 }
 
@@ -1457,13 +1494,17 @@ public class BuiltinDensityFunctions {
 
                     edgeLow.clear();
                     edgeHigh.clear();
-                    for (DensityMask m : segMasks) m.clear();
+                    for (DensityMask m : segMasks) {
+                        m.clear();
+                    }
 
                     float lastLoc = locs[N - 1];
                     for (int z = 0; z < 16; z++) {
                         for (int y = 0; y < 16; y++) {
                             for (int x = 0; x < 16; x++) {
-                                if (!mask.isSet(x, y, z)) continue;
+                                if (!mask.isSet(x, y, z)) {
+                                    continue;
+                                }
 
                                 float t = coordBuf.get(x, y, z);
 
@@ -1473,7 +1514,9 @@ public class BuiltinDensityFunctions {
                                     edgeHigh.set(x, y, z);
                                 } else {
                                     int seg = 0;
-                                    while (seg < N - 2 && locs[seg + 1] <= t) seg++;
+                                    while (seg < N - 2 && locs[seg + 1] <= t) {
+                                        seg++;
+                                    }
                                     segMasks[seg].set(x, y, z);
                                 }
                             }
@@ -1484,10 +1527,18 @@ public class BuiltinDensityFunctions {
 
                     for (int i = 0; i < N; i++) {
                         valMask.clear();
-                        if (i == 0) valMask.or(edgeLow);
-                        if (i > 0) valMask.or(segMasks[i - 1]);
-                        if (i < N - 1) valMask.or(segMasks[i]);
-                        if (i == N - 1) valMask.or(edgeHigh);
+                        if (i == 0) {
+                            valMask.or(edgeLow);
+                        }
+                        if (i > 0) {
+                            valMask.or(segMasks[i - 1]);
+                        }
+                        if (i < N - 1) {
+                            valMask.or(segMasks[i]);
+                        }
+                        if (i == N - 1) {
+                            valMask.or(edgeHigh);
+                        }
                         valueBufs[i] = values[i].compute(cubeX, cubeY, cubeZ, valMask);
                     }
 
@@ -1518,17 +1569,18 @@ public class BuiltinDensityFunctions {
                     }
 
                     coordBuf.discard();
-                    for (DensityBuffer vb : valueBufs) vb.discard();
+                    for (DensityBuffer vb : valueBufs) {
+                        vb.discard();
+                    }
                     return out;
                 }
             };
         }
     }
 
-    public static class SplinePoint {
+    @Desugar
+    public record SplinePoint(float location, float derivative, ISpline value) {
 
-        public float location, derivative;
-        public ISpline value;
     }
 
     public static class SplineAdapter implements JsonSerializer<ISpline>, JsonDeserializer<ISpline> {
@@ -1564,6 +1616,16 @@ public class BuiltinDensityFunctions {
         public IDensityFunction instantiate(WorldContext ctx) {
             return ConstantDensityFunction.ONE;
         }
+
+        @Override
+        public int hashCode() {
+            return 123;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof BlendAlphaFunc;
+        }
     }
 
     public static class BlendOffsetFunc implements IDensityFunctionFactory {
@@ -1571,6 +1633,16 @@ public class BuiltinDensityFunctions {
         @Override
         public IDensityFunction instantiate(WorldContext ctx) {
             return ConstantDensityFunction.ZERO;
+        }
+
+        @Override
+        public int hashCode() {
+            return 456;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof BlendOffsetFunc;
         }
     }
 }

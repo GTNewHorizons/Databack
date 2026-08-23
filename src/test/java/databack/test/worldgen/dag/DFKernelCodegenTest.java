@@ -6,7 +6,7 @@ import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.*;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.worldgen.dag.DFDagBuilder;
 import databack.common.worldgen.dag.DFKernelPlan;
-import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.CellSize;
 import databack.common.worldgen.dag.codegen.DFKernelCodegen;
 import databack.common.worldgen.dag.codegen.GeneratedKernel;
 
@@ -24,183 +24,114 @@ public class DFKernelCodegenTest {
     // ---- Factory helpers -------------------------------------------------------------------
 
     private static ConstantFunc constant(float v) {
-        ConstantFunc c = new ConstantFunc();
-        c.argument = v;
-        return c;
+        return new ConstantFunc(v);
     }
 
     private static CacheOnceUnary cacheOnce(IDensityFunctionFactory arg) {
-        CacheOnceUnary c = new CacheOnceUnary();
-        c.argument = arg;
-        return c;
+        return new CacheOnceUnary(arg);
     }
 
     private static FlatCacheUnary flatCache(IDensityFunctionFactory arg) {
-        FlatCacheUnary f = new FlatCacheUnary();
-        f.argument = arg;
-        return f;
+        return new FlatCacheUnary(arg);
     }
 
     private static InterpolatedFunc interpolated(IDensityFunctionFactory arg) {
-        InterpolatedFunc i = new InterpolatedFunc();
-        i.argument = arg;
-        return i;
+        return new InterpolatedFunc(arg);
     }
 
     private static AbsUnary abs(IDensityFunctionFactory arg) {
-        AbsUnary a = new AbsUnary();
-        a.argument = arg;
-        return a;
+        return new AbsUnary(arg);
     }
 
     private static CubeUnary cube(IDensityFunctionFactory arg) {
-        CubeUnary c = new CubeUnary();
-        c.argument = arg;
-        return c;
+        return new CubeUnary(arg);
     }
 
     private static SquareUnary square(IDensityFunctionFactory arg) {
-        SquareUnary s = new SquareUnary();
-        s.argument = arg;
-        return s;
+        return new SquareUnary(arg);
     }
 
     private static HalfNegativeUnary halfNeg(IDensityFunctionFactory arg) {
-        HalfNegativeUnary h = new HalfNegativeUnary();
-        h.argument = arg;
-        return h;
+        return new HalfNegativeUnary(arg);
     }
 
     private static QuarterNegativeUnary quarterNeg(IDensityFunctionFactory arg) {
-        QuarterNegativeUnary q = new QuarterNegativeUnary();
-        q.argument = arg;
-        return q;
+        return new QuarterNegativeUnary(arg);
     }
 
     private static InvertUnary invert(IDensityFunctionFactory arg) {
-        InvertUnary i = new InvertUnary();
-        i.argument = arg;
-        return i;
+        return new InvertUnary(arg);
     }
 
     private static SqueezeUnary squeeze(IDensityFunctionFactory arg) {
-        SqueezeUnary s = new SqueezeUnary();
-        s.argument = arg;
-        return s;
+        return new SqueezeUnary(arg);
     }
 
     private static BlendDensityUnary blendDensity(IDensityFunctionFactory arg) {
-        BlendDensityUnary b = new BlendDensityUnary();
-        b.argument = arg;
-        return b;
+        return new BlendDensityUnary(arg);
     }
 
     private static AddBinary add(IDensityFunctionFactory a, IDensityFunctionFactory b) {
-        AddBinary ab = new AddBinary();
-        ab.argument1 = a;
-        ab.argument2 = b;
-        return ab;
+        return new AddBinary(a, b);
     }
 
     private static MulBinary mul(IDensityFunctionFactory a, IDensityFunctionFactory b) {
-        MulBinary mb = new MulBinary();
-        mb.argument1 = a;
-        mb.argument2 = b;
-        return mb;
+        return new MulBinary(a, b);
     }
 
     private static MaxBinary max(IDensityFunctionFactory a, IDensityFunctionFactory b) {
-        MaxBinary mb = new MaxBinary();
-        mb.argument1 = a;
-        mb.argument2 = b;
-        return mb;
+        return new MaxBinary(a, b);
     }
 
     private static MinBinary min(IDensityFunctionFactory a, IDensityFunctionFactory b) {
-        MinBinary mb = new MinBinary();
-        mb.argument1 = a;
-        mb.argument2 = b;
-        return mb;
+        return new MinBinary(a, b);
     }
 
     private static ClampFunc clamp(IDensityFunctionFactory input, float min, float max) {
-        ClampFunc c = new ClampFunc();
-        c.input = input;
-        c.min = min;
-        c.max = max;
-        return c;
+        return new ClampFunc(input, min, max);
     }
 
     private static YClampedGradientFunc yGradient(int fromY, int toY, float fromVal, float toVal) {
-        YClampedGradientFunc y = new YClampedGradientFunc();
-        y.from_y = fromY;
-        y.to_y = toY;
-        y.from_value = fromVal;
-        y.to_value = toVal;
-        return y;
+        return new YClampedGradientFunc(fromY, toY, fromVal, toVal);
     }
 
     private static NoiseFunc noise(String id, float xzScale, float yScale) {
-        NoiseFunc n = new NoiseFunc();
-        n.noise = id;
-        n.xz_scale = xzScale;
-        n.y_scale = yScale;
-        return n;
+        return new NoiseFunc(id, xzScale, yScale);
+    }
+
+    private static OldBlendedNoiseFunc oldBlendedNoise(float xzScale, float yScale, float xzFactor, float yFactor, float smear) {
+        return new OldBlendedNoiseFunc(xzScale, yScale, xzFactor, yFactor, smear);
     }
 
     private static RangeChoiceFunc rangeChoice(IDensityFunctionFactory input,
                                                float min, float max,
                                                IDensityFunctionFactory inRange,
                                                IDensityFunctionFactory outOfRange) {
-        RangeChoiceFunc r = new RangeChoiceFunc();
-        r.input = input;
-        r.min_inclusive = min;
-        r.max_exclusive = max;
-        r.when_in_range = inRange;
-        r.when_out_of_range = outOfRange;
-        return r;
+        return new RangeChoiceFunc(input, min, max, inRange, outOfRange);
     }
 
     private static IntervalSelectFunc intervalSelect(IDensityFunctionFactory input,
                                                      float[] thresholds,
                                                      IDensityFunctionFactory... functions) {
-        IntervalSelectFunc is = new IntervalSelectFunc();
-        is.input = input;
-        is.thresholds = thresholds;
-        is.functions = functions;
-        return is;
+        return new IntervalSelectFunc(input, thresholds, functions);
     }
 
     private static FindTopSurfaceFunc findTopSurface(IDensityFunctionFactory density,
                                                       IDensityFunctionFactory upperBound,
                                                       int lowerBound, int cellHeight) {
-        FindTopSurfaceFunc f = new FindTopSurfaceFunc();
-        f.density = density;
-        f.upper_bound = upperBound;
-        f.lower_bound = lowerBound;
-        f.cell_height = cellHeight;
-        return f;
+        return new FindTopSurfaceFunc(density, upperBound, lowerBound, cellHeight);
     }
 
     private static SplineFunc spline(SplineCurve curve) {
-        SplineFunc sf = new SplineFunc();
-        sf.spline = curve;
-        return sf;
+        return new SplineFunc(curve);
     }
 
     private static SplineCurve splineCurve(IDensityFunctionFactory coord, SplinePoint... points) {
-        SplineCurve sc = new SplineCurve();
-        sc.coordinate = coord;
-        sc.points = points;
-        return sc;
+        return new SplineCurve(coord, points);
     }
 
     private static SplinePoint splinePoint(float location, float derivative, ISpline value) {
-        SplinePoint sp = new SplinePoint();
-        sp.location = location;
-        sp.derivative = derivative;
-        sp.value = value;
-        return sp;
+        return new SplinePoint(location, derivative, value);
     }
 
     private static SplineValue splineValue(float v) {
@@ -228,7 +159,8 @@ public class DFKernelCodegenTest {
         assertEquals(1, kernels.size(), "Expected exactly one kernel for a constant root");
 
         GeneratedKernel k = kernels.get(0);
-        assertEquals(DispatchShape.PER_VOXEL, k.shape,
+        assertEquals(
+            CellSize.BLOCKS, k.shape,
             "Terminal kernel shape should be PER_VOXEL");
         assertNull(k.outputBarrierId,
             "Terminal kernel should have null outputBarrierId");
@@ -341,7 +273,8 @@ public class DFKernelCodegenTest {
         // The terminal kernel is always last.
         GeneratedKernel terminal = kernels.get(kernels.size() - 1);
         assertNull(terminal.outputBarrierId, "Last kernel should be terminal (null outputBarrierId)");
-        assertEquals(DispatchShape.PER_VOXEL, terminal.shape,
+        assertEquals(
+            CellSize.BLOCKS, terminal.shape,
             "Terminal kernel should be PER_VOXEL");
 
         // The terminal reads from the PER_COLUMN flat-cache buffer, so it must use the column index.
@@ -367,14 +300,14 @@ public class DFKernelCodegenTest {
         // Verify PER_CORNER kernel exists.
         boolean hasCorner = false;
         for (GeneratedKernel k : kernels) {
-            if (k.shape == DispatchShape.PER_CORNER) hasCorner = true;
+            if (k.shape == CellSize.BLOCKS_REDUCED) hasCorner = true;
         }
         assertTrue(hasCorner, "Expected a PER_CORNER kernel for InterpolatedFunc SAMPLE phase");
 
         // Find the INTERP kernel (PER_VOXEL that has a non-null outputBarrierId).
         GeneratedKernel interpKernel = null;
         for (GeneratedKernel k : kernels) {
-            if (k.shape == DispatchShape.PER_VOXEL && k.outputBarrierId != null
+            if (k.shape == CellSize.BLOCKS && k.outputBarrierId != null
                 && k.outputBarrierId.startsWith("InterpolatedInterp")) {
                 interpKernel = k;
             }
@@ -647,17 +580,6 @@ public class DFKernelCodegenTest {
             "IntervalSelectFunc should contain second threshold 0.5f");
     }
 
-    private static OldBlendedNoiseFunc oldBlendedNoise(
-            float xzScale, float yScale, float xzFactor, float yFactor, float smear) {
-        OldBlendedNoiseFunc obn = new OldBlendedNoiseFunc();
-        obn.xz_scale = xzScale;
-        obn.y_scale = yScale;
-        obn.xz_factor = xzFactor;
-        obn.y_factor = yFactor;
-        obn.smear_scale_multiplier = smear;
-        return obn;
-    }
-
     /**
      * Test 15: OldBlendedNoise codegen.
      * Verifies that OldBlendedNoise emits a sampleOldBlendedNoise() call, registers exactly one
@@ -790,7 +712,7 @@ public class DFKernelCodegenTest {
         // Find the PER_CORNER (INTERPOLATED_SAMPLE) kernel.
         GeneratedKernel cornerKernel = null;
         for (GeneratedKernel k : kernels) {
-            if (k.shape == DispatchShape.PER_CORNER) {
+            if (k.shape == CellSize.BLOCKS_REDUCED) {
                 cornerKernel = k;
                 break;
             }
@@ -805,10 +727,6 @@ public class DFKernelCodegenTest {
     }
 
     /**
-     * Test 13: All kernels in a moderately complex plan have a void main() entry point.
-     * Plan: CacheOnce(Add(NoiseFunc, NoiseFunc)) → Interpolated reads that, terminal reads INTERP.
-     */
-    /**
      * Test 20: FlatCacheUnary wrapping Cache2DFunc — the degenerate pass-through case.
      * <p>
      * The FlatCacheUnary kernel has no inline nodes; its only work is to copy the
@@ -817,8 +735,7 @@ public class DFKernelCodegenTest {
      */
     @Test
     public void testFlatCachePassThrough() {
-        Cache2DFunc cache2d = new Cache2DFunc();
-        cache2d.argument = constant(1.0f);
+        Cache2DFunc cache2d = new Cache2DFunc(constant(1.0f));
         FlatCacheUnary root = flatCache(cache2d);
 
         List<GeneratedKernel> kernels = compile(root);
@@ -826,7 +743,7 @@ public class DFKernelCodegenTest {
         // Find the FlatCacheUnary kernel (PER_COLUMN, non-terminal output is FLAT_CACHE).
         GeneratedKernel flatCacheKernel = null;
         for (GeneratedKernel k : kernels) {
-            if (k.shape == DispatchShape.PER_COLUMN && k.outputBarrierId != null) {
+            if (k.shape == CellSize.COLUMNS && k.outputBarrierId != null) {
                 // There may be two PER_COLUMN kernels (cache2d and flatCache); pick the
                 // one whose GLSL reads a Cache2DFunc buffer.
                 if (k.glslSource.contains("GET_CACHE2_D_FUNC")) {

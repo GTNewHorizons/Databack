@@ -2,13 +2,21 @@ package databack.common.dto.worldgen.density_function;
 
 import databack.common.context.WorldContext;
 import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.util.Collections;
 import java.util.List;
 
+@EqualsAndHashCode
+@ToString
 public abstract class UnaryDensityFunction implements IDensityFunctionFactory {
 
-    public IDensityFunctionFactory argument;
+    public final IDensityFunctionFactory argument;
+
+    public UnaryDensityFunction(IDensityFunctionFactory argument) {
+        this.argument = argument;
+    }
 
     @Override
     public List<IDensityFunctionFactory> children() {
