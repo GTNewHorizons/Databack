@@ -45,7 +45,7 @@ public final class SplineEmitter {
      * @return the GLSL variable name holding the spline result, e.g. {@code "_spline_3"}
      */
     public static String emit(SplineCurve src, String[] inputVars, KernelBuilder builder, int nodeIdx) {
-        SplinePoint[] points = src.points;
+        SplinePoint[] points = src.points();
         int n = points.length;
         String resultVar = "_spline_" + nodeIdx;
         String tVar = "_t_" + nodeIdx;
@@ -73,8 +73,8 @@ public final class SplineEmitter {
         float[] locs = new float[n];
         float[] derivs = new float[n];
         for (int i = 0; i < n; i++) {
-            locs[i] = points[i].location;
-            derivs[i] = points[i].derivative;
+            locs[i] = points[i].location();
+            derivs[i] = points[i].derivative();
         }
 
         // Lower edge clamp.

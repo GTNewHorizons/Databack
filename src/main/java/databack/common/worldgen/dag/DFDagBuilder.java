@@ -38,35 +38,41 @@ import java.util.*;
 public class DFDagBuilder {
 
     private int barrierCounter;
-    private final IdentityHashMap<IDensityFunctionFactory, BarrierNode> barrierMemo = new IdentityHashMap<>();
+    private final HashMap<IDensityFunctionFactory, BarrierNode> barrierMemo = new HashMap<>();
     // CSE: memoize InlineNodes by (factory identity × dispatch shape) to avoid duplicate variables
     // when the same factory instance appears more than once in the tree.
-    private final Map<DispatchShape, IdentityHashMap<IDensityFunctionFactory, InlineNode>> inlineMemos
-        = new EnumMap<>(DispatchShape.class);
+    private final Map<CellSize, HashMap<IDensityFunctionFactory, InlineNode>> inlineMemos
+        = new EnumMap<>(CellSize.class);
 
     public static DFKernelPlan build(IDensityFunctionFactory root) {
         DFDagBuilder builder = new DFDagBuilder();
-        DFDagNode rootNode = builder.buildNode(root, DispatchShape.PER_VOXEL);
+        DFDagNode rootNode = builder.buildNode(root, CellSize.BLOCKS);
         return builder.buildPlan(rootNode);
     }
 
     // ---- DAG construction ----
 
-    private DFDagNode buildNode(IDensityFunctionFactory factory, DispatchShape shapeHint) {
+    private DFDagNode buildNode(IDensityFunctionFactory factory, CellSize shapeHint) {
         // Resolve DensityFunctionRef transparently. The resolved instance is the memo key,
         // so multiple refs to the same function share one BarrierNode.
         while (factory instanceof DensityFunctionRef ref) {
-            factory = ref.getFactory();
+            factory = ref.dereference();
         }
 
         BarrierKind kind = classifyBarrier(factory, shapeHint);
         if (kind != null) {
-            return barrierMemo.computeIfAbsent(factory, f -> createBarrier(f, kind));
+            // Avoid computeIfAbsent: the lambda calls buildNode recursively which would trigger
+            // a ConcurrentModificationException on Java 8+ HashMap.computeIfAbsent.
+            BarrierNode cached = barrierMemo.get(factory);
+            if (cached != null) return cached;
+            BarrierNode barrier = createBarrier(factory, kind);
+            barrierMemo.put(factory, barrier);
+            return barrier;
         }
 
         // CSE: return a cached InlineNode if this factory was already inlined at this shape.
-        IdentityHashMap<IDensityFunctionFactory, InlineNode> shapeMemo =
-            inlineMemos.computeIfAbsent(shapeHint, k -> new IdentityHashMap<>());
+        HashMap<IDensityFunctionFactory, InlineNode> shapeMemo =
+            inlineMemos.computeIfAbsent(shapeHint, k -> new HashMap<>());
         InlineNode cached = shapeMemo.get(factory);
         if (cached != null) return cached;
 
@@ -82,9 +88,9 @@ public class DFDagBuilder {
 
     private BarrierNode createBarrier(IDensityFunctionFactory factory, BarrierKind kind) {
         if (kind == BarrierKind.CACHE_ONCE)
-            return buildSimpleBarrier(factory, kind, DispatchShape.PER_VOXEL, DispatchShape.PER_VOXEL);
+            return buildSimpleBarrier(factory, kind, CellSize.BLOCKS, CellSize.BLOCKS);
         if (kind == BarrierKind.FLAT_CACHE)
-            return buildSimpleBarrier(factory, kind, DispatchShape.PER_COLUMN, DispatchShape.PER_COLUMN);
+            return buildSimpleBarrier(factory, kind, CellSize.COLUMNS, CellSize.COLUMNS);
         if (kind == BarrierKind.COLUMN_REDUCE)
             return createColumnReduce(factory);
         if (kind == BarrierKind.INTERPOLATED_INTERP)
@@ -108,17 +114,17 @@ public class DFDagBuilder {
         List<IDensityFunctionFactory> childFactories = factory.children();
         List<DFDagNode> sampleInputs = new ArrayList<>(childFactories.size());
         for (IDensityFunctionFactory child : childFactories) {
-            sampleInputs.add(buildNode(child, DispatchShape.PER_CORNER));
+            sampleInputs.add(buildNode(child, CellSize.BLOCKS_REDUCED));
         }
         String sampleId = "InterpolatedSample_" + barrierCounter++;
         BarrierNode sampleBarrier = new BarrierNode(factory, BarrierKind.INTERPOLATED_SAMPLE,
-            DispatchShape.PER_CORNER, sampleInputs, sampleId);
+            CellSize.BLOCKS_REDUCED, sampleInputs, sampleId);
 
         String interpId = "InterpolatedInterp_" + barrierCounter++;
         List<DFDagNode> interpInputs = new ArrayList<>(1);
         interpInputs.add(sampleBarrier);
         return new BarrierNode(factory, BarrierKind.INTERPOLATED_INTERP,
-            DispatchShape.PER_VOXEL, interpInputs, interpId);
+            CellSize.BLOCKS, interpInputs, interpId);
     }
 
     /**
@@ -134,7 +140,7 @@ public class DFDagBuilder {
     private BarrierNode createSplinePair(IDensityFunctionFactory factory) {
         SplineCurve sc = (SplineCurve) factory;
 
-        DFDagNode coordNode = buildNode(sc.coordinate, DispatchShape.PER_VOXEL);
+        DFDagNode coordNode = buildNode(sc.coordinate(), CellSize.BLOCKS);
 
         // Decide how to supply the coordinate to SPLINE_EVAL:
         //  - already a BarrierNode → use it directly (e.g. coord is itself a spline/cache)
@@ -146,18 +152,18 @@ public class DFDagBuilder {
         } else {
             String coordId = "SplineCoord_" + barrierCounter++;
             coordInput = new BarrierNode(factory, BarrierKind.SPLINE_COORD,
-                DispatchShape.PER_VOXEL, Collections.singletonList(coordNode), coordId);
+                CellSize.BLOCKS, Collections.singletonList(coordNode), coordId);
         }
 
-        List<DFDagNode> evalInputs = new ArrayList<>(1 + sc.points.length);
+        List<DFDagNode> evalInputs = new ArrayList<>(1 + sc.points().length);
         evalInputs.add(coordInput);
-        for (SplinePoint p : sc.points) {
-            evalInputs.add(buildNode(p.value, DispatchShape.PER_VOXEL));
+        for (SplinePoint p : sc.points()) {
+            evalInputs.add(buildNode(p.value(), CellSize.BLOCKS));
         }
 
         String evalId = "SplineEval_" + barrierCounter++;
         return new BarrierNode(factory, BarrierKind.SPLINE_EVAL,
-            DispatchShape.PER_VOXEL, evalInputs, evalId);
+            CellSize.BLOCKS, evalInputs, evalId);
     }
 
     /**
@@ -173,10 +179,10 @@ public class DFDagBuilder {
     private BarrierNode createColumnReduce(IDensityFunctionFactory factory) {
         FindTopSurfaceFunc fts = (FindTopSurfaceFunc) factory;
         List<DFDagNode> inputs = new ArrayList<>(2);
-        inputs.add(buildNode(fts.density, DispatchShape.PER_VOXEL));
-        inputs.add(buildNode(fts.upper_bound, DispatchShape.PER_COLUMN));
+        inputs.add(buildNode(fts.density(), CellSize.BLOCKS));
+        inputs.add(buildNode(fts.upper_bound(), CellSize.COLUMNS));
         String id = "FindTopSurfaceFunc_" + barrierCounter++;
-        return new BarrierNode(factory, BarrierKind.COLUMN_REDUCE, DispatchShape.PER_COLUMN, inputs, id);
+        return new BarrierNode(factory, BarrierKind.COLUMN_REDUCE, CellSize.COLUMNS, inputs, id);
     }
 
     /**
@@ -185,14 +191,14 @@ public class DFDagBuilder {
      */
     private static boolean isBarrierFree(DFDagNode node) {
         if (node instanceof BarrierNode) return false;
-        for (DFDagNode input : node.inputs()) {
+        for (DFDagNode input : node.getInputs()) {
             if (!isBarrierFree(input)) return false;
         }
         return true;
     }
 
     private BarrierNode buildSimpleBarrier(IDensityFunctionFactory factory, BarrierKind kind,
-                                            DispatchShape innerShape, DispatchShape outputShape) {
+                                            CellSize innerShape, CellSize outputShape) {
         List<IDensityFunctionFactory> childFactories = factory.children();
         List<DFDagNode> inputs = new ArrayList<>(childFactories.size());
         for (IDensityFunctionFactory child : childFactories) {
@@ -202,7 +208,7 @@ public class DFDagBuilder {
         return new BarrierNode(factory, kind, outputShape, inputs, id);
     }
 
-    private static BarrierKind classifyBarrier(IDensityFunctionFactory factory, DispatchShape shapeHint) {
+    private static BarrierKind classifyBarrier(IDensityFunctionFactory factory, CellSize shapeHint) {
         // FLAT_CACHE and COLUMN_REDUCE produce PER_COLUMN output and are valid in any context
         // (PER_VOXEL kernels read from them via a cross-shape column index).
         if (factory instanceof Cache2DFunc)        return BarrierKind.FLAT_CACHE;
@@ -213,13 +219,15 @@ public class DFDagBuilder {
         // in PER_VOXEL context. Inside a PER_COLUMN kernel (e.g. FlatCache wrapping a CacheOnce
         // or a SplineCurve) they must be inlined instead to avoid Y-dependent buffer reads in
         // Y-independent kernel groups, which DFPlanBuilder cannot resolve.
-        if (shapeHint != DispatchShape.PER_VOXEL) return null;
+        if (shapeHint != CellSize.BLOCKS) return null;
 
         if (factory instanceof CacheOnceUnary)   return BarrierKind.CACHE_ONCE;
         // INTERPOLATED_INTERP is the marker; createBarrier expands it to the (SAMPLE, INTERP) pair.
         if (factory instanceof InterpolatedFunc) return BarrierKind.INTERPOLATED_INTERP;
         // SPLINE_EVAL is the marker; createBarrier expands it to the (COORD, EVAL) pair.
         if (factory instanceof SplineCurve)      return BarrierKind.SPLINE_EVAL;
+
+        // No barrier
         return null;
     }
 
@@ -243,12 +251,12 @@ public class DFDagBuilder {
     private void collectBarriers(DFDagNode node, List<BarrierNode> out, Set<BarrierNode> seen) {
         if (node instanceof BarrierNode barrier) {
             if (!seen.add(barrier)) return;
-            for (DFDagNode input : barrier.inputs()) {
+            for (DFDagNode input : barrier.getInputs()) {
                 collectBarriers(input, out, seen);
             }
             out.add(barrier);
         } else {
-            for (DFDagNode input : node.inputs()) {
+            for (DFDagNode input : node.getInputs()) {
                 collectBarriers(input, out, seen);
             }
         }
@@ -259,11 +267,11 @@ public class DFDagBuilder {
         LinkedHashSet<BarrierNode> reads = new LinkedHashSet<>();
         Set<InlineNode> visited = Collections.newSetFromMap(new IdentityHashMap<>());
 
-        for (DFDagNode input : barrier.inputs()) {
+        for (DFDagNode input : barrier.getInputs()) {
             collectInlines(input, nodes, reads, visited);
         }
 
-        return new KernelGroup(barrier.outputShape(), new ArrayList<>(reads), nodes, barrier);
+        return new KernelGroup(barrier.getOutputShape(), new ArrayList<>(reads), nodes, barrier);
     }
 
     private KernelGroup buildTerminalGroup(DFDagNode rootNode) {
@@ -274,7 +282,7 @@ public class DFDagBuilder {
         collectInlines(rootNode, nodes, reads, visited);
 
         // Degenerate case: entire tree is a single barrier (e.g. top-level CacheOnce).
-        DispatchShape shape = nodes.isEmpty() ? rootNode.outputShape() : DispatchShape.PER_VOXEL;
+        CellSize shape = nodes.isEmpty() ? rootNode.getOutputShape() : CellSize.BLOCKS;
         return new KernelGroup(shape, new ArrayList<>(reads), nodes, null);
     }
 
@@ -289,7 +297,7 @@ public class DFDagBuilder {
         } else {
             InlineNode inline = (InlineNode) node;
             if (!visited.add(inline)) return;
-            for (DFDagNode input : inline.inputs()) {
+            for (DFDagNode input : inline.getInputs()) {
                 collectInlines(input, out, reads, visited);
             }
             out.add(inline);

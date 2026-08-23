@@ -15,12 +15,12 @@ public final class BarrierNode implements DFDagNode {
 
     private final IDensityFunctionFactory source;
     private final BarrierKind kind;
-    private final DispatchShape outputShape;
+    private final CellSize outputShape;
     private final List<DFDagNode> inputs;
     /** Unique identifier used for GPU buffer naming. */
     private final String id;
 
-    public BarrierNode(IDensityFunctionFactory source, BarrierKind kind, DispatchShape outputShape,
+    public BarrierNode(IDensityFunctionFactory source, BarrierKind kind, CellSize outputShape,
                        List<DFDagNode> inputs, String id) {
         this.source = source;
         this.kind = kind;
@@ -29,9 +29,9 @@ public final class BarrierNode implements DFDagNode {
         this.id = id;
     }
 
-    @Override public IDensityFunctionFactory source() { return source; }
-    @Override public DispatchShape outputShape()      { return outputShape; }
-    @Override public List<DFDagNode> inputs()         { return inputs; }
+    @Override public IDensityFunctionFactory getFactory() { return source; }
+    @Override public CellSize getOutputShape()      { return outputShape; }
+    @Override public List<DFDagNode> getInputs()         { return inputs; }
     public BarrierKind kind()                         { return kind; }
     public String id()                                { return id; }
 }

@@ -1,6 +1,6 @@
 package databack.common.worldgen.debug;
 
-import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.CellSize;
 import databack.common.worldgen.dag.KernelDispatchListener;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
 
@@ -76,7 +76,8 @@ public final class ChunkDebugCapture {
         }
 
         @Override
-        public synchronized void onKernelOutput(DispatchShape shape, int[] chunkKey,
+        public synchronized void onKernelOutput(
+            CellSize shape, int[] chunkKey,
                                                 String outputBarrierId, List<String> inputBarrierIds,
                                                 String glslSource, BufferDataType dataType,
                                                 float[] outputValues) {

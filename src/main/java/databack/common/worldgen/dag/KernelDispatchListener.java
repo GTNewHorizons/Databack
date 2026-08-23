@@ -27,7 +27,8 @@ public interface KernelDispatchListener {
      * @param outputValues     captured output buffer as raw floats; for u32 buffers reinterpret
      *                         each element via {@link Float#floatToRawIntBits}
      */
-    void onKernelOutput(DispatchShape shape, int[] chunkKey,
+    void onKernelOutput(
+        CellSize shape, int[] chunkKey,
                         String outputBarrierId, List<String> inputBarrierIds,
                         String glslSource, BufferDataType dataType, float[] outputValues);
 }

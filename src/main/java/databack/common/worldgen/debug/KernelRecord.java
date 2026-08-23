@@ -1,6 +1,6 @@
 package databack.common.worldgen.debug;
 
-import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.CellSize;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
 
 import java.util.ArrayList;
@@ -17,7 +17,7 @@ import java.util.List;
 public final class KernelRecord {
 
     /** Dispatch shape: PER_VOXEL (4096 elements), PER_COLUMN (256), or PER_CORNER (125). */
-    public final DispatchShape shape;
+    public final CellSize shape;
 
     /** {chunkX, chunkY, chunkZ} — for FLAT_CACHE kernels, chunkY is the sentinel 0. */
     public final int[] chunkKey;
@@ -45,7 +45,8 @@ public final class KernelRecord {
      */
     public final float[] outputValues;
 
-    public KernelRecord(DispatchShape shape, int[] chunkKey,
+    public KernelRecord(
+        CellSize shape, int[] chunkKey,
                         String outputBarrierId, List<String> inputBarrierIds,
                         String glslSource, BufferDataType dataType, float[] outputValues) {
         this.shape            = shape;

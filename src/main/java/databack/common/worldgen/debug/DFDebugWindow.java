@@ -1,6 +1,6 @@
 package databack.common.worldgen.debug;
 
-import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.CellSize;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
 
 import javax.swing.*;
@@ -374,7 +374,7 @@ public final class DFDebugWindow extends JFrame {
 
         private void drawKernelSlice(Graphics g, KernelRecord r) {
             int dim;
-            if (r.shape == DispatchShape.PER_VOXEL || r.shape == DispatchShape.PER_COLUMN) {
+            if (r.shape == CellSize.BLOCKS || r.shape == CellSize.COLUMNS) {
                 dim = 16;
             } else {
                 dim = 5; // PER_CORNER
@@ -398,7 +398,7 @@ public final class DFDebugWindow extends JFrame {
             for (int z = 0; z < dim; z++) {
                 for (int x = 0; x < dim; x++) {
                     int idx;
-                    if (r.shape == DispatchShape.PER_VOXEL) {
+                    if (r.shape == CellSize.BLOCKS) {
                         idx = z * 256 + 0 * 16 + x; // relY=0 slice
                     } else {
                         idx = z * dim + x;

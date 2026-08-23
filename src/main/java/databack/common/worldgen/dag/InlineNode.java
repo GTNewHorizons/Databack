@@ -11,16 +11,16 @@ import java.util.List;
 public final class InlineNode implements DFDagNode {
 
     private final IDensityFunctionFactory source;
-    private final DispatchShape outputShape;
+    private final CellSize outputShape;
     private final List<DFDagNode> inputs;
 
-    public InlineNode(IDensityFunctionFactory source, DispatchShape outputShape, List<DFDagNode> inputs) {
+    public InlineNode(IDensityFunctionFactory source, CellSize outputShape, List<DFDagNode> inputs) {
         this.source = source;
         this.outputShape = outputShape;
         this.inputs = inputs;
     }
 
-    @Override public IDensityFunctionFactory source()   { return source; }
-    @Override public DispatchShape outputShape()        { return outputShape; }
-    @Override public List<DFDagNode> inputs()           { return inputs; }
+    @Override public IDensityFunctionFactory getFactory()   { return source; }
+    @Override public CellSize getOutputShape()        { return outputShape; }
+    @Override public List<DFDagNode> getInputs()           { return inputs; }
 }

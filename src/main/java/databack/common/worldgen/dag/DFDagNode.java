@@ -6,7 +6,7 @@ import java.util.List;
 
 /** A node in the density function execution DAG. Implemented by {@link InlineNode} and {@link BarrierNode}. */
 public interface DFDagNode {
-    IDensityFunctionFactory source();
-    DispatchShape outputShape();
-    List<DFDagNode> inputs();
+    IDensityFunctionFactory getFactory();
+    CellSize getOutputShape();
+    List<DFDagNode> getInputs();
 }

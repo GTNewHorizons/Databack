@@ -10,6 +10,7 @@ import org.lwjgl.vulkan.VkCommandBuffer;
 
 import com.google.common.collect.ImmutableMap;
 
+import com.gtnewhorizon.gtnhlib.space.ImmutableXYZ;
 import databack.common.worldgen.dag.codegen.GeneratedKernel;
 import databack.common.worldgen.dag.codegen.KernelBodyEmitter;
 import mcgpu.core.hwaccel.KernelContext;
@@ -40,7 +41,7 @@ import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
  * before the first plan that uses it is submitted.
  */
 @Lwjgl3Aware
-public class DensityFunctionExecutor implements KernelExecutor<int[]> {
+public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
 
     private final KernelGroup group;
 
@@ -122,9 +123,8 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
     }
 
     @Override
-    @SuppressWarnings("unchecked")
     public KernelSubmissionResult[] submit(VkCommandBuffer commands, BufferAllocator alloc,
-            KernelSubmission<int[]>[] submissions) {
+            KernelSubmission<ImmutableXYZ>[] submissions) {
         pipeline.bind(commands);
 
         KernelSubmissionResult[] results = new KernelSubmissionResult[submissions.length];
@@ -142,11 +142,11 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
             Map<String, GPUBuffer> allBuffers = new HashMap<>(submissions[i].inputs());
             allBuffers.putAll(outputMap);
 
-            int[] key = submissions[i].key();
+            ImmutableXYZ key = submissions[i].key();
             Map<String, Number> params = new HashMap<>();
-            params.put("chunkX", key[0]);
-            params.put("chunkY", key[1]);
-            params.put("chunkZ", key[2]);
+            params.put("chunkX", key.getX());
+            params.put("chunkY", key.getY());
+            params.put("chunkZ", key.getZ());
 
             pushConstants.upload(
                 commands,
@@ -156,7 +156,7 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
 
             // PER_VOXEL uses local_size(16,4,16)=1024 and four Y workgroups to reach 16×16×16.
             // PER_COLUMN (256) and PER_CORNER (125) fit within one workgroup.
-            if (group.shape() == DispatchShape.PER_VOXEL) {
+            if (group.shape() == CellSize.BLOCKS) {
                 VK10.vkCmdDispatch(commands, 1, 4, 1);
             } else {
                 VK10.vkCmdDispatch(commands, 1, 1, 1);
@@ -183,7 +183,7 @@ public class DensityFunctionExecutor implements KernelExecutor<int[]> {
      */
     @Override
     public Map<String, BufferDescriptor> getOutputs(
-            ComputePlan plan, KernelSubmissionToken submission, int[] key,
+            ComputePlan plan, KernelSubmissionToken submission, ImmutableXYZ key,
             Map<String, BufferDescriptor> inputs) {
         for (Map.Entry<String, BufferLayout> e : inputLayouts.entrySet()) {
             BufferDescriptor desc = inputs.get(e.getKey());

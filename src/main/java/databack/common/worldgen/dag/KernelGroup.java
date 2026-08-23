@@ -11,20 +11,20 @@ import java.util.List;
  */
 public final class KernelGroup {
 
-    private final DispatchShape shape;
+    private final CellSize shape;
     private final List<BarrierNode> reads;
     private final List<InlineNode> nodes;
     /** Null for the terminal kernel. */
     private final BarrierNode output;
 
-    public KernelGroup(DispatchShape shape, List<BarrierNode> reads, List<InlineNode> nodes, BarrierNode output) {
+    public KernelGroup(CellSize shape, List<BarrierNode> reads, List<InlineNode> nodes, BarrierNode output) {
         this.shape = shape;
         this.reads = reads;
         this.nodes = nodes;
         this.output = output;
     }
 
-    public DispatchShape shape()        { return shape; }
+    public CellSize shape()        { return shape; }
     public List<BarrierNode> reads()    { return reads; }
     public List<InlineNode> nodes()     { return nodes; }
     /** Returns the BarrierNode this kernel materializes, or null if this is the terminal kernel. */

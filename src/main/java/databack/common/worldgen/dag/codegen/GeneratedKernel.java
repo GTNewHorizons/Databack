@@ -1,6 +1,6 @@
 package databack.common.worldgen.dag.codegen;
 
-import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.CellSize;
 
 import java.util.List;
 
@@ -10,7 +10,7 @@ import java.util.List;
 public final class GeneratedKernel {
 
     /** The dispatch shape this kernel runs at (PER_VOXEL, PER_COLUMN, or PER_CORNER). */
-    public final DispatchShape shape;
+    public final CellSize shape;
 
     /** Complete GLSL source text ready for shader compilation. */
     public final String glslSource;
@@ -34,7 +34,8 @@ public final class GeneratedKernel {
      */
     public final List<String> noiseSlotIds;
 
-    public GeneratedKernel(DispatchShape shape, String glslSource,
+    public GeneratedKernel(
+        CellSize shape, String glslSource,
                            List<String> inputBarrierIds, String outputBarrierId,
                            List<String> noiseSlotIds) {
         this.shape = shape;

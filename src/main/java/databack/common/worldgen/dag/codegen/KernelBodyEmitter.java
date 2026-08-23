@@ -6,7 +6,7 @@ import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.Spl
 import databack.common.worldgen.dag.BarrierKind;
 import databack.common.worldgen.dag.BarrierNode;
 import databack.common.worldgen.dag.DFDagNode;
-import databack.common.worldgen.dag.DispatchShape;
+import databack.common.worldgen.dag.CellSize;
 import databack.common.worldgen.dag.InlineNode;
 import databack.common.worldgen.dag.KernelGroup;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
@@ -62,7 +62,7 @@ public final class KernelBodyEmitter {
         IdentityHashMap<BarrierNode, String> barrierMacroNames = new IdentityHashMap<>();
         for (BarrierNode read : group.reads()) {
             builder.addInputBuffer(read.id(),
-                new BufferLayout(BufferDataType.f32, read.outputShape().elementCount));
+                new BufferLayout(BufferDataType.f32, read.getOutputShape().elementCount));
             barrierMacroNames.put(read, KernelBuilder.toScreamingSnakeCase(read.id()));
         }
 
@@ -74,7 +74,7 @@ public final class KernelBodyEmitter {
                 ? BufferDataType.u32
                 : BufferDataType.f32;
             builder.addOutputBuffer("output",
-                new BufferLayout(outputType, group.output().outputShape().elementCount));
+                new BufferLayout(outputType, group.output().getOutputShape().elementCount));
         } else {
             // Terminal kernel still writes its result for readback.
             builder.addOutputBuffer("output",
@@ -111,7 +111,7 @@ public final class KernelBodyEmitter {
                 // Degenerate pass-through: no inline nodes — copy single barrier directly to output.
                 BarrierNode read = group.reads().get(0);
                 String macro = barrierMacroNames.get(read);
-                String idx = ExprEmitter.indexExpr(group.shape(), read.outputShape());
+                String idx = ExprEmitter.indexExpr(group.shape(), read.getOutputShape());
                 builder.logic.append("    SET_OUTPUT(threadIdx, GET_").append(macro)
                     .append("(").append(idx).append("));\n");
             }
@@ -137,9 +137,9 @@ public final class KernelBodyEmitter {
 
     // ---- Coordinate preamble ---------------------------------------------------------------
 
-    private static void appendCoordinatePreamble(KernelBuilder builder, DispatchShape shape) {
+    private static void appendCoordinatePreamble(KernelBuilder builder, CellSize shape) {
         StringBuilder logic = builder.logic;
-        if (shape == DispatchShape.PER_VOXEL) {
+        if (shape == CellSize.BLOCKS) {
             logic.append("    int relX = int(gl_GlobalInvocationID.x);\n");
             logic.append("    int relY = int(gl_GlobalInvocationID.y);\n");
             logic.append("    int relZ = int(gl_GlobalInvocationID.z);\n");
@@ -148,7 +148,7 @@ public final class KernelBodyEmitter {
             logic.append("    int worldBlockZ = GET_CHUNK_Z * 16 + relZ;\n");
             logic.append("    float wx = float(worldBlockX); float wy = float(worldBlockY); float wz = float(worldBlockZ);\n");
             logic.append("    int threadIdx = relZ * 256 + relY * 16 + relX;\n");
-        } else if (shape == DispatchShape.PER_COLUMN) {
+        } else if (shape == CellSize.COLUMNS) {
             logic.append("    int relX = int(gl_GlobalInvocationID.x);\n");
             logic.append("    int relZ = int(gl_GlobalInvocationID.z);\n");
             logic.append("    int worldBlockX = GET_CHUNK_X * 16 + relX;\n");
@@ -214,15 +214,15 @@ public final class KernelBodyEmitter {
      */
     private static List<String> emitColumnReduce(KernelGroup group, KernelBuilder builder,
                                                   IdentityHashMap<BarrierNode, String> barrierMacroNames) {
-        FindTopSurfaceFunc fts = (FindTopSurfaceFunc) group.output().source();
+        FindTopSurfaceFunc fts = (FindTopSurfaceFunc) group.output().getFactory();
 
         BarrierNode densityBarrier = group.reads().get(0);
         BarrierNode upperBoundBarrier = group.reads().get(1);
         String densityMacro = barrierMacroNames.get(densityBarrier);
         String upperBoundMacro = barrierMacroNames.get(upperBoundBarrier);
 
-        int lowerBound = fts.lower_bound;
-        int cellHeight = fts.cell_height;
+        int lowerBound = fts.lower_bound();
+        int cellHeight = fts.cell_height();
 
         StringBuilder logic = builder.logic;
         logic.append("    float upperBoundF = GET_").append(upperBoundMacro).append("(threadIdx);\n");
@@ -258,8 +258,8 @@ public final class KernelBodyEmitter {
                                                 IdentityHashMap<BarrierNode, String> barrierMacroNames,
                                                 Function<String, int[]> noiseDataProvider) {
         BarrierNode evalBarrier = group.output();
-        SplineCurve sc = (SplineCurve) evalBarrier.source();
-        List<DFDagNode> evalInputs = evalBarrier.inputs();
+        SplineCurve sc = (SplineCurve) evalBarrier.getFactory();
+        List<DFDagNode> evalInputs = evalBarrier.getInputs();
 
         // Emit InlineNode variables first (handles barrier-free coord subtrees).
         List<String> noiseSlotIds = ExprEmitter.emitNodes(group, builder, barrierMacroNames, noiseDataProvider);
@@ -273,9 +273,9 @@ public final class KernelBodyEmitter {
                 args[i] = "GET_" + barrierMacroNames.get(b) + "(threadIdx)";
             } else if (inp instanceof InlineNode) {
                 InlineNode in = (InlineNode) inp;
-                if (in.source() instanceof SplineValue) {
+                if (in.getFactory() instanceof SplineValue) {
                     // Constant spline point value — inline as float literal.
-                    args[i] = ((SplineValue) in.source()).coordinate + "f";
+                    args[i] = ((SplineValue) in.getFactory()).coordinate() + "f";
                 } else {
                     // Barrier-free coord subtree — find the variable emitted by ExprEmitter.
                     int idx = identityIndexOf(nodes, in);
@@ -301,11 +301,11 @@ public final class KernelBodyEmitter {
 
     // ---- Local size helper -----------------------------------------------------------------
 
-    private static int[] localSizes(DispatchShape shape) {
+    private static int[] localSizes(CellSize shape) {
         // PER_VOXEL uses 16×4×16 = 1024 threads per workgroup (Vulkan minimum guaranteed limit).
         // Four workgroups in Y cover the full 16 voxel height: dispatch(1, 4, 1).
-        if (shape == DispatchShape.PER_VOXEL)  return new int[]{16, 4, 16};
-        if (shape == DispatchShape.PER_COLUMN) return new int[]{16, 1, 16};
+        if (shape == CellSize.BLOCKS)  return new int[]{16, 4, 16};
+        if (shape == CellSize.COLUMNS) return new int[]{16, 1, 16};
         // PER_CORNER
         return new int[]{5, 5, 5};
     }

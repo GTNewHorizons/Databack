@@ -12,6 +12,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Consumer;
 
+import com.gtnewhorizon.gtnhlib.space.ImmutableXYZ;
+import lombok.Getter;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
 import mcgpu.core.hwaccel.buffer.BufferDescriptor;
 import mcgpu.core.hwaccel.scheduling.ComputePlan;
@@ -47,8 +49,26 @@ import databack.common.worldgen.dag.codegen.GeneratedKernel;
  */
 public class DFPlanBuilder {
 
+    /**
+     * -- GETTER --
+     *  Returns the executors backing each kernel stage, in topological order.
+     *  Pass each to
+     *
+     *  before calling
+     * .
+     */
+    @Getter
     private final List<DensityFunctionExecutor> executors;
     private final List<GeneratedKernel> kernels;
+    /**
+     * -- GETTER --
+     *  Returns the kernel group label map built from the plan at construction time.
+     *  Keyed by outputBarrierId (or
+     * ); values are
+     *
+     * .
+     */
+    @Getter
     private final Map<String, String[]> kernelGroupLabels;
 
     DFPlanBuilder(List<DensityFunctionExecutor> executors, List<GeneratedKernel> kernels,
@@ -72,27 +92,10 @@ public class DFPlanBuilder {
     }
 
     /**
-     * Returns the executors backing each kernel stage, in topological order.
-     * Pass each to
-     * {@link mcgpu.core.hwaccel.scheduling.KernelScheduler#compileExecutor KernelScheduler.compileExecutor}
-     * before calling {@link #createPlan}.
-     */
-    public List<DensityFunctionExecutor> getExecutors() {
-        return executors;
-    }
-
-    /**
      * Returns all unique noise slot IDs referenced across every kernel in this plan.
      * Call this on the server thread to pre-fetch noise data before handing it off to
      * {@link DensityFunctionExecutor#setNoiseProvider}.
      */
-    /**
-     * Returns the kernel group label map built from the plan at construction time.
-     * Keyed by outputBarrierId (or {@code "(terminal)"}); values are
-     * {@code String[]{kind, sourceDFType, inlinedDFTypes}}.
-     */
-    public Map<String, String[]> getKernelGroupLabels() { return kernelGroupLabels; }
-
     public Set<String> getNoiseSlotIds() {
         Set<String> ids = new LinkedHashSet<>();
         for (GeneratedKernel k : kernels) {
@@ -155,7 +158,7 @@ public class DFPlanBuilder {
                 Map<String, BufferDescriptor> inputs =
                     resolveInputs(kernel, gi, sharedBuffers, null);
                 Map<String, BufferDescriptor> outputs =
-                    plan.submit(executor, new int[]{chunkX, 0, chunkZ}, inputs);
+                    plan.submit(executor, new ImmutableXYZ(chunkX, 0, chunkZ), inputs);
                 BufferDescriptor outDesc = outputs.get("output");
                 sharedBuffers.put(kernel.outputBarrierId, outDesc);
 
@@ -178,7 +181,7 @@ public class DFPlanBuilder {
                     Map<String, BufferDescriptor> inputs =
                         resolveInputs(kernel, gi, sharedBuffers, perYBuffers.get(chunkY));
                     Map<String, BufferDescriptor> outputs =
-                        plan.submit(executor, new int[]{chunkX, chunkY, chunkZ}, inputs);
+                        plan.submit(executor, new ImmutableXYZ(chunkX, chunkY, chunkZ), inputs);
 
                     if (kernel.outputBarrierId != null) {
                         BufferDescriptor outDesc = outputs.get("output");

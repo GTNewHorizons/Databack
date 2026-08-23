@@ -7,6 +7,7 @@ import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.worldgen.dag.codegen.DFKernelCodegen;
 import databack.common.worldgen.dag.codegen.GeneratedKernel;
 import databack.common.worldgen.dag.codegen.KernelBodyEmitter;
+import com.gtnewhorizon.gtnhlib.space.ImmutableXYZ;
 import mcgpu.core.hwaccel.buffer.BufferDescriptor;
 import mcgpu.core.hwaccel.scheduling.ComputePlan;
 import mcgpu.core.hwaccel.scheduling.KernelJob;
@@ -34,16 +35,16 @@ public class DFPlanBuilderTest {
     // ---- Factory helpers -------------------------------------------------------------------
 
     private static ConstantFunc constant(float v) {
-        ConstantFunc c = new ConstantFunc(); c.argument = v; return c;
+        return new ConstantFunc(v);
     }
     private static FlatCacheUnary flatCache(IDensityFunctionFactory arg) {
-        FlatCacheUnary f = new FlatCacheUnary(); f.argument = arg; return f;
+        return new FlatCacheUnary(arg);
     }
     private static CacheOnceUnary cacheOnce(IDensityFunctionFactory arg) {
-        CacheOnceUnary c = new CacheOnceUnary(); c.argument = arg; return c;
+        return new CacheOnceUnary(arg);
     }
     private static MulBinary mul(IDensityFunctionFactory a, IDensityFunctionFactory b) {
-        MulBinary m = new MulBinary(); m.argument1 = a; m.argument2 = b; return m;
+        return new MulBinary(a, b);
     }
 
     // ---- Helper: build a test-ready DFPlanBuilder without Vulkan --------------------------
@@ -195,10 +196,10 @@ public class DFPlanBuilderTest {
 
         List<KernelJob> flatCacheJobs = jobsFor(plan, flatCacheExec);
         assertEquals(1, flatCacheJobs.size());
-        int[] key = (int[]) flatCacheJobs.get(0).submission().key();
-        assertEquals(3, key[0], "chunkX should be 3");
-        assertEquals(0, key[1], "FLAT_CACHE chunkY sentinel should be 0");
-        assertEquals(7, key[2], "chunkZ should be 7");
+        ImmutableXYZ key = (ImmutableXYZ) flatCacheJobs.get(0).submission().key();
+        assertEquals(3, key.getX(), "chunkX should be 3");
+        assertEquals(0, key.getY(), "FLAT_CACHE chunkY sentinel should be 0");
+        assertEquals(7, key.getZ(), "chunkZ should be 7");
     }
 
     /**
@@ -216,10 +217,10 @@ public class DFPlanBuilderTest {
 
         List<KernelJob> terminalJobs = jobsFor(plan, terminalExec);
         assertEquals(1, terminalJobs.size());
-        int[] key = (int[]) terminalJobs.get(0).submission().key();
-        assertEquals(2, key[0], "chunkX should be 2");
-        assertEquals(4, key[1], "chunkY should be the requested Y-level (4)");
-        assertEquals(6, key[2], "chunkZ should be 6");
+        ImmutableXYZ key = (ImmutableXYZ) terminalJobs.get(0).submission().key();
+        assertEquals(2, key.getX(), "chunkX should be 2");
+        assertEquals(4, key.getY(), "chunkY should be the requested Y-level (4)");
+        assertEquals(6, key.getZ(), "chunkZ should be 6");
     }
 
     /**

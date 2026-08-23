@@ -46,11 +46,11 @@ public final class DFKernelPlan {
             } else {
                 barrierId    = group.output().id();
                 kind         = group.output().kind().name();
-                sourceDFType = group.output().source().getClass().getSimpleName();
+                sourceDFType = group.output().getFactory().getClass().getSimpleName();
             }
             LinkedHashSet<String> inlined = new LinkedHashSet<>();
             for (InlineNode node : group.nodes()) {
-                inlined.add(node.source().getClass().getSimpleName());
+                inlined.add(node.getFactory().getClass().getSimpleName());
             }
             labels.put(barrierId, new String[]{kind, sourceDFType, String.join(", ", inlined)});
         }
