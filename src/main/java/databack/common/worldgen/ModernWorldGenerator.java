@@ -37,10 +37,12 @@ import java.util.function.Function;
 
 import databack.common.dto.worldgen.density_function.OldBlendedNoise;
 import databack.common.handlers.DatapackNoiseList;
-import databack.common.worldgen.dag.DFDagBuilder;
-import databack.common.worldgen.dag.DFKernelPlan;
+import databack.common.worldgen.dag.CodeGenerationBackend;
+import databack.common.worldgen.dag.DFDagBuilder2;
 import databack.common.worldgen.dag.DFPlanBuilder;
 import databack.common.worldgen.dag.DensityFunctionExecutor;
+import databack.common.worldgen.dag.codegen.GeneratedKernel;
+import databack.common.worldgen.dag.codegen.VulkanCodeGen;
 import databack.common.worldgen.debug.DebugCaptureStore;
 import databack.common.worldgen.noise.NormalNoiseGpuSerializer;
 import databack.common.worldgen.noise.OldBlendedNoiseGpuSerializer;
@@ -53,6 +55,8 @@ import databack.common.worldgen.rng.XoroshiroRandomFactory;
 import mcgpu.core.hwaccel.KernelContext;
 
 public class ModernWorldGenerator implements IChunkProvider {
+
+    private static boolean vulkanCodeGenInitialized = false;
 
     @org.jetbrains.annotations.NotNull
     public final World world;
@@ -107,8 +111,12 @@ public class ModernWorldGenerator implements IChunkProvider {
         this.finalDensity = router.final_density.instantiate(context);
 
         if (KernelContext.isEnabled()) {
-            DFKernelPlan kernelPlan = DFDagBuilder.build(router.final_density);
-            DFPlanBuilder planBuilder = DFPlanBuilder.create(kernelPlan);
+            if (!vulkanCodeGenInitialized) {
+                VulkanCodeGen.init();
+                vulkanCodeGenInitialized = true;
+            }
+            List<GeneratedKernel> kernels = DFDagBuilder2.build(CodeGenerationBackend.VULKAN, router.final_density);
+            DFPlanBuilder planBuilder = DFPlanBuilder.fromKernels(kernels);
 
             // Pre-serialize all noise tables on the server thread (DatapackNoiseList is thread-local).
             DatapackNoiseList noiseList = DatapackNoiseList.RT.getHandler();

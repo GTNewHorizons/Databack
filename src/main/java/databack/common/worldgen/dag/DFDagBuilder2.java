@@ -11,6 +11,7 @@ import java.util.Set;
 import com.github.bsideup.jabel.Desugar;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.CacheAllInCellUnary;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.DensityFunctionRef;
+import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.FindTopSurfaceFunc;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.InterpolatedFunc;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions.SplineCurve;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
@@ -22,7 +23,6 @@ import databack.common.worldgen.dag.codegen.SplineEmitter;
 import lombok.Data;
 import mcgpu.core.hwaccel.buffer.BufferDataType;
 import mcgpu.core.hwaccel.buffer.BufferLayout;
-import mcgpu.core.hwaccel.buffer.ConstantBuffer;
 import mcgpu.core.hwaccel.buffer.OffsetBufferAccessor;
 import mcgpu.core.hwaccel.shader.KernelBuilder;
 
@@ -75,10 +75,15 @@ public class DFDagBuilder2 {
      * Full pipeline: partitions the DAG, emits one kernel per barrier, emits the terminal kernel.
      * Returns the kernels in topological order (dependencies before consumers); the last element
      * is always the terminal (no output barrier).
+     *
+     * <p>Noise data upload is deferred: each {@link GeneratedKernel} records the noise slot IDs
+     * in {@link GeneratedKernel#noiseSlotIds}. The caller must supply a
+     * {@link java.util.function.Function Function&lt;String, int[]&gt;} noise provider to
+     * {@link databack.common.worldgen.dag.DensityFunctionExecutor#setNoiseProvider} before
+     * compiling, so the actual GPU upload happens on the compile thread.
      */
     public static List<GeneratedKernel> build(CodeGenerationBackend backend,
-                                               IDensityFunctionFactory root,
-                                               ConstantBuffer constants) {
+                                               IDensityFunctionFactory root) {
         DFDagBuilder2 dag = new DFDagBuilder2(backend);
 
         if (!(root instanceof CacheAllInCellUnary)) {
@@ -92,9 +97,9 @@ public class DFDagBuilder2 {
 
         List<GeneratedKernel> kernels = new ArrayList<>(barriers.size() + 1);
         for (BarrierDAGNode barrier : barriers) {
-            kernels.add(buildBarrierKernel(barrier, constants));
+            kernels.add(buildBarrierKernel(barrier));
         }
-        kernels.add(buildTerminalKernel(rootPartitioned, constants));
+        kernels.add(buildTerminalKernel(rootPartitioned));
 
         return kernels;
     }
@@ -264,11 +269,11 @@ public class DFDagBuilder2 {
 
     // ---- Phase 3: Kernel construction ------------------------------------------------------
 
-    private static GeneratedKernel buildBarrierKernel(BarrierDAGNode barrier,
-                                                       ConstantBuffer constants) {
+    private static GeneratedKernel buildBarrierKernel(BarrierDAGNode barrier) {
         CellSize shape = barrier.outputShape;
         int[] ls = localSizes(shape);
-        KernelBuilder kb = new KernelBuilder(constants);
+        // null constants: noise offsets are placeholders; real upload deferred to compile().
+        KernelBuilder kb = new KernelBuilder(null);
 
         // Chunk coord push constants.
         kb.addParameter(BufferDataType.i32, "chunkX");
@@ -279,7 +284,8 @@ public class DFDagBuilder2 {
 
         // Output buffer.
         BufferDataType outType = BufferDataType.f32;
-        if (barrier.node.generator() instanceof BarrierDFCodeGenerator<?> bg) {
+        if (barrier.node.generator() instanceof BarrierDFCodeGenerator) {
+            BarrierDFCodeGenerator<?> bg = (BarrierDFCodeGenerator<?>) barrier.node.generator();
             BufferLayout layout = bg.getBufferLayout();
             outType = layout.dataType();
             kb.addOutputBuffer(barrier.id, layout);
@@ -296,15 +302,19 @@ public class DFDagBuilder2 {
             + kb.pushConstants.getPushConstantDefinition()
             + "void main() {\n" + kb.logic.toString() + "}\n";
 
-        return new GeneratedKernel(shape, glsl, new ArrayList<>(ctx.boundBarrierIds), barrier.id,
-            new ArrayList<>(ctx.noiseSlotIds));
+        boolean isColumnReduce = barrier.node.factory() instanceof FindTopSurfaceFunc;
+        boolean isYIndependent = shape.isYInvariant() && !isColumnReduce;
+
+        return new GeneratedKernel(shape, glsl,
+            new ArrayList<>(ctx.boundBarrierIds), barrier.id, new ArrayList<>(ctx.noiseSlotIds),
+            isYIndependent, isColumnReduce,
+            new HashMap<>(kb.inputs), new HashMap<>(kb.outputs));
     }
 
-    private static GeneratedKernel buildTerminalKernel(PartitionedDAGNode root,
-                                                        ConstantBuffer constants) {
+    private static GeneratedKernel buildTerminalKernel(PartitionedDAGNode root) {
         CellSize shape = CellSize.BLOCKS;
         int[] ls = localSizes(shape);
-        KernelBuilder kb = new KernelBuilder(constants);
+        KernelBuilder kb = new KernelBuilder(null);
 
         kb.addParameter(BufferDataType.i32, "chunkX");
         kb.addParameter(BufferDataType.i32, "chunkY");
@@ -328,8 +338,10 @@ public class DFDagBuilder2 {
             + kb.pushConstants.getPushConstantDefinition()
             + "void main() {\n" + kb.logic.toString() + "}\n";
 
-        return new GeneratedKernel(shape, glsl, new ArrayList<>(ctx.boundBarrierIds), null,
-            new ArrayList<>(ctx.noiseSlotIds));
+        return new GeneratedKernel(shape, glsl,
+            new ArrayList<>(ctx.boundBarrierIds), null, new ArrayList<>(ctx.noiseSlotIds),
+            false, false,
+            new HashMap<>(kb.inputs), new HashMap<>(kb.outputs));
     }
 
     // ---- GLSL helpers ----------------------------------------------------------------------

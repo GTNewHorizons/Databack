@@ -6,6 +6,7 @@ import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -79,7 +80,7 @@ public class DFPlanBuilder {
     }
 
     /**
-     * Creates a {@code DFPlanBuilder} from a compiled kernel plan.
+     * Creates a {@code DFPlanBuilder} from a compiled kernel plan (Builder1 path).
      * One {@link DensityFunctionExecutor} is created per kernel group.
      */
     public static DFPlanBuilder create(DFKernelPlan plan) {
@@ -89,6 +90,36 @@ public class DFPlanBuilder {
             executors.add(new DensityFunctionExecutor(group));
         }
         return new DFPlanBuilder(executors, kernels, plan.buildKernelGroupLabels());
+    }
+
+    /**
+     * Creates a {@code DFPlanBuilder} from pre-built {@link GeneratedKernel}s (Builder2 path).
+     * One {@link DensityFunctionExecutor} is created per kernel, backed by the pre-built GLSL.
+     *
+     * @param kernels topologically ordered kernels from {@link databack.common.worldgen.dag.DFDagBuilder2#build}
+     */
+    public static DFPlanBuilder fromKernels(List<GeneratedKernel> kernels) {
+        List<DensityFunctionExecutor> executors = new ArrayList<>(kernels.size());
+        for (GeneratedKernel k : kernels) {
+            executors.add(new DensityFunctionExecutor(k));
+        }
+        Map<String, String[]> labels = buildKernelLabels(kernels);
+        return new DFPlanBuilder(executors, kernels, labels);
+    }
+
+    private static Map<String, String[]> buildKernelLabels(List<GeneratedKernel> kernels) {
+        Map<String, String[]> labels = new LinkedHashMap<>();
+        for (GeneratedKernel k : kernels) {
+            String key = k.outputBarrierId != null ? k.outputBarrierId : "(terminal)";
+            String kind;
+            if (k.outputBarrierId == null)       kind = "(terminal)";
+            else if (k.isColumnReduce)           kind = "COLUMN_REDUCE";
+            else if (k.isYIndependent)           kind = "FLAT_CACHE";
+            else                                 kind = "BARRIER";
+            String source = k.outputBarrierId != null ? k.outputBarrierId : "(root)";
+            labels.put(key, new String[]{kind, source, ""});
+        }
+        return labels;
     }
 
     /**

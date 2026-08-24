@@ -15,8 +15,10 @@ import mcgpu.core.hwaccel.shader.KernelBuilder;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 
 /**
@@ -132,7 +134,14 @@ public final class KernelBodyEmitter {
         }
         String outputId = group.isTerminal() ? null : group.output().id();
 
-        return new GeneratedKernel(group.shape(), glsl, inputIds, outputId, noiseSlotIds);
+        boolean isColumnReduce = !group.isTerminal()
+            && group.output().kind() == BarrierKind.COLUMN_REDUCE;
+        boolean isYIndependent = !group.isTerminal()
+            && group.output().kind() == BarrierKind.FLAT_CACHE;
+
+        return new GeneratedKernel(group.shape(), glsl, inputIds, outputId, noiseSlotIds,
+            isYIndependent, isColumnReduce,
+            new HashMap<>(builder.inputs), new HashMap<>(builder.outputs));
     }
 
     // ---- Coordinate preamble ---------------------------------------------------------------

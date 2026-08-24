@@ -16,6 +16,7 @@ import databack.common.worldgen.dag.codegen.KernelBodyEmitter;
 import mcgpu.core.hwaccel.KernelContext;
 import mcgpu.core.hwaccel.buffer.BufferAllocator;
 import mcgpu.core.hwaccel.buffer.BufferDescriptor;
+import mcgpu.core.hwaccel.buffer.BufferDataType;
 import mcgpu.core.hwaccel.buffer.BufferLayout;
 import mcgpu.core.hwaccel.buffer.ConstantBuffer;
 import mcgpu.core.hwaccel.buffer.GPUBuffer;
@@ -30,12 +31,15 @@ import mcgpu.core.hwaccel.shader.PushConstantLayout;
 import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 
 /**
- * GPU kernel executor for a single {@link KernelGroup} produced by the density function DAG.
+ * GPU kernel executor for one kernel produced by the density function DAG.
  * <p>
- * The key is a 3-element {@code int[]} {@code {chunkX, chunkY, chunkZ}}.  One executor instance
- * is created per kernel group; the scheduler batches multiple Y-levels into a single
- * {@link #submit} call automatically.
- * <p>
+ * Supports two construction paths:
+ * <ul>
+ *   <li><b>Builder1</b>: {@link #DensityFunctionExecutor(KernelGroup)} — {@link #compile} re-emits GLSL
+ *       via {@link KernelBodyEmitter}.</li>
+ *   <li><b>Builder2</b>: {@link #DensityFunctionExecutor(GeneratedKernel)} — GLSL is pre-built;
+ *       {@link #compile} only replays push-constant registration and uploads noise data.</li>
+ * </ul>
  * Must be compiled via
  * {@link mcgpu.core.hwaccel.scheduling.KernelScheduler#compileExecutor KernelScheduler.compileExecutor}
  * before the first plan that uses it is submitted.
@@ -43,7 +47,9 @@ import me.eigenraven.lwjgl3ify.api.Lwjgl3Aware;
 @Lwjgl3Aware
 public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
 
-    private final KernelGroup group;
+    // Exactly one of these is non-null depending on the construction path.
+    private final KernelGroup group;           // Builder1 path
+    private final GeneratedKernel prebuilt;    // Builder2 path
 
     /** Set before compile() to enable real noise-data upload during kernel compilation. */
     private Function<String, int[]> noiseDataProvider = null;
@@ -54,8 +60,16 @@ public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
     private Map<String, BufferLayout> inputLayouts  = Collections.emptyMap();
     private Map<String, BufferLayout> outputLayouts = Collections.emptyMap();
 
+    /** Builder1 path: compile() re-emits GLSL from the KernelGroup. */
     public DensityFunctionExecutor(KernelGroup group) {
-        this.group = group;
+        this.group    = group;
+        this.prebuilt = null;
+    }
+
+    /** Builder2 path: GLSL is pre-built; compile() only replays push-constant setup. */
+    public DensityFunctionExecutor(GeneratedKernel prebuilt) {
+        this.prebuilt = prebuilt;
+        this.group    = null;
     }
 
     /**
@@ -71,7 +85,7 @@ public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
 
     /**
      * Bypasses GPU compilation for testing: directly installs the input and output layout maps
-     * that {@link #compile} would normally derive from a real {@link mcgpu.core.hwaccel.buffer.ConstantBuffer}.
+     * that {@link #compile} would normally derive from a real {@link ConstantBuffer}.
      * <p>
      * Only {@link #getOutputs} is usable after this call; {@link #submit} still requires a compiled pipeline.
      */
@@ -81,20 +95,20 @@ public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
     }
 
     /**
-     * Returns true if this kernel's output does not depend on the chunk Y coordinate.
-     * Only {@link BarrierKind#FLAT_CACHE} kernels qualify — their shaders operate on the
-     * XZ plane and never read {@code wy} or {@code worldBlockY}.
+     * Returns true if this kernel's output does not depend on the chunk Y coordinate
+     * (i.e., it is a FLAT_CACHE kernel dispatched once per chunk column).
      */
     boolean isYIndependent() {
+        if (prebuilt != null) return prebuilt.isYIndependent;
         return !group.isTerminal() && group.output().kind() == BarrierKind.FLAT_CACHE;
     }
 
     /**
-     * Returns true if this kernel's output buffer contains {@code u32} values.
-     * Only {@link BarrierKind#COLUMN_REDUCE} kernels write u32 (surface Y values);
-     * all other kernels write f32.
+     * Returns true if this kernel's output buffer contains {@code u32} values
+     * (i.e., it is a COLUMN_REDUCE / FindTopSurface kernel).
      */
     boolean isColumnReduce() {
+        if (prebuilt != null) return prebuilt.isColumnReduce;
         return !group.isTerminal() && group.output().kind() == BarrierKind.COLUMN_REDUCE;
     }
 
@@ -108,11 +122,21 @@ public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
     }
 
     /**
-     * Emits the GLSL kernel, uploads any constants, compiles to a Vulkan pipeline, and captures
-     * the push-constant layout and buffer layouts for later use in {@link #submit}.
+     * Compiles this kernel for GPU execution.
+     * <p>
+     * Builder1 path: re-emits GLSL via {@link KernelBodyEmitter}, uploads noise constants.
+     * Builder2 path: uses pre-built GLSL, replays push-constant registration, uploads noise constants.
      */
     @Override
     public void compile(ConstantBuffer constants) {
+        if (prebuilt != null) {
+            compilePrebuilt(constants);
+        } else {
+            compileFromGroup(constants);
+        }
+    }
+
+    private void compileFromGroup(ConstantBuffer constants) {
         KernelBuilder builder = new KernelBuilder(constants);
         GeneratedKernel gen = KernelBodyEmitter.emit(group, builder, this.noiseDataProvider);
 
@@ -122,11 +146,45 @@ public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
         this.outputLayouts = new HashMap<>(builder.outputs);
     }
 
+    /**
+     * Builder2 compile path: GLSL is pre-built.
+     * Replays the push-constant layout (chunk coords + noise slot offsets) so that
+     * the layout matches the pre-baked shader source, and uploads noise tables to constants.
+     */
+    private void compilePrebuilt(ConstantBuffer constants) {
+        CellSize shape = prebuilt.shape;
+        KernelBuilder builder = new KernelBuilder(constants);
+
+        builder.addParameter(BufferDataType.i32, "chunkX");
+        if (!shape.isYInvariant()) {
+            builder.addParameter(BufferDataType.i32, "chunkY");
+        }
+        builder.addParameter(BufferDataType.i32, "chunkZ");
+
+        for (String noiseId : prebuilt.noiseSlotIds) {
+            int offset = 0;
+            if (noiseDataProvider != null && constants != null) {
+                int[] gpuData = noiseDataProvider.apply(noiseId);
+                if (gpuData != null) {
+                    GPUBuffer gpuBuf = constants.addConstant(gpuData);
+                    offset = gpuBuf.getBufferOffset();
+                }
+            }
+            builder.pushConstants.addConstantOffset(BufferDataType.u32, offset, noiseId);
+        }
+
+        this.pipeline      = new Kernel("DFKernel/" + shape, prebuilt.glslSource);
+        this.pushConstants = builder.pushConstants;
+        this.inputLayouts  = new HashMap<>(prebuilt.inputLayouts);
+        this.outputLayouts = new HashMap<>(prebuilt.outputLayouts);
+    }
+
     @Override
     public KernelSubmissionResult[] submit(VkCommandBuffer commands, BufferAllocator alloc,
             KernelSubmission<ImmutableXYZ>[] submissions) {
         pipeline.bind(commands);
 
+        CellSize shape = prebuilt != null ? prebuilt.shape : group.shape();
         KernelSubmissionResult[] results = new KernelSubmissionResult[submissions.length];
 
         for (int i = 0; i < submissions.length; i++) {
@@ -156,7 +214,7 @@ public class DensityFunctionExecutor implements KernelExecutor<ImmutableXYZ> {
 
             // PER_VOXEL uses local_size(16,4,16)=1024 and four Y workgroups to reach 16×16×16.
             // PER_COLUMN (256) and PER_CORNER (125) fit within one workgroup.
-            if (group.shape() == CellSize.BLOCKS) {
+            if (shape == CellSize.BLOCKS) {
                 VK10.vkCmdDispatch(commands, 1, 4, 1);
             } else {
                 VK10.vkCmdDispatch(commands, 1, 1, 1);
