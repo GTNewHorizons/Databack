@@ -1,19 +1,17 @@
 package databack.common.handlers;
 
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.relauncher.Side;
+import java.util.Arrays;
+import java.util.List;
 
 public interface ResourceType<H extends IDatapackTypeHandler> {
 
     String getResourcePath();
 
-    H getHandler(Side side);
-
-    default H getHandler() {
-        return getHandler(FMLCommonHandler.instance().getEffectiveSide());
-    }
+    H getHandler();
 
     static <H extends IDatapackTypeHandler> ResourceType<H> withPath(String resourcePath) {
+        List<String> split = Arrays.asList(resourcePath.split("/"));
+
         return new ResourceType<>() {
 
             @Override
@@ -22,11 +20,10 @@ public interface ResourceType<H extends IDatapackTypeHandler> {
             }
 
             @Override
-            public H getHandler(Side side) {
+            public H getHandler() {
                 //noinspection unchecked
-                return (H) DatapackHandlerRegistry.getTypeHandler(resourcePath);
+                return (H) DatapackHandlerRegistry.getTypeHandler(split);
             }
         };
     }
-
 }

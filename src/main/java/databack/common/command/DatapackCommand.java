@@ -15,6 +15,7 @@ import net.minecraftforge.common.DimensionManager;
 
 import com.google.common.collect.ImmutableList;
 import com.gtnewhorizon.gtnhlib.GTNHLib;
+import databack.Databack;
 import databack.common.loader.Datapack;
 import databack.common.loader.DatapackLoader;
 import databack.common.loader.DatapackWorldInfo;
@@ -196,7 +197,7 @@ public class DatapackCommand extends CommandBase {
                         try {
                             pack.getSource().close();
                         } catch (IOException e) {
-                            GTNHLib.LOG.error("Could not close datapack {}", pack.getPackId(), e);
+                            Databack.LOGGER.error("Could not close datapack {}", pack.getPackId(), e);
                         }
                     }
                 }
@@ -211,7 +212,7 @@ public class DatapackCommand extends CommandBase {
                 try {
                     pack.getSource().close();
                 } catch (IOException e) {
-                    GTNHLib.LOG.error("Could not close datapack {}", pack.getPackId(), e);
+                    Databack.LOGGER.error("Could not close datapack {}", pack.getPackId(), e);
                 }
             }
         }
@@ -309,7 +310,7 @@ public class DatapackCommand extends CommandBase {
                 try {
                     pack.getSource().close();
                 } catch (IOException e) {
-                    GTNHLib.LOG.error("Could not close datapack {}", pack.getPackId(), e);
+                    Databack.LOGGER.error("Could not close datapack {}", pack.getPackId(), e);
                 }
             }
         }

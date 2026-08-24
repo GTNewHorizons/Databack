@@ -1,5 +1,6 @@
 package databack.common.dto.worldgen.placed_feature;
 
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
 
@@ -13,9 +14,9 @@ import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
 import databack.common.dto.worldgen.height_provider.IHeightProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
 import databack.common.handlers.BiomeList;
-import databack.common.interop.BiomeIds;
 import databack.common.interop.heightmap.HeightmapType;
 import databack.common.interop.heightmap.WorldHeightmapExt;
+import databack.common.interop.registry.ProxyBiomeRegistry;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
 
@@ -266,8 +267,8 @@ public class BuiltinPlacementModifiers {
         public Pos3DArrayList apply(World world, Pos3DArrayList positions, String featureId) {
             positions.removeIf((x, y, z) -> {
                 BiomeGenBase biome = world.getBiomeGenForCoords(x, z);
-                String biomeId = BiomeIds.getBiomeId(biome);
-                DatapackBiome db = BiomeList.RT.getHandler().getBiome(biomeId);
+                ResourceLocation biomeId = ProxyBiomeRegistry.INSTANCE.getIdForObject(biome);
+                DatapackBiome db = BiomeList.RT.getHandler().getBiome(biomeId.toString());
                 return db == null || !db.hasFeature(featureId);
             });
             return positions;

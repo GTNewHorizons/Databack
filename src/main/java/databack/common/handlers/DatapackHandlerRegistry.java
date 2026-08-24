@@ -1,53 +1,46 @@
 package databack.common.handlers;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Set;
+import java.util.Arrays;
+import java.util.List;
 import java.util.function.Supplier;
 
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.relauncher.Side;
+import databack.common.loader.PathTrie;
+import databack.common.loader.PathTrie.TrieVisitor;
 
 public class DatapackHandlerRegistry {
 
-    private static final Map<String, IDatapackTypeHandler> SERVER_HANDLER_REGISTRY = new HashMap<>();
-    private static final Map<String, IDatapackTypeHandler> CLIENT_HANDLER_REGISTRY = new HashMap<>();
+    private static final PathTrie<IDatapackTypeHandler> HANDLER_REGISTRY = new PathTrie<>();
 
     public static void registerTypeHandler(String resourceType, Supplier<IDatapackTypeHandler> handler) {
-        if (SERVER_HANDLER_REGISTRY.containsKey(resourceType)) {
-            throw new IllegalStateException("Cannot register two handlers for the same resource (" + resourceType + "; " + SERVER_HANDLER_REGISTRY.get(resourceType) + ")");
+        List<String> path = Arrays.asList(resourceType.split("/"));
+
+        if (HANDLER_REGISTRY.get(path) != null) {
+            throw new IllegalStateException("Cannot register two handlers for the same resource (" + String.join("/", path) + "; " + HANDLER_REGISTRY.get(path) + ")");
         }
 
-        SERVER_HANDLER_REGISTRY.put(resourceType, handler.get());
-        CLIENT_HANDLER_REGISTRY.put(resourceType, handler.get());
+        HANDLER_REGISTRY.put(path, handler.get());
     }
 
-    public static IDatapackTypeHandler getTypeHandler(String resourceType) {
-        return getTypeHandler(resourceType, FMLCommonHandler.instance().getEffectiveSide());
+    public static List<String> findDeepestHandler(List<String> path) {
+        return HANDLER_REGISTRY.findDeepestNode(path);
     }
 
-    public static IDatapackTypeHandler getTypeHandler(String resourceType, Side side) {
-        return switch (side) {
-            case CLIENT -> CLIENT_HANDLER_REGISTRY.get(resourceType);
-            case SERVER -> SERVER_HANDLER_REGISTRY.get(resourceType);
-        };
+    public static IDatapackTypeHandler getTypeHandler(List<String> path) {
+        return HANDLER_REGISTRY.get(path);
     }
 
-    public static Set<Entry<String, IDatapackTypeHandler>> entrySet() {
-        return entrySet(FMLCommonHandler.instance().getEffectiveSide());
+    public static void forEach(TrieVisitor<IDatapackTypeHandler> visitor) {
+        HANDLER_REGISTRY.dfs(visitor);
     }
 
-    public static Set<Entry<String, IDatapackTypeHandler>> entrySet(Side side) {
-        return switch (side) {
-            case CLIENT -> CLIENT_HANDLER_REGISTRY.entrySet();
-            case SERVER -> SERVER_HANDLER_REGISTRY.entrySet();
-        };
+    /** Clears all registered handlers. Safe to call between worlds or in tests. */
+    public static void clearAll() {
+        HANDLER_REGISTRY.clear();
     }
 
-    /** Clears all registered handlers. Only for use in tests. */
+    /** @deprecated Use {@link #clearAll()} */
+    @Deprecated
     public static void clearForTesting() {
-        SERVER_HANDLER_REGISTRY.clear();
-        CLIENT_HANDLER_REGISTRY.clear();
+        clearAll();
     }
 }

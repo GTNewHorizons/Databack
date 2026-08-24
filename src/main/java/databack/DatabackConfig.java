@@ -13,4 +13,8 @@ public class DatabackConfig {
     @Config.DefaultString("compiled-df")
     public static String compiledDensityFunctionDumpDir;
 
+    @Config.Comment("Enable block/item/biome/entity tag debug mode")
+    @Config.DefaultBoolean(true)
+    public static boolean enableTagDebugMode;
+
 }

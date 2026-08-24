@@ -24,13 +24,16 @@ import net.minecraftforge.common.MinecraftForge;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
-import cpw.mods.fml.relauncher.Side;
+import com.google.common.collect.ImmutableList;
+import cpw.mods.fml.common.FMLCommonHandler;
+import net.minecraft.server.MinecraftServer;
 import databack.common.command.StandardDatapackOwners;
 import databack.common.dto.tag.TagFile;
 import databack.common.handlers.IDatapackTypeHandler;
 import databack.common.loader.DatapackEvent.DatapackFinishedLoadingEvent;
 import databack.common.loader.DatapackEvent.DatapackGatherEvent;
 import databack.common.loader.DatapackEvent.DatapackLoadEvent;
+import databack.common.loader.DatapackEvent.DatapackStartLoadingEvent;
 import databack.common.loader.DatapackEvent.DatapackSyncEvent;
 import databack.common.loader.io.FolderDatapackSource;
 import databack.common.loader.io.IDatapackSource;
@@ -40,7 +43,6 @@ import databack.common.meta.OverlayEntry;
 import databack.common.meta.PackMetadata;
 import databack.common.meta.PackMetadataParser;
 import databack.common.handlers.DatapackHandlerRegistry;
-import databack.common.tags.TagRegistry;
 
 /**
  * The single entry point for loading all datapacks in a world.
@@ -110,6 +112,8 @@ public final class DatapackLoader {
     public static void load(@Nonnull File worldSaveDir, @Nonnull DatapackWorldInfo worldInfo) {
         LOGGER.info("Loading datapacks");
 
+        MinecraftForge.EVENT_BUS.post(new DatapackStartLoadingEvent());
+
         List<File> candidates = discoverCandidates(worldSaveDir);
 
         if (candidates.isEmpty()) {
@@ -167,9 +171,38 @@ public final class DatapackLoader {
         }
     }
 
+    public static boolean isIntegratedServer() {
+        MinecraftServer ms = FMLCommonHandler.instance().getMinecraftServerInstance();
+        return ms != null && !ms.isDedicatedServer();
+    }
+
     public static void syncToPlayer(EntityPlayerMP player) {
         MinecraftForge.EVENT_BUS.post(new DatapackSyncEvent(player));
-        DatapackHandlerRegistry.entrySet(Side.SERVER).forEach(e -> e.getValue().syncToPlayer(player));
+
+        if (isIntegratedServer()) {
+            DatapackHandlerRegistry.forEach((path, handler) -> {
+                try {
+                    handler.refreshClientSP();
+                } catch (Exception e) {
+                    LOGGER.error(
+                        "Handler for type '{}' threw an exception during SP client refresh; suppressing.",
+                        String.join("/", path),
+                        e);
+                }
+            });
+        } else {
+            DatapackHandlerRegistry.forEach((path, handler) -> {
+                try {
+                    handler.syncToPlayer(player);
+                } catch (Exception e) {
+                    LOGGER.error(
+                        "Handler for type '{}' threw an exception when syncing to player {}; suppressing.",
+                        String.join("/", path),
+                        player,
+                        e);
+                }
+            });
+        }
     }
 
     /**
@@ -179,16 +212,16 @@ public final class DatapackLoader {
      * suppressed — all handlers are notified even if an earlier one throws.
      */
     public static void unload() {
-        for (Entry<String, IDatapackTypeHandler> entry : DatapackHandlerRegistry.entrySet(Side.SERVER)) {
+        DatapackHandlerRegistry.forEach((path, handler) -> {
             try {
-                entry.getValue().onWorldUnload();
+                handler.onWorldUnload();
             } catch (Exception e) {
                 LOGGER.error(
                     "Handler for type '{}' threw an exception during world unload; suppressing.",
-                    entry.getKey(),
+                    String.join("/", path),
                     e);
             }
-        }
+        });
     }
 
     /**
@@ -307,16 +340,16 @@ public final class DatapackLoader {
         @Nonnull List<Datapack> orderedPacks,
         @Nonnull Set<String> warnedTypes) throws DatapackLoadException {
 
-        for (Entry<String, IDatapackTypeHandler> e : DatapackHandlerRegistry.entrySet(Side.SERVER)) {
+        DatapackHandlerRegistry.forEach((path, handler) -> {
             try {
-                e.getValue().onLoadStart();
-            } catch (Exception ex) {
-                throw new DatapackLoadException(
-                    "Error in IDatapackTypeHandler.onLoadStart ('" + e + "')", ex);
+                handler.onLoadStart();
+            } catch (Exception e) {
+                LOGGER.error(
+                    "Handler for type '{}' threw an exception within onLoadStart; suppressing.",
+                    String.join("/", path),
+                    e);
             }
-        }
-
-        TagRegistry.INSTANCE.clearDynamic();
+        });
 
         // Claimed resources are tracked across all packs
         Set<ResourceId> claimed = new HashSet<>();
@@ -347,18 +380,11 @@ public final class DatapackLoader {
                 for (String entryPath : overlayEntries) {
                     // Strip the "<dir>/data/" prefix
                     String relativePath = entryPath.substring(overlayDataPrefix.length());
-                    ResourceId id = deriveResourceLocation(pack.getName(), relativePath);
+                    ResourceId id = deriveResourceLocation(pack.getName(), relativePath, warnedTypes);
 
-                    if ("tags".equals(id.resourceType())) {
-                        // Tags are additive — bypass the claimed set entirely
-                        routeTagEntry(pack, entryPath, id, source);
-                    } else {
-                        if (!claimed.add(id)) {
-                            // Already claimed by a higher-priority pack or earlier overlay
-                            continue;
-                        }
-                        dispatchEntry(pack, entryPath, id, source, warnedTypes);
-                    }
+                    if (id == null) continue;
+
+                    dispatchEntry(pack, entryPath, id, source, claimed);
                 }
             }
 
@@ -368,29 +394,24 @@ public final class DatapackLoader {
 
             for (String entryPath : baseEntries) {
                 String relativePath = entryPath.substring(baseDataPrefix.length());
-                ResourceId id = deriveResourceLocation(pack.getName(), relativePath);
+                ResourceId id = deriveResourceLocation(pack.getName(), relativePath, warnedTypes);
 
-                if ("tags".equals(id.resourceType())) {
-                    routeTagEntry(pack, entryPath, id, source);
-                } else {
-                    if (!claimed.add(id)) {
-                        continue;
-                    }
-                    dispatchEntry(pack, entryPath, id, source, warnedTypes);
-                }
+                if (id == null) continue;
+
+                dispatchEntry(pack, entryPath, id, source, claimed);
             }
         }
 
-        TagRegistry.INSTANCE.resolve();
-
-        for (Entry<String, IDatapackTypeHandler> e : DatapackHandlerRegistry.entrySet(Side.SERVER)) {
+        DatapackHandlerRegistry.forEach((path, handler) -> {
             try {
-                e.getValue().onLoadFinished();
-            } catch (Exception ex) {
-                throw new DatapackLoadException(
-                    "Error in IDatapackTypeHandler.onLoadStart ('" + e + "')", ex);
+                handler.onLoadFinished();
+            } catch (Exception e) {
+                LOGGER.error(
+                    "Handler for type '{}' threw an exception within onLoadFinished; suppressing.",
+                    String.join("/", path),
+                    e);
             }
-        }
+        });
     }
 
     /**
@@ -420,53 +441,6 @@ public final class DatapackLoader {
     }
 
     /**
-     * Routes a tag entry (resourceType == "tags") to {@link TagRegistry}.
-     *
-     * <p>The {@code id.id()} field encodes both the tag type and tag name separated by the last
-     * {@code /}. For example, {@code "blocks/logs"} yields tagType {@code "blocks"} and
-     * tagId {@code "<namespace>:logs"}.
-     */
-    private static void routeTagEntry(
-        @Nonnull Datapack pack,
-        @Nonnull String entryPath,
-        @Nonnull ResourceId id,
-        @Nonnull IDatapackSource source) throws DatapackLoadException {
-
-        int lastSlash = id.id().lastIndexOf('/');
-        if (lastSlash < 0) {
-            LOGGER.warn(
-                "Tag resource '{}' has no type segment in id '{}'; skipping.",
-                entryPath,
-                id.id());
-            return;
-        }
-
-        String tagType = id.id().substring(0, lastSlash);  // e.g. "blocks", "worldgen/biome"
-        String tagName = id.id().substring(lastSlash + 1); // e.g. "logs"
-        String tagId   = id.namespace() + ":" + tagName;   // e.g. "minecraft:logs"
-
-        byte[] content;
-        try {
-            content = source.readEntry(entryPath);
-        } catch (IOException e) {
-            throw new DatapackLoadException(
-                "Failed to read tag entry '" + entryPath + "' from datapack '" + pack.getName() + "'",
-                e);
-        }
-
-        TagFile tagFile;
-        try {
-            tagFile = TagFile.GSON.fromJson(
-                new String(content, StandardCharsets.UTF_8), TagFile.class);
-        } catch (Exception e) {
-            throw new DatapackLoadException(
-                "Failed to parse tag '" + entryPath + "' in pack '" + pack.getName() + "'", e);
-        }
-
-        TagRegistry.INSTANCE.accumulate(tagType, tagId, tagFile);
-    }
-
-    /**
      * Reads the entry content and dispatches it to the appropriate type handler.
      */
     private static void dispatchEntry(
@@ -474,19 +448,14 @@ public final class DatapackLoader {
         @Nonnull String entryPath,
         @Nonnull ResourceId id,
         @Nonnull IDatapackSource source,
-        @Nonnull Set<String> warnedTypes) throws DatapackLoadException {
+        @Nonnull Set<ResourceId> claimed) throws DatapackLoadException {
 
-        IDatapackTypeHandler handler = DatapackHandlerRegistry.getTypeHandler(id.resourceType(), Side.SERVER);
+        IDatapackTypeHandler handler = DatapackHandlerRegistry.getTypeHandler(id.resourceType());
 
-        if (handler == null) {
-            // Warn once per unknown type per run
-            if (warnedTypes.add(id.resourceType())) {
-                LOGGER.warn(
-                    "No handler registered for datapack resource type '{}' (first seen at {}); skipping.",
-                    id.resourceType(),
-                    id);
+        if (handler.doesPathClaiming()) {
+            if (!claimed.add(id)) {
+                return;
             }
-            return;
         }
 
         byte[] content;
@@ -518,14 +487,15 @@ public final class DatapackLoader {
      * @return the derived resource location
      * @throws DatapackLoadException if the path is invalid or contains illegal characters
      */
-    @Nonnull
+    @org.jetbrains.annotations.Nullable
     private static ResourceId deriveResourceLocation(
         @Nonnull String packName,
-        @Nonnull String relativePath) throws DatapackLoadException {
+        @Nonnull String relativePath,
+        Set<String> warnedTypes) throws DatapackLoadException {
 
-        List<Path> segments = new ArrayList<>();
+        List<String> segments = new ArrayList<>();
 
-        Paths.get(relativePath).forEach(segments::add);
+        Paths.get(relativePath).forEach(p -> segments.add(p.toString()));
 
         if (segments.size() < 3) {
             throw new DatapackLoadException(
@@ -533,65 +503,50 @@ public final class DatapackLoader {
                     + "' is in invalid location: must be within [namespace]/[resource type]/* (FR-ENUM-7)");
         }
 
-        String namespace = segments.get(0).toString();
-        String resourceType = segments.get(1).toString();
-
-        if (!VALID_COMPONENT.matcher(namespace).matches()) {
-            throw new DatapackLoadException(
-                "Datapack '" + packName + "': resource path '" + relativePath
-                    + "' has invalid namespace '" + namespace
-                    + "' (must match [a-z0-9_.-]+) (FR-ENUM-7)");
-        }
-
-        if (!VALID_COMPONENT.matcher(resourceType).matches()) {
-            throw new DatapackLoadException(
-                "Datapack '" + packName + "': resource path '" + relativePath
-                    + "' has invalid resource type '" + resourceType
-                    + "' (must match [a-z0-9_.-]+) (FR-ENUM-7)");
-        }
-
-        int startIndex = 2;
-
-        // For some reason, worldgen types are within a nested folder. This accounts for that.
-        if (resourceType.equals("worldgen")) {
-            String subtype = segments.get(2).toString();
-
-            if (!VALID_COMPONENT.matcher(subtype).matches()) {
+        for (var segment : segments) {
+            if (!VALID_COMPONENT.matcher(segment).matches()) {
                 throw new DatapackLoadException(
                     "Datapack '" + packName + "': resource path '" + relativePath
-                        + "' has invalid resource sub-type '" + subtype
-                        + "' (must match [a-z0-9_.-]+) (FR-ENUM-7)");
-            }
-
-            resourceType += "/" + subtype;
-            startIndex = 3;
-
-            if (segments.size() < 3) {
-                throw new DatapackLoadException(
-                    "Datapack '" + packName + "': resource path '" + relativePath
-                        + "' is in invalid location: must be within [namespace]/worldgen/[worldgen subtype]/* (FR-ENUM-7)");
+                        + "' has invalid namespace '" + segment
+                        + "' (must match regex [a-z0-9_.-]+)");
             }
         }
 
-        // Join with '/' explicitly to ensure cross-platform consistency.
-        StringBuilder restBuilder = new StringBuilder();
-        for (int si = startIndex; si < segments.size(); si++) {
-            if (si > startIndex) restBuilder.append('/');
-            restBuilder.append(segments.get(si).toString());
-        }
-        String restStr = restBuilder.toString();
+        String namespace = segments.get(0);
 
-        int lastDot = restStr.lastIndexOf('.');
+        List<String> resourceType = DatapackHandlerRegistry.findDeepestHandler(segments.subList(1, segments.size()));
+
+        if (resourceType.isEmpty()) {
+            String assumedType = segments.get(1);
+
+            if (warnedTypes.add(assumedType)) {
+                LOGGER.warn("Datapack '{}': could not find handler for resource type {} (first seen at {})", packName, assumedType, relativePath);
+            }
+
+            return null;
+        }
+
+        List<String> path = segments.subList(1 + resourceType.size(), segments.size());
+
+        if (path.isEmpty()) {
+            throw new DatapackLoadException(
+                "Datapack '" + packName + "': resource path '" + relativePath
+                    + "' is in invalid location: resource is missing path");
+        }
+
+        String pathStr = String.join("/", path);
+
+        int lastDot = pathStr.lastIndexOf('.');
 
         String id;
 
         if (lastDot > -1) {
-            id = restStr.substring(0, lastDot);
+            id = pathStr.substring(0, lastDot);
         } else {
-            id = restStr;
+            id = pathStr;
         }
 
-        return new ResourceId(namespace, resourceType, id, relativePath);
+        return new ResourceId(namespace, ImmutableList.copyOf(resourceType), id, relativePath);
     }
 
     /**

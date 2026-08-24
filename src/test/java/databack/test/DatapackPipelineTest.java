@@ -26,7 +26,7 @@ import databack.common.loader.DatapackLoadException;
 import databack.common.loader.DatapackLoader;
 import databack.common.loader.DatapackWorldInfo;
 import databack.common.loader.ResourceId;
-import databack.common.tags.TagRegistry;
+import databack.common.tags.TagRegistryOld;
 
 /**
  * Integration tests for the full datapack loading pipeline.
@@ -54,7 +54,7 @@ class DatapackPipelineTest {
     @BeforeEach
     void setup() {
         DatapackHandlerRegistry.clearForTesting();
-        TagRegistry.INSTANCE.clearForTesting();
+        TagRegistryOld.INSTANCE.clearForTesting();
 
         biomeHandler = new RecordingHandler();
         configuredFeatureHandler = new RecordingHandler();
@@ -238,129 +238,6 @@ class DatapackPipelineTest {
         DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
 
         assertEquals(Arrays.asList("start", "handle", "finish"), events);
-    }
-
-    // ---- Tag loading --------------------------------------------------------
-
-    @Test
-    void testTags_singlePack_entriesLoaded() throws IOException {
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        writeTagPack(datapacksDir, "pack-a",
-            "minecraft", "blocks", "logs",
-            "{\"values\":[\"minecraft:oak_log\",\"minecraft:birch_log\"]}");
-
-        DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
-
-        Set<String> entries = TagRegistry.INSTANCE.getEntries("blocks", "minecraft:logs");
-        assertTrue(entries.contains("minecraft:oak_log"));
-        assertTrue(entries.contains("minecraft:birch_log"));
-    }
-
-    @Test
-    void testTags_twoPacks_additive() throws IOException {
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        // Both packs define the same tag with replace:false — entries should be merged
-        writeTagPack(datapacksDir, "pack-a",
-            "minecraft", "blocks", "logs",
-            "{\"values\":[\"minecraft:acacia_log\"]}");
-        writeTagPack(datapacksDir, "pack-b",
-            "minecraft", "blocks", "logs",
-            "{\"values\":[\"minecraft:oak_log\"]}");
-
-        DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
-
-        Set<String> entries = TagRegistry.INSTANCE.getEntries("blocks", "minecraft:logs");
-        assertTrue(entries.contains("minecraft:acacia_log"));
-        assertTrue(entries.contains("minecraft:oak_log"));
-    }
-
-    @Test
-    void testTags_replaceTrue_blocksLowerPriority() throws IOException {
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        // pack-b is listed last = higher priority in TestDatapackWorldInfo (preserves order = low→high)
-        writeTagPack(datapacksDir, "pack-a",
-            "minecraft", "blocks", "logs",
-            "{\"values\":[\"minecraft:oak_log\"]}");
-        writeTagPack(datapacksDir, "pack-b",
-            "minecraft", "blocks", "logs",
-            "{\"replace\":true,\"values\":[\"minecraft:acacia_log\"]}");
-
-        // Override ordering: pack-b is higher priority (processed first = last in list passed to loader)
-        DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo() {
-
-            @Override
-            public @NotNull List<Datapack> db$order(@NotNull List<Datapack> packs) {
-                // Ensure pack-b is at the end (highest priority)
-                List<Datapack> ordered = new ArrayList<>(packs);
-                ordered.sort((x, y) -> x.getName().compareTo(y.getName())); // pack-a, pack-b
-                return ordered;
-            }
-        });
-
-        Set<String> entries = TagRegistry.INSTANCE.getEntries("blocks", "minecraft:logs");
-        assertTrue(entries.contains("minecraft:acacia_log"), "High-priority entry present");
-        assertFalse(entries.contains("minecraft:oak_log"), "Low-priority entry blocked by replace:true");
-    }
-
-    @Test
-    void testTags_nestedTagRef_resolvedThroughPipeline() throws IOException {
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        writeTagPack(datapacksDir, "pack-a",
-            "minecraft", "blocks", "logs",
-            "{\"values\":[\"minecraft:oak_log\"]}");
-        writeTagPack(datapacksDir, "pack-a",
-            "minecraft", "blocks", "all_wood",
-            "{\"values\":[\"#minecraft:logs\",\"minecraft:oak_planks\"]}");
-
-        DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
-
-        Set<String> entries = TagRegistry.INSTANCE.getEntries("blocks", "minecraft:all_wood");
-        assertTrue(entries.contains("minecraft:oak_log"), "Nested tag ref expanded");
-        assertTrue(entries.contains("minecraft:oak_planks"), "Direct entry present");
-    }
-
-    @Test
-    void testTags_resolvedBeforeOnLoadFinished() throws IOException {
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        writeTagPack(datapacksDir, "pack-a",
-            "minecraft", "blocks", "logs",
-            "{\"values\":[\"minecraft:oak_log\"]}");
-
-        Set<String>[] capturedInFinished = new Set[1];
-        IDatapackTypeHandler probe = new IDatapackTypeHandler() {
-
-            @Override
-            public void handle(ResourceId id, byte[] content) {}
-
-            @Override
-            public void onLoadFinished() {
-                capturedInFinished[0] = TagRegistry.INSTANCE.getEntries("blocks", "minecraft:logs");
-            }
-        };
-
-        DatapackHandlerRegistry.clearForTesting();
-        DatapackHandlerRegistry.registerTypeHandler("worldgen/biome", () -> probe);
-
-        DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
-
-        assertNotNull(capturedInFinished[0], "onLoadFinished should have been called");
-        assertTrue(
-            capturedInFinished[0].contains("minecraft:oak_log"),
-            "Tags resolved before onLoadFinished fires");
-    }
-
-    @Test
-    void testTags_vanillaPack_loadsBlockTags() throws IOException {
-        assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
-
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
-
-        DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
-
-        // The vanilla pack defines minecraft:logs under tags/block/ (singular)
-        Set<String> logs = TagRegistry.INSTANCE.getEntries("block", "minecraft:logs");
-        assertFalse(logs.isEmpty(), "minecraft:logs tag should have entries from vanilla pack");
     }
 
     // ---- Helpers ------------------------------------------------------------

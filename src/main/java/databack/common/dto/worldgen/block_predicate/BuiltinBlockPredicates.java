@@ -6,6 +6,7 @@ import java.util.List;
 
 import net.minecraft.block.Block;
 import net.minecraft.util.AxisAlignedBB;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraftforge.common.util.ForgeDirection;
@@ -19,10 +20,13 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonParseException;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.dto.worldgen.BlockWhitelist;
-import databack.common.interop.BiomeIds;
-import databack.common.interop.BlockTags;
+import databack.common.handlers.DatapackHandle;
+import databack.common.interop.registry.ProxyBiomeRegistry;
+import databack.common.interop.registry.ProxyBlockRegistry;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
+import databack.common.tags.BuiltinTagRegistries;
+import databack.common.tags.ITag;
 
 public class BuiltinBlockPredicates {
 
@@ -99,23 +103,28 @@ public class BuiltinBlockPredicates {
 
         private static BlockWhitelist fromEntry(String entry) {
             if (entry.startsWith("#")) {
-                String tag = entry.substring(1);
-                return block -> BlockTags.getBlocks(tag).contains(block);
-            }
+                String tagName = entry.substring(1);
 
-            return block -> block == Block.blockRegistry.getObject(entry);
+                DatapackHandle<ITag<Block>> tag = new DatapackHandle<>(() -> BuiltinTagRegistries.blocks().getTag(new ResourceLocation(tagName)));
+
+                return block -> tag.get().includes(block);
+            } else {
+                DatapackHandle<Block> block = new DatapackHandle<>(() -> ProxyBlockRegistry.INSTANCE.getObject(new ResourceLocation(entry)));
+
+                return b -> b == block.get();
+            }
         }
     }
 
     // Handles `string | string[]` biome ID lists.
     private static class BiomeList {
 
-        String[] ids;
+        ResourceLocation[] ids;
 
         boolean matches(BiomeGenBase biome) {
-            String id = BiomeIds.getBiomeId(biome);
+            ResourceLocation id = ProxyBiomeRegistry.INSTANCE.getIdForObject(biome);
 
-            for (String expected : ids) {
+            for (ResourceLocation expected : ids) {
                 if (expected.equals(id)) return true;
             }
 
@@ -131,9 +140,9 @@ public class BuiltinBlockPredicates {
             BiomeList list = new BiomeList();
 
             if (json.isJsonPrimitive()) {
-                list.ids = new String[] { json.getAsString() };
+                list.ids = new ResourceLocation[] { new ResourceLocation(json.getAsString()) };
             } else {
-                list.ids = context.deserialize(json, String[].class);
+                list.ids = context.deserialize(json, ResourceLocation[].class);
             }
 
             return list;
@@ -231,13 +240,19 @@ public class BuiltinBlockPredicates {
         @Nullable public int[] offset;
         public String tag;
 
+        private transient DatapackHandle<ITag<Block>> tagRef;
+
         @Override
         public boolean test(World world, int x, int y, int z) {
+            if (tagRef == null) {
+                tagRef = new DatapackHandle<>(() -> BuiltinTagRegistries.blocks().getTag(new ResourceLocation(tag)));
+            }
+
             int tx = offsetX(offset, x);
             int ty = offsetY(offset, y);
             int tz = offsetZ(offset, z);
 
-            return BlockTags.getBlocks(tag).contains(world.getBlock(tx, ty, tz));
+            return tagRef.get().includes(world.getBlock(tx, ty, tz));
         }
     }
 

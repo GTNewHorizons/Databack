@@ -1,5 +1,6 @@
 package databack.common.network;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -8,7 +9,6 @@ import net.minecraft.world.World;
 
 import com.github.bsideup.jabel.Desugar;
 import com.google.gson.JsonElement;
-import cpw.mods.fml.relauncher.Side;
 import databack.common.handlers.DatapackHandlerRegistry;
 import databack.common.handlers.JsonDatapackTypeHandler;
 import databack.common.network.PacketEncoderSyncJsonHandler.PacketSyncJsonHandler;
@@ -66,6 +66,6 @@ public class PacketEncoderSyncJsonHandler extends DBPacketEncoder<PacketSyncJson
 
     @Override
     public void process(World world, PacketSyncJsonHandler packet) {
-        ((JsonDatapackTypeHandler<?>) DatapackHandlerRegistry.getTypeHandler(packet.resourceType, Side.CLIENT)).receive(packet.data);
+        ((JsonDatapackTypeHandler<?>) DatapackHandlerRegistry.getTypeHandler(Arrays.asList(packet.resourceType.split("/")))).receive(packet.data);
     }
 }

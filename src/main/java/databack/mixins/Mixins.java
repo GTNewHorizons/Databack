@@ -14,6 +14,9 @@ public enum Mixins implements IMixins {
     NBT_ACCESSOR(Side.COMMON, "AccessorNBTTagList", "AccessorNBTTagCompound"),
     HEIGHTMAPS(Side.COMMON, "MixinWorld_HeightmapExt"),
     EXT(Side.COMMON, "MixinWorld_Ext"),
+    TAGS(Side.COMMON, "Mixin_InjectTaggable"),
+    PROXY_REGISTRY(Side.COMMON, "MixinBiomeGenBase_Registry", "MixinEntityList_Registry", "MixinEntityRegistry_Registry"),
+    REGISTRY_ACCESSOR(Side.COMMON, "AccessorRegistrySimple"),
     //
     ;
 

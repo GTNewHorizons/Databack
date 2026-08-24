@@ -9,6 +9,10 @@ import cpw.mods.fml.common.eventhandler.Event;
 
 public class DatapackEvent extends Event {
 
+    public static class DatapackStartLoadingEvent extends DatapackEvent {
+
+    }
+
     public static class DatapackGatherEvent extends DatapackEvent {
 
         public final List<File> candidates;
@@ -29,15 +33,21 @@ public class DatapackEvent extends Event {
 
     public static class DatapackFinishedLoadingEvent extends DatapackEvent {
 
-        public DatapackFinishedLoadingEvent() {
-
-        }
     }
 
     public static class DatapackSyncEvent extends DatapackEvent {
 
-        public DatapackSyncEvent(EntityPlayerMP player) {
+        public final EntityPlayerMP player;
 
+        public DatapackSyncEvent(EntityPlayerMP player) {
+            this.player = player;
         }
     }
+
+    /**
+     * Fired just before a world starts, after {@link DatapackHandlerRegistry#clearAll()}.
+     * Subscribers should call {@link DatapackHandlerRegistry#registerTypeHandler} to register
+     * fresh handler instances appropriate for the current game mode (SP vs MP).
+     */
+    public static class DatapackRegisterHandlersEvent extends DatapackEvent {}
 }

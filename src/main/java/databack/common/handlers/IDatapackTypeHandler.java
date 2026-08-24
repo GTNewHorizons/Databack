@@ -58,4 +58,21 @@ public interface IDatapackTypeHandler {
      * the specified player.
      */
     default void syncToPlayer(EntityPlayerMP player) {}
+
+    /**
+     * Called in SP/LAN-host mode instead of {@link #syncToPlayer}. The single handler instance is shared between
+     * server and client, so no packet is needed. Default is a no-op; the server-thread writes to shared state
+     * are visible to the client thread via hardware cache coherency by the time the client reads them.
+     */
+    default void refreshClientSP() {}
+
+    /**
+     * When true, resources within datapacks are 'claimed' by the highest priority datapack, causing resources with the
+     * same name in lower priority datapacks to be skipped.
+     * When false, this does not happen and all resources for this type handler are passed to
+     * {@link #handle(ResourceId, byte[])}.
+     */
+    default boolean doesPathClaiming() {
+        return true;
+    }
 }

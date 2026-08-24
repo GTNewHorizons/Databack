@@ -3,6 +3,7 @@ package databack.common.network;
 public enum DBPacketEntry {
 
     SyncJsonHandler(new PacketEncoderSyncJsonHandler()),
+    SyncTagHandler(new PacketEncoderSyncTagHandler()),
     //
     ;
 

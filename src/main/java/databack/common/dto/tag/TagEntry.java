@@ -28,6 +28,22 @@ public final class TagEntry {
         this.required = required;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof TagEntry tagEntry)) {
+            return false;
+        }
+
+        return isTagRef == tagEntry.isTagRef && id.equals(tagEntry.id);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + Boolean.hashCode(isTagRef);
+        return result;
+    }
+
     public static final class Deserializer implements JsonDeserializer<TagEntry> {
 
         @Override

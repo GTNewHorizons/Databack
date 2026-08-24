@@ -19,7 +19,7 @@ public final class TagFile {
      * When true, entries from lower-priority packs that define the same tag are ignored.
      * Defaults to false (additive).
      */
-    public boolean replace;
+    public boolean replace = false;
 
     /** The list of tag entries. May be null if the key is absent in the JSON. */
     public List<TagEntry> values;

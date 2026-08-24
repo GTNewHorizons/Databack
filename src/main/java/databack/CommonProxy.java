@@ -8,6 +8,7 @@ import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.common.MinecraftForge;
 import databack.common.command.DatapackCommand;
 import databack.common.dto.dimension.BuiltinDimensionGenerators;
 import databack.common.dto.particle.BuiltinParticles;
@@ -43,9 +44,13 @@ import databack.common.handlers.StructureList;
 import databack.common.handlers.StructureSetList;
 import databack.common.handlers.TemplatePoolList;
 import databack.common.handlers.WorldPresetList;
-import databack.common.interop.BlockTags;
+import databack.common.loader.DatapackEvent.DatapackRegisterHandlersEvent;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.MiscAdapters;
+import databack.common.tags.BuiltinTagRegistries.BiomeGenBaseTagRegistry;
+import databack.common.tags.BuiltinTagRegistries.BlockTagRegistry;
+import databack.common.tags.BuiltinTagRegistries.ItemTagRegistry;
+import databack.common.tags.EntityTagRegistry;
 import databack.common.worldgen.ModernWorldType;
 import lombok.Getter;
 
@@ -85,8 +90,32 @@ public class CommonProxy {
         NoiseGeneratorSettings.init();
         BuiltinDimensionGenerators.init();
 
+        ModernWorldType.init();
+    }
+
+    public void init(FMLInitializationEvent event) {
+        DatapackSerialization.finish();
+    }
+
+    public void postInit(FMLPostInitializationEvent event) {
+
+    }
+
+    public void serverStarting(FMLServerStartingEvent event) {
+        event.registerServerCommand(new DatapackCommand());
+    }
+
+    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
+        DatapackHandlerRegistry.clearAll();
+
+        DatapackHandlerRegistry.registerTypeHandler("tags/block", BlockTagRegistry::new);
+        DatapackHandlerRegistry.registerTypeHandler("tags/item", ItemTagRegistry::new);
+        DatapackHandlerRegistry.registerTypeHandler("tags/entity_type", EntityTagRegistry::new);
+        DatapackHandlerRegistry.registerTypeHandler("tags/worldgen/biome", BiomeGenBaseTagRegistry::new);
+
         DatapackHandlerRegistry.registerTypeHandler("dimension", DimensionList::new);
         DatapackHandlerRegistry.registerTypeHandler("dimension_type", DimensionTypeList::new);
+
         DatapackHandlerRegistry.registerTypeHandler("worldgen/configured_carver", ConfiguredCarverList::new);
         DatapackHandlerRegistry.registerTypeHandler("worldgen/configured_feature", ConfiguredFeatureList::new);
         DatapackHandlerRegistry.registerTypeHandler("worldgen/biome", BiomeList::new);
@@ -101,22 +130,6 @@ public class CommonProxy {
         DatapackHandlerRegistry.registerTypeHandler("worldgen/structure_set", StructureSetList::new);
         DatapackHandlerRegistry.registerTypeHandler("worldgen/world_preset", WorldPresetList::new);
 
-        ModernWorldType.init();
-    }
-
-    public void init(FMLInitializationEvent event) {
-        DatapackSerialization.finish();
-    }
-
-    public void postInit(FMLPostInitializationEvent event) {
-        BlockTags.init();
-    }
-
-    public void serverStarting(FMLServerStartingEvent event) {
-        event.registerServerCommand(new DatapackCommand());
-    }
-
-    public void serverAboutToStart(FMLServerAboutToStartEvent event) {
-
+        MinecraftForge.EVENT_BUS.post(new DatapackRegisterHandlersEvent());
     }
 }

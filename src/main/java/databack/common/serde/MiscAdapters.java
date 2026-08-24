@@ -1,6 +1,7 @@
 package databack.common.serde;
 
 import java.lang.reflect.Type;
+import java.util.HashSet;
 import java.util.Map;
 
 import net.minecraft.block.Block;
@@ -19,10 +20,15 @@ import com.google.gson.JsonSerializationContext;
 import com.google.gson.JsonSerializer;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockStateImpl;
+import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.registry.GameRegistry;
 import databack.CommonProxy;
+import databack.common.loader.DatapackEvent.DatapackLoadEvent;
+import databack.common.loader.DatapackEvent.DatapackStartLoadingEvent;
 import databack.common.loader.DatapackLoader;
 
+@EventBusSubscriber
 public class MiscAdapters {
 
     public static void init() {
@@ -31,13 +37,21 @@ public class MiscAdapters {
             .registerTypeAdapter(IChatComponent.class, (JsonDeserializer<IChatComponent>) (json, typeOfT, context) -> null);
     }
 
+    private static final HashSet<String> MISSING_BLOCKS = new HashSet<>();
+
+    @SubscribeEvent
+    public static void resetMissingBlocks(DatapackStartLoadingEvent event) {
+        synchronized (MISSING_BLOCKS) {
+            MISSING_BLOCKS.clear();
+        }
+    }
+
     public static class BlockStateDTO {
 
         public String Name;
 
         @Nullable
         public Map<String, String> Properties;
-
     }
 
     public static class BlockStateAdapter implements JsonDeserializer<BlockState>, JsonSerializer<BlockState> {
@@ -56,7 +70,12 @@ public class MiscAdapters {
             }
 
             if (block == null) {
-                DatapackLoader.LOGGER.error("Could not find block {}, using air", dto.Name);
+                synchronized (MISSING_BLOCKS) {
+                    if (MISSING_BLOCKS.add(dto.Name)) {
+                        DatapackLoader.LOGGER.error("Could not find block {}, using air", dto.Name);
+                    }
+                }
+
                 block = Blocks.air;
             }
 

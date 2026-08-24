@@ -16,7 +16,6 @@ public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
 
     public static final ResourceType<DatapackNoiseList> RT = ResourceType.withPath("worldgen/noise");
 
-    private final Map<String, Long2ObjectOpenHashMap<NoiseSampler>> samplerCache = new HashMap<>();
 
     public DatapackNoiseList() {
         super(RT, DatapackNoise.class);
@@ -30,13 +29,11 @@ public class DatapackNoiseList extends JsonDatapackTypeHandler<DatapackNoise> {
     @Override
     public void onLoadStart() {
         super.onLoadStart();
-        samplerCache.clear();
     }
 
     @Override
     public void onWorldUnload() {
         super.onWorldUnload();
-        samplerCache.clear();
     }
 
     /**
