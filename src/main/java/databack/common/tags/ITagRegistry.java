@@ -21,8 +21,6 @@ import databack.Databack;
 /// generation.
 public interface ITagRegistry<Target> {
 
-    Logger LOGGER = LogManager.getLogger(Databack.MODID + "|tags");
-
     @Nullable
     ITag<Target> getTag(ResourceLocation loc);
     @NotNull

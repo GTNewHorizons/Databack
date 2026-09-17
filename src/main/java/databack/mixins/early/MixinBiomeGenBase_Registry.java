@@ -4,6 +4,7 @@ import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.BiomeGenBase;
 
 import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -17,6 +18,8 @@ import databack.common.interop.registry.ProxyBiomeRegistry;
 @Mixin(BiomeGenBase.class)
 public class MixinBiomeGenBase_Registry {
 
+    @Shadow
+    public String biomeName;
     @Unique
     private static boolean db$clinit = false;
 
@@ -31,7 +34,7 @@ public class MixinBiomeGenBase_Registry {
     }
 
     @Unique
-    private String db$domain;
+    protected String db$domain;
 
     @Inject(method = "<init>(IZ)V", at = @At("TAIL"))
     private void db$hookBiomeInit(int p_i1971_1_, boolean register, CallbackInfo ci) {

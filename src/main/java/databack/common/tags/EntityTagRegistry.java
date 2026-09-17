@@ -16,6 +16,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.common.MinecraftForge;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -24,14 +26,13 @@ import com.google.common.collect.Iterators;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
-import com.google.gson.JsonSyntaxException;
+import databack.Databack;
 import databack.DatabackConfig;
 import databack.common.dto.tag.TagEntry;
 import databack.common.dto.tag.TagFile;
 import databack.common.interop.registry.ProxyEntityRegistry;
 import databack.common.loader.ResourceId;
 import databack.common.network.PacketEncoderSyncTagHandler;
-import databack.common.serde.DatapackSerialization;
 import databack.common.tags.TagEvent.RegisterEntityTagsEvent;
 import it.unimi.dsi.fastutil.Pair;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
@@ -41,6 +42,8 @@ import it.unimi.dsi.fastutil.objects.ObjectIterators;
 public class EntityTagRegistry implements ITagRegistry<Class<? extends Entity>>, ITagHandler, ITagStagingReceiver {
 
     static final Map<Class<? extends Entity>, BitSet> ENTITY_BITS = new HashMap<>();
+
+    public final Logger logger = LogManager.getLogger(Databack.MODID + "|tags|entities");
 
     protected final String resourceType = "tags/entity_type";
 
@@ -190,7 +193,7 @@ public class EntityTagRegistry implements ITagRegistry<Class<? extends Entity>>,
 
     @Internal
     public void gatherTags() {
-        LOGGER.info("Reloading entity tags");
+        logger.info("Reloading entity tags");
 
         // First clear: remove stale bits from the PREVIOUS domain. Needed because the domain
         // can change between calls, and those objects would otherwise retain bits from the last generation
@@ -230,7 +233,7 @@ public class EntityTagRegistry implements ITagRegistry<Class<? extends Entity>>,
                 Class<? extends Entity> target = getTarget(new ResourceLocation(e.id));
 
                 if (e.required && target == null) {
-                    LOGGER.error("Tag {} references missing entity {}: this tag entry will be skipped", staging.getKey(), e.id);
+                    logger.error("Tag {} references missing entity {}: this tag entry will be skipped", staging.getKey(), e.id);
                     continue;
                 }
 
@@ -251,16 +254,16 @@ public class EntityTagRegistry implements ITagRegistry<Class<? extends Entity>>,
             finishTag(tag);
         }
 
-        LOGGER.info("There are {} entity tags loaded", tags.size());
+        logger.info("There are {} entity tags loaded", tags.size());
 
         if (DatabackConfig.enableTagDebugMode && !tags.isEmpty()) {
-            LOGGER.info("Dump of all entity tags:");
+            logger.info("Dump of all entity tags:");
 
             for (var tag : tags.values()) {
                 var children = tagHierarchy.get(tag).stream().map(EntityTagImpl::toString).collect(Collectors.joining(", "));
                 var targets = tagContent.get(tag).stream().map(t -> this.getIdForTarget(t).toString()).collect(Collectors.joining(", "));
 
-                LOGGER.info("[{}]: Children=[{}] Targets=[{}]", tag, children, targets);
+                logger.info("[{}]: Children=[{}] Targets=[{}]", tag, children, targets);
             }
         }
     }

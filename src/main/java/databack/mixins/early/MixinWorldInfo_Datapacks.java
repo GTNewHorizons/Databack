@@ -27,35 +27,35 @@ import databack.common.loader.DatapackWorldInfo;
 public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
 
     @Unique
-    private final List<String> gtnhlib$datapackOrder = new ArrayList<>();
+    private final List<String> db$datapackOrder = new ArrayList<>();
 
     @Unique
-    private final HashSet<String> gtnhlib$disabledDatapacks = new HashSet<>();
+    private final HashSet<String> db$disabledDatapacks = new HashSet<>();
 
     public void db$loadDatapackInfo(NBTTagCompound tag) {
-        gtnhlib$datapackOrder.clear();
-        gtnhlib$disabledDatapacks.clear();
+        db$datapackOrder.clear();
+        db$disabledDatapacks.clear();
 
         NBTTagList disabled = tag.getTagList("Disabled", NBT.TAG_STRING);
         NBTTagList order = tag.getTagList("Order", NBT.TAG_STRING);
 
         for (var t : ((AccessorNBTTagList) disabled).<NBTTagString>getTagList()) {
-            gtnhlib$disabledDatapacks.add(t.func_150285_a_());
+            db$disabledDatapacks.add(t.func_150285_a_());
         }
 
         for (var t : ((AccessorNBTTagList) order).<NBTTagString>getTagList()) {
-            gtnhlib$datapackOrder.add(t.func_150285_a_());
+            db$datapackOrder.add(t.func_150285_a_());
         }
     }
 
     @SuppressWarnings("DataFlowIssue")
     @Inject(method = "<init>(Lnet/minecraft/world/storage/WorldInfo;)V", at = @At("TAIL"))
-    public void gtnhlib$copy(WorldInfo source, CallbackInfo ci) {
-        gtnhlib$datapackOrder.clear();
-        gtnhlib$disabledDatapacks.clear();
+    public void db$copy(WorldInfo source, CallbackInfo ci) {
+        db$datapackOrder.clear();
+        db$disabledDatapacks.clear();
 
-        gtnhlib$datapackOrder.addAll(((MixinWorldInfo_Datapacks) (Object) source).gtnhlib$datapackOrder);
-        gtnhlib$disabledDatapacks.addAll(((MixinWorldInfo_Datapacks) (Object) source).gtnhlib$disabledDatapacks);
+        db$datapackOrder.addAll(((MixinWorldInfo_Datapacks) (Object) source).db$datapackOrder);
+        db$disabledDatapacks.addAll(((MixinWorldInfo_Datapacks) (Object) source).db$disabledDatapacks);
     }
 
     public NBTTagCompound db$saveDatapackInfo() {
@@ -67,11 +67,11 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
         NBTTagList order = new NBTTagList();
         tag.setTag("Order", order);
 
-        for (String d : gtnhlib$disabledDatapacks) {
+        for (String d : db$disabledDatapacks) {
             disabled.appendTag(new NBTTagString(d));
         }
 
-        for (String p : gtnhlib$datapackOrder) {
+        for (String p : db$datapackOrder) {
             order.appendTag(new NBTTagString(p));
         }
 
@@ -80,34 +80,34 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
 
     @Override
     public List<String> db$getDatapackOrder() {
-        return gtnhlib$datapackOrder;
+        return db$datapackOrder;
     }
 
     @Override
     public Set<String> db$getDisabledPacks() {
-        return gtnhlib$disabledDatapacks;
+        return db$disabledDatapacks;
     }
 
     @Override
     public void db$enable(String pack) {
-        gtnhlib$disabledDatapacks.remove(pack);
+        db$disabledDatapacks.remove(pack);
     }
 
     @Override
     public void db$disable(String pack) {
-        gtnhlib$disabledDatapacks.add(pack);
+        db$disabledDatapacks.add(pack);
     }
 
     @Override
     public void db$syncPackDeltas(@NotNull List<Datapack> packs) {
         List<String> present = packs.stream().map(Datapack::getPackId).collect(Collectors.toList());
 
-        gtnhlib$disabledDatapacks.removeIf(p -> !present.contains(p));
-        gtnhlib$datapackOrder.removeIf(p -> !present.contains(p));
+        db$disabledDatapacks.removeIf(p -> !present.contains(p));
+        db$datapackOrder.removeIf(p -> !present.contains(p));
 
         for (String presentPack : present) {
-            if (!gtnhlib$datapackOrder.contains(presentPack)) {
-                gtnhlib$datapackOrder.add(presentPack);
+            if (!db$datapackOrder.contains(presentPack)) {
+                db$datapackOrder.add(presentPack);
             }
         }
     }
@@ -117,12 +117,12 @@ public class MixinWorldInfo_Datapacks implements DatapackWorldInfo {
         packs = new ArrayList<>(packs);
 
         packs.forEach(pack -> {
-            pack.setEnabled(!gtnhlib$disabledDatapacks.contains(pack.getPackId()));
+            pack.setEnabled(!db$disabledDatapacks.contains(pack.getPackId()));
         });
 
         // Sort the packs, putting new packs at the end
         packs.sort(Comparator.comparingInt(pack -> {
-            int index = gtnhlib$datapackOrder.indexOf(pack.getPackId());
+            int index = db$datapackOrder.indexOf(pack.getPackId());
 
             if (index == -1) index = Integer.MAX_VALUE;
 

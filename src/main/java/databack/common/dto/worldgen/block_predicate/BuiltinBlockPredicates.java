@@ -21,6 +21,8 @@ import com.google.gson.JsonParseException;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.dto.worldgen.BlockWhitelist;
 import databack.common.handlers.DatapackHandle;
+import databack.common.interop.modern_block.BlockIdentity;
+import databack.common.interop.registry.BlockIdentityRegistry;
 import databack.common.interop.registry.ProxyBiomeRegistry;
 import databack.common.interop.registry.ProxyBlockRegistry;
 import databack.common.serde.DatapackSerialization;
@@ -52,7 +54,7 @@ public class BuiltinBlockPredicates {
         predicates.setFallback((json, typeOfT, context) -> {
             BlockWhitelist whitelist = context.deserialize(json, BlockWhitelist.class);
 
-            return (world, x, y, z) -> whitelist.contains(world.getBlock(x, y, z));
+            return (world, x, y, z) -> whitelist.contains(world.getBlock(x, y, z), world.getBlockMetadata(x, y, z));
         });
 
         DatapackSerialization.getBuilder()
@@ -90,9 +92,9 @@ public class BuiltinBlockPredicates {
                     parts.add(fromEntry(element.getAsString()));
                 }
 
-                return block -> {
+                return (block, meta) -> {
                     for (BlockWhitelist part : parts) {
-                        if (part.contains(block)) return true;
+                        if (part.contains(block, meta)) return true;
                     }
                     return false;
                 };
@@ -105,13 +107,13 @@ public class BuiltinBlockPredicates {
             if (entry.startsWith("#")) {
                 String tagName = entry.substring(1);
 
-                DatapackHandle<ITag<Block>> tag = new DatapackHandle<>(() -> BuiltinTagRegistries.blocks().getTag(new ResourceLocation(tagName)));
+                DatapackHandle<ITag<BlockIdentity>> tag = new DatapackHandle<>(() -> BuiltinTagRegistries.blocks().getTag(new ResourceLocation(tagName)));
 
-                return block -> tag.get().includes(block);
+                return (block, meta) -> tag.get().includes(BlockIdentityRegistry.INSTANCE.getBlockIdentity(block, meta));
             } else {
-                DatapackHandle<Block> block = new DatapackHandle<>(() -> ProxyBlockRegistry.INSTANCE.getObject(new ResourceLocation(entry)));
+                DatapackHandle<BlockIdentity> target = new DatapackHandle<>(() -> BlockIdentityRegistry.INSTANCE.getObject(new ResourceLocation(entry)));
 
-                return b -> b == block.get();
+                return (block2, meta) -> BlockIdentityRegistry.INSTANCE.getBlockIdentity(block2, meta).equals(target.get());
             }
         }
     }
@@ -240,7 +242,7 @@ public class BuiltinBlockPredicates {
         @Nullable public int[] offset;
         public String tag;
 
-        private transient DatapackHandle<ITag<Block>> tagRef;
+        private transient DatapackHandle<ITag<BlockIdentity>> tagRef;
 
         @Override
         public boolean test(World world, int x, int y, int z) {
@@ -252,7 +254,10 @@ public class BuiltinBlockPredicates {
             int ty = offsetY(offset, y);
             int tz = offsetZ(offset, z);
 
-            return tagRef.get().includes(world.getBlock(tx, ty, tz));
+            Block block = world.getBlock(tx, ty, tz);
+            int meta = world.getBlockMetadata(tx, ty, tz);
+
+            return tagRef.get().includes(BlockIdentityRegistry.INSTANCE.getBlockIdentity(block, meta));
         }
     }
 
@@ -277,7 +282,7 @@ public class BuiltinBlockPredicates {
             int ty = offsetY(offset, y);
             int tz = offsetZ(offset, z);
 
-            return blocks.contains(world.getBlock(tx, ty, tz));
+            return blocks.contains(world.getBlock(tx, ty, tz), world.getBlockMetadata(tx, ty, tz));
         }
     }
 
@@ -292,7 +297,7 @@ public class BuiltinBlockPredicates {
             int ty = offsetY(offset, y);
             int tz = offsetZ(offset, z);
 
-            return fluids.contains(world.getBlock(tx, ty, tz));
+            return fluids.contains(world.getBlock(tx, ty, tz), world.getBlockMetadata(tx, ty, tz));
         }
     }
 

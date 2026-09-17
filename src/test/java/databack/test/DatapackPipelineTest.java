@@ -26,7 +26,6 @@ import databack.common.loader.DatapackLoadException;
 import databack.common.loader.DatapackLoader;
 import databack.common.loader.DatapackWorldInfo;
 import databack.common.loader.ResourceId;
-import databack.common.tags.TagRegistryOld;
 
 /**
  * Integration tests for the full datapack loading pipeline.
@@ -54,8 +53,6 @@ class DatapackPipelineTest {
     @BeforeEach
     void setup() {
         DatapackHandlerRegistry.clearForTesting();
-        TagRegistryOld.INSTANCE.clearForTesting();
-
         biomeHandler = new RecordingHandler();
         configuredFeatureHandler = new RecordingHandler();
         placedFeatureHandler = new RecordingHandler();

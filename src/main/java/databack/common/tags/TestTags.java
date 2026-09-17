@@ -3,13 +3,15 @@ package databack.common.tags;
 import net.minecraft.entity.passive.EntityPig;
 import net.minecraft.entity.passive.EntitySheep;
 import net.minecraft.init.Blocks;
-import net.minecraft.init.Items;
+import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.BiomeGenBase;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import databack.DatabackConfig;
+import databack.common.interop.registry.BlockIdentityRegistry;
+import databack.common.interop.registry.ItemIdentityRegistry;
 import databack.common.tags.TagEvent.RegisterBiomeTagsEvent;
 import databack.common.tags.TagEvent.RegisterBlockTagsEvent;
 import databack.common.tags.TagEvent.RegisterEntityTagsEvent;
@@ -26,8 +28,8 @@ public class TestTags {
         var tag2 = event.registry.getOrCreateTag(new ResourceLocation("minecraft", "test2"));
 
         event.registry.addToTag(tag, tag2);
-        event.registry.addToTag(tag, Blocks.grass);
-        event.registry.addToTag(tag2, Blocks.dirt);
+        event.registry.addToTag(tag, BlockIdentityRegistry.INSTANCE.getBlockIdentity(Blocks.grass, 0));
+        event.registry.addToTag(tag2, BlockIdentityRegistry.INSTANCE.getBlockIdentity(Blocks.dirt, 0));
     }
 
     @SubscribeEvent
@@ -37,9 +39,12 @@ public class TestTags {
         var tag = event.registry.getOrCreateTag(new ResourceLocation("minecraft", "test"));
         var tag2 = event.registry.getOrCreateTag(new ResourceLocation("minecraft", "test2"));
 
+        var oakPlanks = ItemIdentityRegistry.INSTANCE.getItemIdentity(Item.getItemFromBlock(Blocks.planks), 0);
+        var sprucePlanks = ItemIdentityRegistry.INSTANCE.getItemIdentity(Item.getItemFromBlock(Blocks.planks), 1);
+
         event.registry.addToTag(tag, tag2);
-        event.registry.addToTag(tag, Items.beef);
-        event.registry.addToTag(tag2, Items.cooked_beef);
+        if (oakPlanks != null) event.registry.addToTag(tag, oakPlanks);
+        if (sprucePlanks != null) event.registry.addToTag(tag2, sprucePlanks);
     }
 
     @SubscribeEvent

@@ -69,6 +69,19 @@ public final class DatapackLoader {
     public static List<File> discoverCandidates(@Nonnull File worldSaveDir) {
         List<File> candidates = new ArrayList<>();
 
+        // Vanilla datapack at index 0 (lowest priority — every other pack overrides it).
+        // gameDir is derived as <saves>/../.. relative to worldSaveDir.
+        File gameDir = worldSaveDir.getParentFile().getParentFile();
+        try {
+            File vanillaDir = VanillaDatapackDownloader.getOrDownload(gameDir);
+            candidates.add(vanillaDir);
+        } catch (IOException e) {
+            LOGGER.error(
+                "Failed to obtain vanilla datapack; world generation may be incomplete: {}",
+                e.getMessage(),
+                e);
+        }
+
         File datapacksDir = new File(worldSaveDir, "datapacks");
 
         if (!datapacksDir.exists() || !datapacksDir.isDirectory()) {

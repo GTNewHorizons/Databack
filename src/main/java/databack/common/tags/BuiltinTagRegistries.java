@@ -6,39 +6,39 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import net.minecraft.block.Block;
-import net.minecraft.item.Item;
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraftforge.common.MinecraftForge;
 
 import com.gtnewhorizon.gtnhlib.eventbus.EventBusSubscriber;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.relauncher.Side;
 import databack.common.handlers.DatapackHandlerRegistry;
 import databack.common.handlers.ResourceType;
+import databack.common.interop.modern_block.BlockIdentity;
+import databack.common.interop.modern_block.ItemIdentity;
+import databack.common.interop.registry.BlockIdentityRegistry;
+import databack.common.interop.registry.ItemIdentityRegistry;
 import databack.common.interop.registry.ProxyBiomeRegistry;
 import databack.common.loader.DatapackEvent.DatapackFinishedLoadingEvent;
 import databack.common.tags.TagEvent.RegisterBiomeTagsEvent;
 import databack.common.tags.TagEvent.RegisterBlockTagsEvent;
 import databack.common.tags.TagEvent.RegisterItemTagsEvent;
 import databack.common.tags.TagEvent.TagReloadEvent;
-import it.unimi.dsi.fastutil.objects.ObjectIterators;
 
 /// The primary tag registries needed for parity with modern.
 @EventBusSubscriber
 public class BuiltinTagRegistries {
 
-    public static final ResourceType<TagRegistry<Block>> BLOCK_TAGS = ResourceType.withPath("tags/block");
-    public static final ResourceType<TagRegistry<Item>> ITEM_TAGS = ResourceType.withPath("tags/item");
+    public static final ResourceType<TagRegistry<BlockIdentity>> BLOCK_TAGS = ResourceType.withPath("tags/block");
+    public static final ResourceType<TagRegistry<ItemIdentity>> ITEM_TAGS = ResourceType.withPath("tags/item");
     public static final ResourceType<TagRegistry<BiomeGenBase>> BIOME_TAGS = ResourceType.withPath("tags/worldgen/biome");
     public static final ResourceType<EntityTagRegistry> ENTITY_TAGS = ResourceType.withPath("tags/entity_type");
 
-    public static TagRegistry<Block> blocks() {
+    public static TagRegistry<BlockIdentity> blocks() {
         return BLOCK_TAGS.getHandler();
     }
 
-    public static TagRegistry<Item> items() {
+    public static TagRegistry<ItemIdentity> items() {
         return ITEM_TAGS.getHandler();
     }
 
@@ -68,16 +68,15 @@ public class BuiltinTagRegistries {
         });
     }
 
-    public static class BlockTagRegistry extends TagRegistry<Block> {
+    public static class BlockTagRegistry extends TagRegistry<BlockIdentity> {
 
         public BlockTagRegistry() {
-            super("block", "tags/block", Block.class, new Block[0]);
+            super("block", "tags/block", BlockIdentity.class, new BlockIdentity[0]);
         }
 
-        @SuppressWarnings("unchecked")
         @Override
-        protected List<Block> getDomain() {
-            return ObjectIterators.pour((Iterator<Block>) Block.blockRegistry.iterator());
+        protected List<BlockIdentity> getDomain() {
+            return BlockIdentityRegistry.INSTANCE.domain();
         }
 
         @Override
@@ -86,26 +85,25 @@ public class BuiltinTagRegistries {
         }
 
         @Override
-        protected ResourceLocation getIdForTarget(Block block) {
-            return new ResourceLocation(Block.blockRegistry.getNameForObject(block));
+        protected ResourceLocation getIdForTarget(BlockIdentity identity) {
+            return identity.identityId;
         }
 
         @Override
-        protected Block getTarget(ResourceLocation id) {
-            return (Block) Block.blockRegistry.getObject(id.toString());
+        protected BlockIdentity getTarget(ResourceLocation id) {
+            return BlockIdentityRegistry.INSTANCE.getObject(id);
         }
     }
 
-    public static class ItemTagRegistry extends TagRegistry<Item> {
+    public static class ItemTagRegistry extends TagRegistry<ItemIdentity> {
 
         public ItemTagRegistry() {
-            super("item", "tags/item", Item.class, new Item[0]);
+            super("item", "tags/item", ItemIdentity.class, new ItemIdentity[0]);
         }
 
-        @SuppressWarnings("unchecked")
         @Override
-        protected List<Item> getDomain() {
-            return ObjectIterators.pour((Iterator<Item>) Item.itemRegistry.iterator());
+        protected List<ItemIdentity> getDomain() {
+            return ItemIdentityRegistry.INSTANCE.domain();
         }
 
         @Override
@@ -114,13 +112,13 @@ public class BuiltinTagRegistries {
         }
 
         @Override
-        protected ResourceLocation getIdForTarget(Item item) {
-            return new ResourceLocation(Item.itemRegistry.getNameForObject(item));
+        protected ResourceLocation getIdForTarget(ItemIdentity identity) {
+            return identity.identityId;
         }
 
         @Override
-        protected Item getTarget(ResourceLocation id) {
-            return (Item) Item.itemRegistry.getObject(id.toString());
+        protected ItemIdentity getTarget(ResourceLocation id) {
+            return ItemIdentityRegistry.INSTANCE.getObject(id);
         }
     }
 

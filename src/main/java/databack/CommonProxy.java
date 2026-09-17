@@ -1,15 +1,19 @@
 package databack;
 
+import java.io.File;
+
 import com.gtnewhorizon.gtnhlib.config.ConfigException;
 import com.gtnewhorizon.gtnhlib.config.ConfigurationManager;
 import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
+import cpw.mods.fml.relauncher.FMLLaunchHandler;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.common.MinecraftForge;
 import databack.common.command.DatapackCommand;
+import databack.common.debug.DebugOverlayRegistry;
 import databack.common.dto.dimension.BuiltinDimensionGenerators;
 import databack.common.dto.particle.BuiltinParticles;
 import databack.common.dto.worldgen.biome.BuiltinBiomeAttributes;
@@ -44,7 +48,9 @@ import databack.common.handlers.StructureList;
 import databack.common.handlers.StructureSetList;
 import databack.common.handlers.TemplatePoolList;
 import databack.common.handlers.WorldPresetList;
+import databack.common.interop.VanillaBlockIdentities;
 import databack.common.loader.DatapackEvent.DatapackRegisterHandlersEvent;
+import databack.common.loader.VanillaDatapackDownloader;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.MiscAdapters;
 import databack.common.tags.BuiltinTagRegistries.BiomeGenBaseTagRegistry;
@@ -91,6 +97,20 @@ public class CommonProxy {
         BuiltinDimensionGenerators.init();
 
         ModernWorldType.init();
+
+        VanillaBlockIdentities.initVanilla();
+
+        try {
+            File gameDir = event.getModConfigurationDirectory().getParentFile();
+            VanillaDatapackDownloader.getOrDownload(gameDir);
+        } catch (java.io.IOException e) {
+            Databack.LOGGER.error("Failed to download vanilla datapack during boot: {}", e.getMessage(), e);
+        }
+
+        if (FMLLaunchHandler.side().isClient()) {
+            DebugOverlayRegistry.setConfigFile(
+                new File(event.getModConfigurationDirectory(), "databack/debug_overlay.json"));
+        }
     }
 
     public void init(FMLInitializationEvent event) {

@@ -6,11 +6,13 @@ import java.util.Map.Entry;
 
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemBlock;
 import net.minecraft.util.ResourceLocation;
 
 import org.jetbrains.annotations.NotNull;
 
 import com.google.common.collect.Iterators;
+import databack.common.interop.modern_block.BlockIdentity;
 import databack.mixins.early.AccessorRegistrySimple;
 import it.unimi.dsi.fastutil.Pair;
 
@@ -26,8 +28,8 @@ public class ProxyItemRegistry implements IProxyRegistry<Item> {
     }
 
     @Override
-    public ResourceLocation getIdForObject(Item object) {
-        String id = Item.itemRegistry.getNameForObject(object);
+    public ResourceLocation getIdForObject(Item item) {
+        String id = Item.itemRegistry.getNameForObject(item);
 
         return id == null ? null : new ResourceLocation(id);
     }

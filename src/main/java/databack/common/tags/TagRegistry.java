@@ -12,24 +12,26 @@ import java.util.stream.Collectors;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.util.ResourceLocation;
 
-import net.minecraftforge.common.MinecraftForge;
-
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.ApiStatus.Internal;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.collect.SetMultimap;
+import databack.Databack;
 import databack.DatabackConfig;
 import databack.common.dto.tag.TagEntry;
 import databack.common.dto.tag.TagFile;
 import databack.common.loader.ResourceId;
 import databack.common.network.PacketEncoderSyncTagHandler;
-import databack.common.serde.DatapackSerialization;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 
 @SuppressWarnings("UnstableApiUsage")
 public abstract class TagRegistry<Target> implements ITagRegistry<Target>, ITagHandler, ITagStagingReceiver {
+
+    public final Logger logger;
 
     protected final String targetName;
     protected final String resourceType;
@@ -58,6 +60,8 @@ public abstract class TagRegistry<Target> implements ITagRegistry<Target>, ITagH
         if (!Taggable.class.isAssignableFrom(clazz)) {
             throw new IllegalStateException("Target classes must either implement Taggable, or have it mixined onto them.");
         }
+
+        logger = LogManager.getLogger(Databack.MODID + "|tags|" + targetName);
     }
 
     protected abstract List<Target> getDomain();
@@ -182,7 +186,7 @@ public abstract class TagRegistry<Target> implements ITagRegistry<Target>, ITagH
 
     @Internal
     public void gatherTags() {
-        LOGGER.info("Reloading {} tags", targetName);
+        logger.info("Reloading {} tags", targetName);
 
         // First clear: remove stale bits from the PREVIOUS domain. Needed because the domain
         // can shrink between calls (e.g. a block deregistered), and those objects would
@@ -222,7 +226,7 @@ public abstract class TagRegistry<Target> implements ITagRegistry<Target>, ITagH
                 Target target = getTarget(new ResourceLocation(e.id));
 
                 if (e.required && target == null) {
-                    LOGGER.error("Tag {} references missing {} {}: this tag entry will be skipped", staging.getKey(), targetName, e.id);
+                    logger.error("Tag {} references missing {} {}: this tag entry will be skipped", staging.getKey(), targetName, e.id);
                     continue;
                 }
 
@@ -243,16 +247,16 @@ public abstract class TagRegistry<Target> implements ITagRegistry<Target>, ITagH
             finishTag(tag);
         }
 
-        LOGGER.info("There are {} {} tags loaded", tags.size(), targetName);
+        logger.info("There are {} {} tags loaded", tags.size(), targetName);
 
         if (DatabackConfig.enableTagDebugMode && !tags.isEmpty()) {
-            LOGGER.info("Dump of all {} tags:", targetName);
+            logger.info("Dump of all {} tags:", targetName);
 
             for (var tag : tags.values()) {
                 var children = tagHierarchy.get(tag).stream().map(TagImpl::toString).collect(Collectors.joining(", "));
                 var targets = tagContent.get(tag).stream().map(t -> this.getIdForTarget(t).toString()).collect(Collectors.joining(", "));
 
-                LOGGER.info("[{}]: Children=[{}] Targets=[{}]", tag, children, targets);
+                logger.info("[{}]: Children=[{}] Targets=[{}]", tag, children, targets);
             }
         }
     }
