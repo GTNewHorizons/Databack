@@ -31,32 +31,15 @@ import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
 import databack.common.handlers.WorldPresetList;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.function.Function;
 
-import databack.common.dto.worldgen.density_function.OldBlendedNoise;
-import databack.common.handlers.DatapackNoiseList;
-import databack.common.worldgen.dag.CodeGenerationBackend;
-import databack.common.worldgen.dag.DFDagBuilder2;
-import databack.common.worldgen.dag.DFPlanBuilder;
-import databack.common.worldgen.dag.DensityFunctionExecutor;
-import databack.common.worldgen.dag.codegen.GeneratedKernel;
-import databack.common.worldgen.dag.codegen.VulkanCodeGen;
-import databack.common.worldgen.debug.DebugCaptureStore;
-import databack.common.worldgen.noise.NormalNoiseGpuSerializer;
-import databack.common.worldgen.noise.OldBlendedNoiseGpuSerializer;
 import databack.common.worldgen.rng.RandomFactory;
 import databack.common.worldgen.rng.RandomSource;
 import databack.common.worldgen.rng.StandardRandom;
 import databack.common.worldgen.rng.StandardRandomFactory;
 import databack.common.worldgen.rng.XoroshiroRandom;
 import databack.common.worldgen.rng.XoroshiroRandomFactory;
-import mcgpu.core.hwaccel.KernelContext;
 
 public class ModernWorldGenerator implements IChunkProvider {
-
-    private static boolean vulkanCodeGenInitialized = false;
 
     @org.jetbrains.annotations.NotNull
     public final World world;
@@ -67,9 +50,6 @@ public class ModernWorldGenerator implements IChunkProvider {
     private final BiomeProvider biomeProvider;
 
     private final IDensityFunction finalDensity;
-
-    /** Non-null when GPU compute is available; null falls back to the CPU path. */
-    private final GpuChunkCache gpuCache;
 
     public ModernWorldGenerator(World world, String generatorOptions) {
         this.world = world;
@@ -110,49 +90,6 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         this.finalDensity = router.final_density.instantiate(context);
 
-        if (KernelContext.isEnabled()) {
-            if (!vulkanCodeGenInitialized) {
-                VulkanCodeGen.init();
-                vulkanCodeGenInitialized = true;
-            }
-            List<GeneratedKernel> kernels = DFDagBuilder2.build(CodeGenerationBackend.VULKAN, router.final_density);
-            DFPlanBuilder planBuilder = DFPlanBuilder.fromKernels(kernels);
-
-            // Pre-serialize all noise tables on the server thread (DatapackNoiseList is thread-local).
-            DatapackNoiseList noiseList = DatapackNoiseList.RT.getHandler();
-
-            Map<String, int[]> noiseData = new HashMap<>();
-
-            for (String id : planBuilder.getNoiseSlotIds()) {
-                if (noiseList.getNoise(id) != null) {
-                    // NormalNoise registry entry.
-                    noiseData.put(id, NormalNoiseGpuSerializer.toGpuData(noiseList.getNormalNoise(rng.fromHashOf(id), id)));
-                } else if (id.startsWith("old_blended_noise:")) {
-                    // OBN synthetic ID — parse params and re-create with same seed as instantiate().
-                    String[] parts = id.split(":");
-                    float xzScale  = Float.parseFloat(parts[1]);
-                    float yScale   = Float.parseFloat(parts[2]);
-                    float xzFactor = Float.parseFloat(parts[3]);
-                    float yFactor  = Float.parseFloat(parts[4]);
-                    float smear    = Float.parseFloat(parts[5]);
-
-                    OldBlendedNoise obn = new OldBlendedNoise(rng, xzScale, yScale, xzFactor, yFactor, smear);
-                    noiseData.put(id, OldBlendedNoiseGpuSerializer.toGpuData(obn));
-                }
-            }
-
-            Function<String, int[]> noiseProvider = noiseData::get;
-
-            for (DensityFunctionExecutor executor : planBuilder.getExecutors()) {
-                executor.setNoiseProvider(noiseProvider);
-                KernelContext.getScheduler().compileExecutor(executor);
-            }
-            this.gpuCache = new GpuChunkCache(planBuilder, KernelContext.getScheduler());
-            DebugCaptureStore.getInstance().registerCache(this.gpuCache);
-        } else {
-            this.gpuCache = null;
-        }
-
         if (dimensionType == null) {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
         }
@@ -179,59 +116,37 @@ public class ModernWorldGenerator implements IChunkProvider {
             this.generatorSettings.default_block.getBlock(),
             this.generatorSettings.default_block.getBlockMeta(0));
 
-        if (gpuCache != null) {
-            // GPU path: density data was pre-computed in a batch; just read from cache.
-            float[][] densities = gpuCache.getOrCompute(chunkX, chunkZ);
-            for (int ebsY = 0; ebsY < 16; ebsY++) {
-                ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
-                chunk.getBlockStorageArray()[ebsY] = ebs;
-                float[] section = densities[ebsY];
-                for (int y = 0; y < 16; y++) {
-                    for (int z = 0; z < 16; z++) {
-                        for (int x = 0; x < 16; x++) {
-                            if (section[z * 256 + y * 16 + x] > 0) {
-                                ebs.func_150818_a(x, y, z, main.getBlock());
-                                if (main.getBlockMeta() != 0)
-                                    ebs.setExtBlockMetadata(x, y, z, main.getBlockMeta());
-                            }
+        ImmutableBlockMeta air = new BlockMeta(Blocks.air);
+        WorldContext context = WorldContext.getContext(world);
+        context.resetCache();
+        DensityMask fullMask = context.getMask();
+        fullMask.setAll();
+
+        for (int ebsY = 0; ebsY < 16; ebsY++) {
+            ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
+            chunk.getBlockStorageArray()[ebsY] = ebs;
+
+            DensityBuffer densityBuf = finalDensity.compute(chunkX, ebsY, chunkZ, fullMask);
+
+            for (int y = 0; y < 16; y++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x++) {
+                        float density = densityBuf.get(x, y, z);
+                        ImmutableBlockMeta bm = density > 0 ? main : air;
+                        if (bm.getBlock() != Blocks.air) {
+                            ebs.func_150818_a(x, y, z, bm.getBlock());
+                        }
+                        if (bm.getBlockMeta() != 0) {
+                            ebs.setExtBlockMetadata(x, y, z, bm.getBlockMeta());
                         }
                     }
                 }
             }
-        } else {
-            // CPU fallback path.
-            ImmutableBlockMeta air = new BlockMeta(Blocks.air);
-            WorldContext context = WorldContext.getContext(world);
-            context.resetCache();
-            DensityMask fullMask = context.getMask();
-            fullMask.setAll();
 
-            for (int ebsY = 0; ebsY < 16; ebsY++) {
-                ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
-                chunk.getBlockStorageArray()[ebsY] = ebs;
-
-                DensityBuffer densityBuf = finalDensity.compute(chunkX, ebsY, chunkZ, fullMask);
-
-                for (int y = 0; y < 16; y++) {
-                    for (int z = 0; z < 16; z++) {
-                        for (int x = 0; x < 16; x++) {
-                            float density = densityBuf.get(x, y, z);
-                            ImmutableBlockMeta bm = density > 0 ? main : air;
-                            if (bm.getBlock() != Blocks.air) {
-                                ebs.func_150818_a(x, y, z, bm.getBlock());
-                            }
-                            if (bm.getBlockMeta() != 0) {
-                                ebs.setExtBlockMetadata(x, y, z, bm.getBlockMeta());
-                            }
-                        }
-                    }
-                }
-
-                densityBuf.discard();
-            }
-
-            context.releaseMask(fullMask);
+            densityBuf.discard();
         }
+
+        context.releaseMask(fullMask);
 
         return chunk;
     }

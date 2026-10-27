@@ -19,7 +19,6 @@ import databack.Databack;
 import databack.common.loader.Datapack;
 import databack.common.loader.DatapackLoader;
 import databack.common.loader.DatapackWorldInfo;
-import databack.common.worldgen.debug.DFDebugWindow;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 public class DatapackCommand extends CommandBase {
@@ -31,7 +30,7 @@ public class DatapackCommand extends CommandBase {
 
     @Override
     public String getCommandUsage(ICommandSender sender) {
-        return "Usage: /datapack [subcommand]. Valid subcommands: enable, disable, list, reload, gpu-debug.";
+        return "Usage: /datapack [subcommand]. Valid subcommands: enable, disable, list, reload.";
     }
 
     @Override
@@ -58,8 +57,6 @@ public class DatapackCommand extends CommandBase {
         sender.addChatMessage(new ChatComponentText("    - Lists available datapacks."));
         sender.addChatMessage(new ChatComponentText("  reload"));
         sender.addChatMessage(new ChatComponentText("    - Reloads datapacks."));
-        sender.addChatMessage(new ChatComponentText("  gpu-debug"));
-        sender.addChatMessage(new ChatComponentText("    - Opens the GPU density function debug window."));
         sender.addChatMessage(new ChatComponentText(""));
         sender.addChatMessage(new ChatComponentText("Packs must be reloaded by restarting the world or running /datapack reload after making modifications."));
         sender.addChatMessage(new ChatComponentText("Packs at the end/bottom of the list have priority over earlier packs."));
@@ -73,13 +70,6 @@ public class DatapackCommand extends CommandBase {
 
         if (argStack.isEmpty()) {
             printHelp(sender);
-            return;
-        }
-
-        // gpu-debug does not need world/pack state — handle before the world lookup.
-        if ("gpu-debug".equals(argStack.peek(0))) {
-            DFDebugWindow.open();
-            sender.addChatMessage(new ChatComponentText("Opening GPU debug window."));
             return;
         }
 
@@ -225,7 +215,7 @@ public class DatapackCommand extends CommandBase {
         for (String arg : args) argStack.add(0, arg);
 
         if (argStack.isEmpty()) {
-            return ImmutableList.of("enable", "disable", "list", "reload", "gpu-debug");
+            return ImmutableList.of("enable", "disable", "list", "reload");
         }
 
         World world = DimensionManager.getWorld(0);
@@ -300,7 +290,7 @@ public class DatapackCommand extends CommandBase {
                     return new ArrayList<>();
                 }
                 default -> {
-                    return Stream.of("enable", "disable", "list", "reload", "gpu-debug")
+                    return Stream.of("enable", "disable", "list", "reload")
                         .filter(s -> s.startsWith(subcommand))
                         .collect(Collectors.toList());
                 }

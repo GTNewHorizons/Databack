@@ -22,6 +22,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 /**
  * Tracks which RenderGameOverlayEvent.Text handlers are enabled or disabled.
@@ -93,7 +94,7 @@ public class DebugOverlayRegistry {
     public static void save() {
         if (configFile == null) return;
         JsonArray orderArr = new JsonArray();
-        for (String id : handlers.keySet()) orderArr.add(id);
+        for (String id : handlers.keySet()) orderArr.add(new JsonPrimitive(id));
 
         JsonObject modes = new JsonObject();
         for (Map.Entry<String, DisplayMode> e : handlers.entrySet()) {
