@@ -6,6 +6,9 @@ minecraft {
 
 dependencies {
     implementation("com.github.GTNewHorizons:GTNHLib:99.99.99-dev:dev")
+    implementation("com.github.GTNewHorizons:ModularUI2:2.3.85-1.7.10:dev")
+
+    shadowImplementation("org.tomlj:tomlj:1.1.1")
 
     compileOnly("org.ow2.asm:asm:5.0.3")
     compileOnly("org.jetbrains:annotations:26.0.2")
