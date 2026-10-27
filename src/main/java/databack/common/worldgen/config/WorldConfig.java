@@ -6,6 +6,6 @@ import net.minecraft.util.ResourceLocation;
 
 public class WorldConfig {
 
-    public final Map<ResourceLocation, >
+    // public final Map<ResourceLocation, >
 
 }

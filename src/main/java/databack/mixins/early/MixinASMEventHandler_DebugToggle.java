@@ -29,6 +29,15 @@ public abstract class MixinASMEventHandler_DebugToggle implements IEventListener
     }
 
     @Override
+    public String db$getHandlerId() {
+        var annotation = db$getOverlayAnnotation();
+
+        if (annotation != null) return annotation.title();
+
+        return db$method.getDeclaringClass().getName() + db$method.getName();
+    }
+
+    @Override
     public Method db$getWrappedMethod() {
         return db$method;
     }

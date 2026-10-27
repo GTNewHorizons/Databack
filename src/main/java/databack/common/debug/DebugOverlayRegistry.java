@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import net.minecraft.client.resources.I18n;
+import net.minecraft.util.StatCollector;
+
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -113,57 +116,27 @@ public class DebugOverlayRegistry {
      * Register a handler if not already known. Called from the mixin on first encounter.
      * The readable string format is "ASM: some.package.ClassName methodName(Ldescriptor;)V".
      */
-    public static void registerHandler(String readableId) {
-        if (handlers.putIfAbsent(readableId, DisplayMode.IN_OVERLAY) == null) {
-            lookupAnnotation(readableId);
-            // Priority: saved > annotation default > IN_OVERLAY
-            DisplayMode initial = savedModes.containsKey(readableId)
-                ? savedModes.get(readableId)
-                : defaultModes.getOrDefault(readableId, DisplayMode.IN_OVERLAY);
-            handlers.put(readableId, initial);
-        }
-    }
+    public static void registerHandler(IEventListenerExt ext) {
+        String id = ext.db$getHandlerId();
 
-    /**
-     * Try to find @DebugOverlayEntry on the method named in readableId.
-     * Only works for static handlers where the class name is unambiguous.
-     * Silently skips instance handlers (those with @hash in the class part).
-     */
-    private static void lookupAnnotation(String readableId) {
-        // Expected format: "ASM: some.package.ClassName methodName(descriptor)V"
-        String s = readableId;
-        if (s.startsWith("ASM: ")) s = s.substring(5);
+        if (handlers.putIfAbsent(id, DisplayMode.IN_OVERLAY) == null) {
+            var ann = ext.db$getOverlayAnnotation();
 
-        int parenIdx = s.indexOf('(');
-        if (parenIdx >= 0) s = s.substring(0, parenIdx);
-
-        String[] parts = s.split(" ");
-        if (parts.length < 2) return;
-
-        String className = parts[0];
-        String methodName = parts[1];
-
-        // Instance handlers: ASMEventHandler uses target.toString() which by default is
-        // "com.example.ClassName@hash". Strip the @hash to recover the binary class name.
-        int atIdx = className.indexOf('@');
-        if (atIdx >= 0) className = className.substring(0, atIdx);
-
-        try {
-            Class<?> cls = Class.forName(className, false, DebugOverlayRegistry.class.getClassLoader());
-            for (Method m : cls.getDeclaredMethods()) {
-                if (!m.getName().equals(methodName)) continue;
-                DebugOverlayEntry ann = m.getAnnotation(DebugOverlayEntry.class);
-                if (ann != null) {
-                    titles.put(readableId, ann.title());
-                    if (!ann.description().isEmpty()) {
-                        descriptions.put(readableId, ann.description());
-                    }
-                    defaultModes.put(readableId, ann.defaultMode());
+            if (ann != null) {
+                titles.put(id, StatCollector.translateToLocal(ann.title()));
+                if (!ann.description().isEmpty()) {
+                    descriptions.put(id, ann.description());
                 }
-                break; // method name matched — stop even if no annotation
+                defaultModes.put(id, ann.defaultMode());
+            } else {
+                titles.put(id, id);
             }
-        } catch (Exception e) {
-            LOG.debug("Could not reflect on handler class for {}: {}", readableId, e.toString());
+
+            // Priority: saved > annotation default > IN_OVERLAY
+            DisplayMode initial = savedModes.containsKey(id)
+                ? savedModes.get(id)
+                : defaultModes.getOrDefault(id, DisplayMode.IN_OVERLAY);
+            handlers.put(id, initial);
         }
     }
 
@@ -190,9 +163,7 @@ public class DebugOverlayRegistry {
 
     /** Set all known handlers to the given mode in one pass, then save once. */
     public static void setAll(DisplayMode mode) {
-        for (String id : handlers.keySet()) {
-            handlers.put(id, mode);
-        }
+        handlers.replaceAll(($1, $2) -> mode);
         save();
     }
 

@@ -12,6 +12,8 @@ import cpw.mods.fml.common.eventhandler.IEventListener;
  * ordering mixin without requiring reflective field access at runtime.
  */
 public interface IEventListenerExt extends IEventListener {
+    String db$getHandlerId();
+
     Method db$getWrappedMethod();
 
     @Nullable

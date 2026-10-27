@@ -55,7 +55,7 @@ public class MixinEventBus_OverlayOrder {
             if (l instanceof EventPriority) {
                 // Flush the previous group (sorted), then emit the new sentinel.
                 if (!group.isEmpty()) {
-                    group.sort((a, b) -> Integer.compare(db$rank(a, rank), db$rank(b, rank)));
+                    group.sort(Comparator.comparingInt(a -> db$rank(a, rank)));
                     sorted.addAll(group);
                     group.clear();
                 }
@@ -64,6 +64,7 @@ public class MixinEventBus_OverlayOrder {
                 group.add(l);
             }
         }
+
         if (!group.isEmpty()) {
             group.sort(Comparator.comparingInt(a -> db$rank(a, rank)));
             sorted.addAll(group);
@@ -78,13 +79,12 @@ public class MixinEventBus_OverlayOrder {
                 continue;
             }
             if (l instanceof IEventListenerExt ext) {
-                Method method = ext.db$getWrappedMethod();
-ke
-                method.toString()
+                DebugOverlayRegistry.registerHandler(ext);
 
-                String id = ((IEventListenerExt) l).db$getReadable();
-                DebugOverlayRegistry.registerHandler(id);
+                String id = ext.db$getHandlerId();
+
                 if (!DebugOverlayRegistry.isHandlerEnabled(id)) continue;
+
                 Minecraft.getMinecraft().gameSettings.showDebugInfo =
                     DebugOverlayRegistry.isAlwaysOn(id) || realShowDebugInfo;
                 l.invoke(event);
@@ -100,7 +100,7 @@ ke
     @Unique
     private static int db$rank(IEventListener l, Map<String, Integer> rank) {
         if (l instanceof IEventListenerExt ext) {
-            Integer r = rank.get(((IEventListenerExt) l).db$getReadable());
+            Integer r = rank.get(ext.db$getHandlerId());
             if (r != null) return r;
         }
         return Integer.MAX_VALUE;
