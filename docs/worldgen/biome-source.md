@@ -93,7 +93,8 @@ d(v, lo, hi) = lo - v   if v < lo
                0        otherwise
 ```
 
-computed exactly in `long` (no overflow is possible: every term is far below `2^62`). The offset acts as a seventh
+computed in `long`. With realistic climate values every term is far below `2^62`; Databack does not specify the result
+when a pathological router or list makes the sum overflow. The offset acts as a seventh
 parameter whose target is always 0.
 
 The quart cell's biome is the biome of the entry with the **smallest distance; on a tie, the earliest entry in list
@@ -101,16 +102,23 @@ order**.
 
 Evidence:
 
-- Real data: this rule picks vanilla's biome at all 3,152 overworld and 3,088 nether points of `climate_*_12345.tsv`.
-  Only one overworld point had a tied minimum.
+- Real data: this rule picks vanilla's biome at every untied cell of `climate_*.tsv` (all dimensions and seeds); at
+  tied cells see below.
 - Synthetic ties (`ties_*.tsv`: coarse random lists where ties are common): this rule equals vanilla's brute-force
   lookup on all 6,000 queries, including all 400 with a tied minimum.
 
-**Deliberate deviation.** Vanilla's normal lookup goes through an index whose tie-breaking differs from the rule above
-(199 of the 6,000 synthetic queries) and depends on earlier queries (the same query gives different answers on a
-fresh list and on one that has answered other queries; `ties_queries.tsv`, columns `sequential` and `fresh`).
-Databack does not reproduce that: the result must be a pure function of the list and the target. Real presets almost
-never produce exact ties, so the practical difference is negligible.
+**Deliberate deviation.** Exact ties do happen in real worlds: a target value can land exactly on a quantized range
+boundary, e.g. continentalness `-4550` between the deep ocean and ocean ranges (about 1 cell in 1,500 to 3,000 in
+the dumps). Vanilla's normal lookup goes through an index whose tie-breaking depends on its earlier queries, so at
+such cells **vanilla itself has no single answer**:
+
+- Synthetic lists: its answer differs from the rule above on 199 of 6,000 queries, and the same query gives different
+  answers on a fresh list and on one that has answered other queries (`ties_queries.tsv`, `sequential` vs `fresh`).
+- Real cells: at three tied cells from the dumps, repeating the query after random earlier queries gave the other
+  biome in 5% to 26% of 200 trials (probe). Vanilla's own brute-force lookup gives the rule above every time.
+
+Databack does not reproduce that: the result must be a pure function of the list and the target, so it uses the rule
+above. `MultiNoiseParityTest` accepts any tied entry at such cells, and requires them to stay rare.
 
 Any faster search Databack uses must give exactly the same answers as this rule.
 

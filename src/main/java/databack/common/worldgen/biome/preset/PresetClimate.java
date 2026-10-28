@@ -4,16 +4,18 @@ import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
+import databack.common.worldgen.biome.ClimateEntry;
+
 /// Stand-in for vanilla's climate helper methods in extracted preset code.
 @ApiStatus.Internal
 public final class PresetClimate {
 
     private PresetClimate() {}
 
-    /// Truncates towards zero after float multiplication (so `-0.78f` becomes `-7799`).
+    /// See [ClimateEntry#quantize].
     @Contract(pure = true)
     public static long quantizeCoord(float value) {
-        return (long) (value * 10000.0F);
+        return ClimateEntry.quantize(value);
     }
 
     @NotNull

@@ -7,8 +7,11 @@ import databack.common.dto.worldgen.multi_noise_biome_source.MultiNoiseBiomeSour
 public class MultiNoiseBiomeSourceParameterListHandler
         extends JsonDatapackTypeHandler<MultiNoiseBiomeSourceParameterList> {
 
+    public static final ResourceType<MultiNoiseBiomeSourceParameterListHandler> RT =
+        ResourceType.withPath("worldgen/multi_noise_biome_source_parameter_list");
+
     public MultiNoiseBiomeSourceParameterListHandler() {
-        super("worldgen/multi_noise_biome_source_parameter_list", MultiNoiseBiomeSourceParameterList.class);
+        super(RT, MultiNoiseBiomeSourceParameterList.class);
     }
 
     @Nullable
