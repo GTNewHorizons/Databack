@@ -506,6 +506,8 @@ public final class DatapackLoader {
         @Nonnull String relativePath,
         Set<String> warnedTypes) throws DatapackLoadException {
 
+        if (relativePath.equals(".mcassetsroot")) return null;
+
         List<String> segments = new ArrayList<>();
 
         Paths.get(relativePath).forEach(p -> segments.add(p.toString()));
