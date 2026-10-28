@@ -37,3 +37,8 @@ addon.late.local.gradle
 addon.late.local.gradle.kts
 layout.json
 misc/test-packs/*
+
+# Vanilla biome tables dumped by misc/vanilla-reference (run.sh biome). Test oracle only; never commit or ship.
+src/test/resources/vanilla_reference/biome/preset_*
+# Game logs written by reference harness runs.
+misc/vanilla-reference/logs/

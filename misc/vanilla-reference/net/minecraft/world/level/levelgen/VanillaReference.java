@@ -8,8 +8,11 @@ import java.lang.reflect.RecordComponent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
+import java.util.Set;
 import java.util.stream.Stream;
 import java.util.zip.GZIPOutputStream;
 
@@ -43,6 +46,11 @@ public final class VanillaReference {
         SharedConstants.tryDetectVersion();
         Bootstrap.bootStrap();
         HolderLookup.Provider lookup = VanillaRegistries.createLookup();
+
+        // Optional section names after the output directory; all sections run when none are given.
+        Set<String> sections = new HashSet<>(Arrays.asList(args).subList(1, args.length));
+        if (sections.isEmpty() || sections.contains("biome")) BiomeReference.write(out, lookup);
+        if (!sections.isEmpty() && !sections.contains("density")) return;
 
         long[] seeds = { 12345L, -987654321L };
         Object[][] dims = {

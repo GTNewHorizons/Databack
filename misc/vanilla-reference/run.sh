@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates src/test/resources/vanilla_reference from the real 26.1 jar.
+# Usage: run.sh [density] [biome]  (no arguments: everything)
 # Needs a Java 25 JDK (JAVA25_HOME), jq, curl and zip. The jar is the one build.gradle's
 # downloadVanillaDatapack task caches; libraries are downloaded into ~/.cache/databack-vanilla.
 set -euo pipefail
@@ -25,6 +26,6 @@ fi
 
 cp="$cache/mc-unsigned.jar:$(ls "$cache"/libs/*.jar | tr '\n' ':')"
 build="$(mktemp -d)"
-"$java25/javac" -d "$build" -cp "$cp" "$here"/net/minecraft/world/level/levelgen/VanillaReference.java
-"$java25/java" -cp "$build:$cp" net.minecraft.world.level.levelgen.VanillaReference "$repo/src/test/resources/vanilla_reference"
+"$java25/javac" -d "$build" -cp "$cp" "$here"/net/minecraft/world/level/levelgen/*.java
+"$java25/java" -cp "$build:$cp" net.minecraft.world.level.levelgen.VanillaReference "$repo/src/test/resources/vanilla_reference" "$@"
 rm -rf "$build"
