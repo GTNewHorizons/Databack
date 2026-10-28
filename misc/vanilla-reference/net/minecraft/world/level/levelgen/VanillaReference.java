@@ -51,6 +51,7 @@ public final class VanillaReference {
         Set<String> sections = new HashSet<>(Arrays.asList(args).subList(1, args.length));
         if (sections.isEmpty() || sections.contains("biome")) BiomeReference.write(out, lookup);
         if (sections.isEmpty() || sections.contains("surface")) SurfaceReference.write(out, lookup);
+        if (sections.isEmpty() || sections.contains("aquifer")) AquiferReference.write(out, lookup);
         if (!sections.isEmpty() && !sections.contains("density")) return;
 
         long[] seeds = { 12345L, -987654321L };
@@ -207,7 +208,7 @@ public final class VanillaReference {
     /// Mirrors NoiseBasedChunkGenerator.doFill and records getInterpolatedDensity() (final_density + beardifier,
     /// through cache_all_in_cell) for every block of the chunk.
     /// Format (gzip, big-endian): int minY, int height, then height*16*16 doubles at index ((y-minY)*16+z)*16+x.
-    private static void writeChunk(Path file, NoiseGeneratorSettings settings, RandomState state, int chunkX, int chunkZ)
+    static void writeChunk(Path file, NoiseGeneratorSettings settings, RandomState state, int chunkX, int chunkZ)
         throws IOException {
         NoiseSettings ns = settings.noiseSettings();
         int cellWidth = ns.getCellWidth();

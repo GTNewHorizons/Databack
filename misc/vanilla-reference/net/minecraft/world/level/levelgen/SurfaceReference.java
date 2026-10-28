@@ -146,8 +146,8 @@ final class SurfaceReference {
     }
 
     /// Runs the biome, noise and surface steps on one chunk. `noiseFile` (if not null) gets the chunk after the noise
-    /// step, `surfaceFile` after the surface step.
-    private static void generate(
+    /// step, `surfaceFile` (if not null; otherwise the surface step is skipped) after the surface step.
+    static void generate(
         Context ctx, NoiseGeneratorSettings settings, MultiNoiseBiomeSourceParameterList.Preset preset, long seed,
         int chunkX, int chunkZ, Path noiseFile, Path surfaceFile
     ) throws IOException {
@@ -164,6 +164,7 @@ final class SurfaceReference {
         chunk.fillBiomesFromNoise(source, state.sampler());
         generator.fillFromNoise(Blender.empty(), state, structures, chunk).join();
         if (noiseFile != null) writeBlocks(noiseFile, chunk);
+        if (surfaceFile == null) return;
 
         BiomeManager biomes = new BiomeManager(
             (qx, qy, qz) -> source.getNoiseBiome(qx, qy, qz, state.sampler()), BiomeManager.obfuscateSeed(seed));
@@ -190,8 +191,15 @@ final class SurfaceReference {
     }
 
     private static NoiseGeneratorSettings withoutAquifers(NoiseGeneratorSettings s, SurfaceRules.RuleSource rule) {
+        return withFeatures(s, rule, false, false);
+    }
+
+    /// `s` with `rule` and the given aquifer and ore vein switches.
+    static NoiseGeneratorSettings withFeatures(
+        NoiseGeneratorSettings s, SurfaceRules.RuleSource rule, boolean aquifers, boolean oreVeins
+    ) {
         return new NoiseGeneratorSettings(s.noiseSettings(), s.defaultBlock(), s.defaultFluid(), s.noiseRouter(), rule,
-            s.spawnTarget(), s.seaLevel(), s.disableMobGeneration(), false, false, s.useLegacyRandomSource());
+            s.spawnTarget(), s.seaLevel(), s.disableMobGeneration(), aquifers, oreVeins, s.useLegacyRandomSource());
     }
 
     private static void writeBlocks(Path file, ProtoChunk chunk) throws IOException {
@@ -244,7 +252,7 @@ final class SurfaceReference {
     }
 
     /// Registries a lone chunk needs: the vanilla biomes as a real registry, and chunk section storage over it.
-    private static final class Context {
+    static final class Context {
 
         final HolderLookup.Provider lookup;
         final Registry<Biome> biomeRegistry;
