@@ -1,0 +1,66 @@
+{
+  "description": "shifted_noise driven by shift_a/shift_b/shift, plus the shift functions on their own.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      -3,
+      5
+    ]
+  ],
+  "density": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:interpolated",
+      "argument": {
+        "type": "minecraft:shifted_noise",
+        "noise": "minecraft:temperature",
+        "xz_scale": 0.25,
+        "y_scale": 0.5,
+        "shift_x": {
+          "type": "minecraft:shift_a",
+          "argument": "minecraft:offset"
+        },
+        "shift_y": {
+          "type": "minecraft:shift",
+          "argument": "minecraft:offset"
+        },
+        "shift_z": {
+          "type": "minecraft:shift_b",
+          "argument": "minecraft:offset"
+        }
+      }
+    },
+    "argument2": {
+      "type": "minecraft:mul",
+      "argument1": 0.01,
+      "argument2": {
+        "type": "minecraft:add",
+        "argument1": {
+          "type": "minecraft:shift_a",
+          "argument": "minecraft:offset"
+        },
+        "argument2": {
+          "type": "minecraft:add",
+          "argument1": {
+            "type": "minecraft:shift_b",
+            "argument": "minecraft:offset"
+          },
+          "argument2": {
+            "type": "minecraft:shift",
+            "argument": "minecraft:offset"
+          }
+        }
+      }
+    }
+  }
+}

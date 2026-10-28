@@ -1,0 +1,51 @@
+{
+  "description": "cache_all_in_cell inside interpolated, and interpolated inside cache_all_in_cell.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 2,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      -3,
+      5
+    ]
+  ],
+  "density": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:interpolated",
+      "argument": {
+        "type": "minecraft:cache_all_in_cell",
+        "argument": {
+          "type": "minecraft:noise",
+          "noise": "minecraft:cave_cheese",
+          "xz_scale": 1.0,
+          "y_scale": 1.0
+        }
+      }
+    },
+    "argument2": {
+      "type": "minecraft:cache_all_in_cell",
+      "argument": {
+        "type": "minecraft:mul",
+        "argument1": 2.0,
+        "argument2": {
+          "type": "minecraft:interpolated",
+          "argument": {
+            "type": "minecraft:noise",
+            "noise": "minecraft:pillar",
+            "xz_scale": 1.0,
+            "y_scale": 1.0
+          }
+        }
+      }
+    }
+  }
+}

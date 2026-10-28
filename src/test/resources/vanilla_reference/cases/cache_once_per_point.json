@@ -1,0 +1,41 @@
+{
+  "description": "cache_once reached only point by point (the second argument of min) during the cell fill, at cell level.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      -3,
+      5
+    ]
+  ],
+  "density": {
+    "type": "minecraft:min",
+    "argument1": {
+      "type": "minecraft:interpolated",
+      "argument": {
+        "type": "minecraft:noise",
+        "noise": "minecraft:cave_cheese",
+        "xz_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    "argument2": {
+      "type": "minecraft:cache_once",
+      "argument": {
+        "type": "minecraft:noise",
+        "noise": "minecraft:noodle",
+        "xz_scale": 1.0,
+        "y_scale": 1.0
+      }
+    }
+  }
+}

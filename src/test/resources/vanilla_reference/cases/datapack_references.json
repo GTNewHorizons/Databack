@@ -1,0 +1,32 @@
+{
+  "description": "References to vanilla's own density functions (sloped_cheese, caves) with a different cell size.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 2,
+    "size_vertical": 1
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      -3,
+      5
+    ]
+  ],
+  "density": {
+    "type": "minecraft:min",
+    "argument1": {
+      "type": "minecraft:interpolated",
+      "argument": "minecraft:overworld/sloped_cheese"
+    },
+    "argument2": {
+      "type": "minecraft:add",
+      "argument1": "minecraft:overworld/caves/entrances",
+      "argument2": "minecraft:overworld/caves/noodle"
+    }
+  }
+}

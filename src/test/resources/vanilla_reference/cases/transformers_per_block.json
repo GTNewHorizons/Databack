@@ -1,0 +1,133 @@
+{
+  "description": "Every mapped type, clamp and y_clamped_gradient evaluated per block (no interpolation).",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      -3,
+      5
+    ]
+  ],
+  "density": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:abs",
+      "argument": {
+        "type": "minecraft:noise",
+        "noise": "minecraft:cave_cheese",
+        "xz_scale": 1.0,
+        "y_scale": 1.0
+      }
+    },
+    "argument2": {
+      "type": "minecraft:add",
+      "argument1": {
+        "type": "minecraft:square",
+        "argument": {
+          "type": "minecraft:noise",
+          "noise": "minecraft:noodle",
+          "xz_scale": 2.0,
+          "y_scale": 2.0
+        }
+      },
+      "argument2": {
+        "type": "minecraft:add",
+        "argument1": {
+          "type": "minecraft:cube",
+          "argument": {
+            "type": "minecraft:noise",
+            "noise": "minecraft:ridge",
+            "xz_scale": 0.5,
+            "y_scale": 0.5
+          }
+        },
+        "argument2": {
+          "type": "minecraft:add",
+          "argument1": {
+            "type": "minecraft:half_negative",
+            "argument": {
+              "type": "minecraft:noise",
+              "noise": "minecraft:jagged",
+              "xz_scale": 3.0,
+              "y_scale": 0.0
+            }
+          },
+          "argument2": {
+            "type": "minecraft:add",
+            "argument1": {
+              "type": "minecraft:quarter_negative",
+              "argument": {
+                "type": "minecraft:noise",
+                "noise": "minecraft:pillar",
+                "xz_scale": 1.0,
+                "y_scale": 1.0
+              }
+            },
+            "argument2": {
+              "type": "minecraft:add",
+              "argument1": {
+                "type": "minecraft:squeeze",
+                "argument": {
+                  "type": "minecraft:mul",
+                  "argument1": 4.0,
+                  "argument2": {
+                    "type": "minecraft:noise",
+                    "noise": "minecraft:spaghetti_3d_1",
+                    "xz_scale": 1.0,
+                    "y_scale": 1.0
+                  }
+                }
+              },
+              "argument2": {
+                "type": "minecraft:add",
+                "argument1": {
+                  "type": "minecraft:invert",
+                  "argument": {
+                    "type": "minecraft:add",
+                    "argument1": 3.0,
+                    "argument2": {
+                      "type": "minecraft:noise",
+                      "noise": "minecraft:temperature",
+                      "xz_scale": 0.25,
+                      "y_scale": 0.0
+                    }
+                  }
+                },
+                "argument2": {
+                  "type": "minecraft:clamp",
+                  "input": {
+                    "type": "minecraft:add",
+                    "argument1": {
+                      "type": "minecraft:y_clamped_gradient",
+                      "from_y": -20,
+                      "to_y": 20,
+                      "from_value": -1.5,
+                      "to_value": 1.5
+                    },
+                    "argument2": {
+                      "type": "minecraft:noise",
+                      "noise": "minecraft:cave_layer",
+                      "xz_scale": 1.0,
+                      "y_scale": 8.0
+                    }
+                  },
+                  "min": -0.4,
+                  "max": 0.6
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

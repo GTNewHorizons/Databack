@@ -1,0 +1,33 @@
+{
+  "description": "mul with an infinite first argument and a bare constant 0 second: NaN if computed as input * 0, 0 if a zero constant makes the product 0 regardless.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 32,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ]
+  ],
+  "density": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:noise",
+      "noise": "minecraft:cave_cheese",
+      "xz_scale": 1.0,
+      "y_scale": 1.0
+    },
+    "argument2": {
+      "type": "minecraft:mul",
+      "argument1": {
+        "type": "minecraft:invert",
+        "argument": 0.0
+      },
+      "argument2": 0.0
+    }
+  }
+}

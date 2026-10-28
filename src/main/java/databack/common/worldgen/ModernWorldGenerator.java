@@ -12,7 +12,9 @@ import net.minecraft.world.biome.BiomeGenBase;
 import net.minecraft.world.biome.BiomeGenBase.SpawnListEntry;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.IChunkProvider;
+import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
+import net.minecraft.world.gen.ChunkProviderServer;
 
 import com.gtnewhorizon.gtnhlib.util.data.BlockMeta;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
@@ -22,16 +24,15 @@ import databack.common.dto.dimension.BuiltinDimensionGenerators.MultiNoiseBiomes
 import databack.common.dto.dimension.BuiltinDimensionGenerators.NoiseDimensionGenerator;
 import databack.common.dto.dimension.Dimension;
 import databack.common.dto.dimension_type.DimensionType;
-import databack.common.dto.worldgen.density_function.DensityBuffer;
-import databack.common.dto.worldgen.density_function.DensityMask;
-import databack.common.dto.worldgen.density_function.IDensityFunction;
-import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
 import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
 import databack.common.handlers.WorldPresetList;
-
+import databack.common.worldgen.density.ChunkDensitySampler;
+import databack.common.worldgen.density.DensityBuildContext;
+import databack.common.worldgen.density.DensityPrefetcher;
+import databack.common.worldgen.density.DensityRouter;
 import databack.common.worldgen.rng.RandomFactory;
 import databack.common.worldgen.rng.RandomSource;
 import databack.common.worldgen.rng.StandardRandom;
@@ -49,7 +50,9 @@ public class ModernWorldGenerator implements IChunkProvider {
 
     private final BiomeProvider biomeProvider;
 
-    private final IDensityFunction finalDensity;
+    private final DensityRouter router;
+    private final ChunkDensitySampler densitySampler;
+    private final DensityPrefetcher densityPrefetcher;
 
     public ModernWorldGenerator(World world, String generatorOptions) {
         this.world = world;
@@ -83,12 +86,21 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         WorldContext context = WorldContext.getContext(world);
 
-        RandomFactory rng = generatorSettings.legacy_random_source
-            ? new StandardRandom(world.getSeed()).forkFactory()
-            : new XoroshiroRandom(world.getSeed()).forkFactory();
+        DensityBuildContext build = DensityBuildContext.fromDatapacks(world.getSeed(), generatorSettings.legacy_random_source);
+        RandomFactory rng = build.random();
         ((WorldContextImpl) context).setRandom(rng);
 
-        this.finalDensity = router.final_density.instantiate(context);
+        this.router = build.buildRouter(router, true);
+
+        // 1.7 worlds span y = 0..255, so only that part of the dimension is generated. The sampler is also given the
+        // dimension's range, for trees where clipping would change values (see ChunkDensitySampler).
+        NoiseGeneratorSettings.NoiseSettings ns = generatorSettings.noise;
+        int minY = Math.max(ns.min_y, 0);
+        int maxY = Math.min(ns.min_y + ns.height, 256);
+        this.densitySampler = new ChunkDensitySampler(
+            this.router.finalDensity, ns.size_horizontal * 4, ns.size_vertical * 4, minY, maxY, ns.min_y,
+            ns.min_y + ns.height, 4096, false);
+        this.densityPrefetcher = new DensityPrefetcher(densitySampler, 1, 64);
 
         if (dimensionType == null) {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
@@ -116,39 +128,45 @@ public class ModernWorldGenerator implements IChunkProvider {
             this.generatorSettings.default_block.getBlock(),
             this.generatorSettings.default_block.getBlockMeta(0));
 
-        ImmutableBlockMeta air = new BlockMeta(Blocks.air);
-        WorldContext context = WorldContext.getContext(world);
-        context.resetCache();
-        DensityMask fullMask = context.getMask();
-        fullMask.setAll();
+        // CPU path.
+        double[] density = densityPrefetcher.get(chunkX, chunkZ, this::needsGeneration);
+
+        int minY = densitySampler.minY();
+        int maxY = minY + densitySampler.height();
 
         for (int ebsY = 0; ebsY < 16; ebsY++) {
             ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
             chunk.getBlockStorageArray()[ebsY] = ebs;
 
-            DensityBuffer densityBuf = finalDensity.compute(chunkX, ebsY, chunkZ, fullMask);
-
             for (int y = 0; y < 16; y++) {
+                int worldY = ebsY << 4 | y;
+                if (worldY < minY || worldY >= maxY) continue;
+
+                int row = (worldY - minY) * 256;
+
                 for (int z = 0; z < 16; z++) {
                     for (int x = 0; x < 16; x++) {
-                        float density = densityBuf.get(x, y, z);
-                        ImmutableBlockMeta bm = density > 0 ? main : air;
-                        if (bm.getBlock() != Blocks.air) {
-                            ebs.func_150818_a(x, y, z, bm.getBlock());
-                        }
-                        if (bm.getBlockMeta() != 0) {
-                            ebs.setExtBlockMetadata(x, y, z, bm.getBlockMeta());
+                        if (density[row + z * 16 + x] > 0) {
+                            ebs.func_150818_a(x, y, z, main.getBlock());
+                            if (main.getBlockMeta() != 0) {
+                                ebs.setExtBlockMetadata(x, y, z, main.getBlockMeta());
+                            }
                         }
                     }
                 }
             }
-
-            densityBuf.discard();
         }
 
-        context.releaseMask(fullMask);
+        chunk.generateSkylightMap();
 
         return chunk;
+    }
+
+    /// Whether a chunk will (probably) be generated later, i.e. it's neither loaded nor saved. Server thread only.
+    private boolean needsGeneration(int chunkX, int chunkZ) {
+        if (!(world.getChunkProvider() instanceof ChunkProviderServer server)) return true;
+        if (server.chunkExists(chunkX, chunkZ)) return false;
+        return !(server.currentChunkLoader instanceof AnvilChunkLoader loader) || !loader.chunkExists(world, chunkX, chunkZ);
     }
 
     @Override

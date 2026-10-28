@@ -1,0 +1,37 @@
+{
+  "description": "blend_alpha, blend_offset and blend_density with no blending data.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ]
+  ],
+  "density": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:blend_alpha"
+    },
+    "argument2": {
+      "type": "minecraft:add",
+      "argument1": {
+        "type": "minecraft:blend_offset"
+      },
+      "argument2": {
+        "type": "minecraft:blend_density",
+        "argument": {
+          "type": "minecraft:noise",
+          "noise": "minecraft:cave_cheese",
+          "xz_scale": 1.0,
+          "y_scale": 1.0
+        }
+      }
+    }
+  }
+}

@@ -10,6 +10,9 @@ dependencies {
 
     shadowImplementation("org.tomlj:tomlj:1.1.1")
 
+    compileOnly("com.github.GTNewHorizons:lwjgl3ify:3.0.30:dev")
+    compileOnly("org.lwjgl:lwjgl:3.4.2")
+
     compileOnly("org.ow2.asm:asm:5.0.3")
     compileOnly("org.jetbrains:annotations:26.0.2")
     compileOnly('org.projectlombok:lombok:1.18.34')

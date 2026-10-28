@@ -103,7 +103,7 @@ public class NoiseGeneratorSettings {
         public IDensityFunctionFactory ridges;
 
         @Nullable
-        public IDensityFunctionFactory initial_density_without_jaggedness;
+        public IDensityFunctionFactory preliminary_surface_level;
 
         @NotNull
         public IDensityFunctionFactory final_density;

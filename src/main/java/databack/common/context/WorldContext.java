@@ -5,8 +5,6 @@ import java.util.function.Consumer;
 import net.minecraft.world.World;
 
 import databack.common.annotation.ThreadSafe;
-import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
-import databack.common.dto.worldgen.density_function.DensityMask;
 import databack.common.mixinext.WorldExt;
 import databack.common.worldgen.rng.RandomFactory;
 
@@ -43,13 +41,6 @@ public interface WorldContext {
     <T> void setCache(CacheSlot<T> slot, T value);
 
     <T> T getCache(CacheSlot<T> slot);
-
-    DensityMask getMask();
-    void releaseMask(DensityMask mask);
-
-    /// Gets a 16x16x16 float array from the pool. The contained values are undefined.
-    CubeBuffer getCubeBuffer();
-    void releaseCubeBuffer(CubeBuffer buffer);
 
     static WorldContext getContext(World world) {
         return ((WorldExt) world).db$getContext();

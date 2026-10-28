@@ -1,0 +1,40 @@
+{
+  "description": "end_islands per block and interpolated, near the main island and far from it.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      3,
+      -2
+    ],
+    [
+      640,
+      -1000
+    ]
+  ],
+  "density": {
+    "type": "minecraft:add",
+    "argument1": {
+      "type": "minecraft:end_islands"
+    },
+    "argument2": {
+      "type": "minecraft:interpolated",
+      "argument": {
+        "type": "minecraft:mul",
+        "argument1": 0.5,
+        "argument2": {
+          "type": "minecraft:end_islands"
+        }
+      }
+    }
+  }
+}

@@ -1,14 +1,16 @@
 package databack.common.dto.worldgen.density_function;
 
-import databack.common.context.WorldContext;
-import databack.common.dto.worldgen.density_function.DensityBuffer.CubeBuffer;
-import lombok.EqualsAndHashCode;
-import lombok.ToString;
-
 import java.util.Collections;
 import java.util.List;
 
-@EqualsAndHashCode
+import databack.common.worldgen.density.DensityBuildContext;
+import databack.common.worldgen.density.Density;
+import databack.common.worldgen.density.DensityNode;
+import databack.common.worldgen.density.TransformNode;
+import java.util.Objects;
+
+import lombok.ToString;
+
 @ToString
 public abstract class UnaryDensityFunction implements IDensityFunctionFactory {
 
@@ -23,46 +25,24 @@ public abstract class UnaryDensityFunction implements IDensityFunctionFactory {
         return Collections.singletonList(argument);
     }
 
-    protected abstract float compute(float param);
+    protected abstract TransformNode.Kind kind();
 
-    private class DelegateBuffer implements DensityBuffer {
-        public DensityBuffer next;
+    @Override
+    public DensityNode instantiate(DensityBuildContext ctx) {
+        return Density.transform(kind(), ctx.build(argument));
+    }
 
-        @Override
-        public float get(int relX, int relY, int relZ) {
-            return compute(next.get(relX, relY, relZ));
-        }
-
-        @Override
-        public void discard() {
-            next.discard();
-            next = null;
-        }
+    // Lombok's equals would consider e.g. abs(x) == square(x), which breaks the build cache.
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || o.getClass() != getClass()) return false;
+        UnaryDensityFunction other = (UnaryDensityFunction) o;
+        return Objects.equals(argument, other.argument);
     }
 
     @Override
-    public IDensityFunction instantiate(WorldContext ctx) {
-        IDensityFunction arg = argument.instantiate(ctx);
-
-        DelegateBuffer delegate = new DelegateBuffer();
-
-        return new IDensityFunction() {
-
-            @Override
-            public boolean hasTrait(DensityFuncTrait trait) {
-                return arg.hasTrait(trait);
-            }
-
-            @Override
-            public DensityBuffer compute(int blockX, int blockY, int blockZ, DensityMask mask) {
-                if (delegate.next != null) {
-                    delegate.discard();
-                }
-
-                delegate.next = arg.compute(blockX, blockY, blockZ, mask);
-
-                return delegate;
-            }
-        };
+    public int hashCode() {
+        return getClass().hashCode() * 31 + Objects.hash(argument);
     }
 }

@@ -1,0 +1,82 @@
+{
+  "description": "min/max/mul/range_choice at cell level, with interpolated arguments, constant-zero regions and ranges that are often disjoint.",
+  "seed": 12345,
+  "noise": {
+    "min_y": -32,
+    "height": 64,
+    "size_horizontal": 1,
+    "size_vertical": 2
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      -3,
+      5
+    ]
+  ],
+  "density": {
+    "type": "minecraft:min",
+    "argument1": {
+      "type": "minecraft:mul",
+      "argument1": {
+        "type": "minecraft:y_clamped_gradient",
+        "from_y": -8,
+        "to_y": 8,
+        "from_value": 0.0,
+        "to_value": 1.0
+      },
+      "argument2": {
+        "type": "minecraft:interpolated",
+        "argument": {
+          "type": "minecraft:noise",
+          "noise": "minecraft:cave_cheese",
+          "xz_scale": 1.0,
+          "y_scale": 0.6666666666666666
+        }
+      }
+    },
+    "argument2": {
+      "type": "minecraft:range_choice",
+      "input": {
+        "type": "minecraft:interpolated",
+        "argument": {
+          "type": "minecraft:noise",
+          "noise": "minecraft:noodle",
+          "xz_scale": 1.0,
+          "y_scale": 1.0
+        }
+      },
+      "min_inclusive": -1000000.0,
+      "max_exclusive": 0.0,
+      "when_in_range": 64.0,
+      "when_out_of_range": {
+        "type": "minecraft:max",
+        "argument1": {
+          "type": "minecraft:abs",
+          "argument": {
+            "type": "minecraft:interpolated",
+            "argument": {
+              "type": "minecraft:noise",
+              "noise": "minecraft:noodle_ridge_a",
+              "xz_scale": 2.6666666666666665,
+              "y_scale": 2.6666666666666665
+            }
+          }
+        },
+        "argument2": {
+          "type": "minecraft:add",
+          "argument1": -0.5,
+          "argument2": {
+            "type": "minecraft:noise",
+            "noise": "minecraft:noodle_ridge_b",
+            "xz_scale": 2.6666666666666665,
+            "y_scale": 2.6666666666666665
+          }
+        }
+      }
+    }
+  }
+}

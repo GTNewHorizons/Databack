@@ -5,6 +5,10 @@ import databack.common.worldgen.rng.RandomSource;
 /**
  * Port of net.minecraft.world.level.levelgen.synth.ImprovedNoise (legacy sampling path only).
  * Gradient table sourced from SimplexNoise.GRADIENT.
+ * <p>
+ * The arithmetic is kept in exactly the same order as vanilla so results are bit-identical. The speedups come from
+ * the data layout only: the permutation table is widened to ints (no {@code & 0xFF} per lookup) and the gradient
+ * table is split into three flat double arrays (no {@code int[][]} pointer chase or int-to-double conversion).
  */
 public final class ImprovedNoise {
 
@@ -15,7 +19,19 @@ public final class ImprovedNoise {
         { 1,  1,  0}, { 0, -1,  1}, {-1,  1,  0}, { 0, -1, -1}
     };
 
+    private static final double[] GX = new double[16], GY = new double[16], GZ = new double[16];
+
+    static {
+        for (int i = 0; i < 16; i++) {
+            GX[i] = GRADIENT[i][0];
+            GY[i] = GRADIENT[i][1];
+            GZ[i] = GRADIENT[i][2];
+        }
+    }
+
     final byte[] p;
+    /** {@link #p} widened to unsigned ints. */
+    private final int[] perm;
     public final double xo;
     public final double yo;
     public final double zo;
@@ -34,6 +50,24 @@ public final class ImprovedNoise {
             this.p[i] = this.p[i + offset];
             this.p[i + offset] = tmp;
         }
+        this.perm = new int[256];
+        for (int i = 0; i < 256; i++) {
+            this.perm[i] = this.p[i] & 0xFF;
+        }
+    }
+
+    /** Equivalent to {@code noise(x, y, z, 0, 0)}, minus the y-fudge branch. */
+    public double noise(double _x, double _y, double _z) {
+        double x = _x + this.xo;
+        double y = _y + this.yo;
+        double z = _z + this.zo;
+        int xf = floor(x);
+        int yf = floor(y);
+        int zf = floor(z);
+        double xr = x - xf;
+        double yr = y - yf;
+        double zr = z - zf;
+        return sampleAndLerp(xf, yf, zf, xr, yr, zr, yr);
     }
 
     public double noise(double _x, double _y, double _z, double yScale, double yFudge) {
@@ -49,46 +83,43 @@ public final class ImprovedNoise {
         double yrFudge;
         if (yScale != 0.0) {
             double fudgeLimit = (yFudge >= 0.0 && yFudge < yr) ? yFudge : yr;
-            yrFudge = (double) floor(fudgeLimit / yScale + 1.0E-7) * yScale;
+            yrFudge = (double) floor(fudgeLimit / yScale + (double) 1.0E-7F) * yScale;
         } else {
             yrFudge = 0.0;
         }
         return sampleAndLerp(xf, yf, zf, xr, yr - yrFudge, zr, yr);
     }
 
-    private int p(int x) {
-        return this.p[x & 0xFF] & 0xFF;
-    }
-
     private static double gradDot(int hash, double x, double y, double z) {
-        int[] g = GRADIENT[hash & 0xF];
-        return g[0] * x + g[1] * y + g[2] * z;
+        int h = hash & 0xF;
+        return GX[h] * x + GY[h] * y + GZ[h] * z;
     }
 
     private double sampleAndLerp(int x, int y, int z, double xr, double yr, double zr, double yrOriginal) {
-        int x0  = p(x);
-        int x1  = p(x + 1);
-        int xy00 = p(x0 + y);
-        int xy01 = p(x0 + y + 1);
-        int xy10 = p(x1 + y);
-        int xy11 = p(x1 + y + 1);
-        double d000 = gradDot(p(xy00 + z),     xr,        yr,        zr);
-        double d100 = gradDot(p(xy10 + z),     xr - 1.0,  yr,        zr);
-        double d010 = gradDot(p(xy01 + z),     xr,        yr - 1.0,  zr);
-        double d110 = gradDot(p(xy11 + z),     xr - 1.0,  yr - 1.0,  zr);
-        double d001 = gradDot(p(xy00 + z + 1), xr,        yr,        zr - 1.0);
-        double d101 = gradDot(p(xy10 + z + 1), xr - 1.0,  yr,        zr - 1.0);
-        double d011 = gradDot(p(xy01 + z + 1), xr,        yr - 1.0,  zr - 1.0);
-        double d111 = gradDot(p(xy11 + z + 1), xr - 1.0,  yr - 1.0,  zr - 1.0);
+        final int[] perm = this.perm;
+        int x0 = perm[x & 0xFF];
+        int x1 = perm[(x + 1) & 0xFF];
+        int xy00 = perm[(x0 + y) & 0xFF];
+        int xy01 = perm[(x0 + y + 1) & 0xFF];
+        int xy10 = perm[(x1 + y) & 0xFF];
+        int xy11 = perm[(x1 + y + 1) & 0xFF];
+        double d000 = gradDot(perm[(xy00 + z) & 0xFF],     xr,        yr,        zr);
+        double d100 = gradDot(perm[(xy10 + z) & 0xFF],     xr - 1.0,  yr,        zr);
+        double d010 = gradDot(perm[(xy01 + z) & 0xFF],     xr,        yr - 1.0,  zr);
+        double d110 = gradDot(perm[(xy11 + z) & 0xFF],     xr - 1.0,  yr - 1.0,  zr);
+        double d001 = gradDot(perm[(xy00 + z + 1) & 0xFF], xr,        yr,        zr - 1.0);
+        double d101 = gradDot(perm[(xy10 + z + 1) & 0xFF], xr - 1.0,  yr,        zr - 1.0);
+        double d011 = gradDot(perm[(xy01 + z + 1) & 0xFF], xr,        yr - 1.0,  zr - 1.0);
+        double d111 = gradDot(perm[(xy11 + z + 1) & 0xFF], xr - 1.0,  yr - 1.0,  zr - 1.0);
         double xA = smoothstep(xr);
         double yA = smoothstep(yrOriginal);
         double zA = smoothstep(zr);
         return lerp3(xA, yA, zA, d000, d100, d010, d110, d001, d101, d011, d111);
     }
 
+    /** Matches vanilla's {@code Mth.floor(double)}. */
     static int floor(double x) {
-        int xi = (int) x;
-        return x < xi ? xi - 1 : xi;
+        return (int) Math.floor(x);
     }
 
     private static double smoothstep(double x) {
