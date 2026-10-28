@@ -10,6 +10,7 @@ import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
+import databack.common.dto.worldgen.surface_rule.ISurfaceRuleFactory;
 import databack.common.serde.DatapackSerialization;
 
 @SuppressWarnings({ "unused", "NotNullFieldNotInitialized" })
@@ -51,7 +52,7 @@ public class NoiseGeneratorSettings {
 
     // TODO: MaterialRuleRef not yet implemented
     @Nullable
-    public JsonElement surface_rule;
+    public ISurfaceRuleFactory surface_rule;
 
     public static class NoiseSettings {
 

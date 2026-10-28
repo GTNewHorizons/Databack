@@ -10,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 import databack.common.annotation.ThreadSafe;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.ZoomSource;
+import databack.common.worldgen.surface.BlockBiomes;
 
 /// The 2D biome of each column of a chunk: the biome at the column's surface block, as the zoom picks it from a biome
 /// source (spec section 5). Without a zoom, a block uses its own quart cell's biome, which is wrong near borders.
@@ -29,15 +30,27 @@ public final class SurfaceBiomes {
         this.zoomSeed = zoomSeed;
     }
 
+    /// Per-block biomes for one chunk's work: each quart cell is computed once. Not thread-safe; use one per chunk.
+    @NotNull
+    public BlockBiomes forChunk() {
+        CachedCells cells = new CachedCells(source);
+        if (zoom != null) return zoom.zoom(cells, zoomSeed)::biome;
+        return (x, y, z) -> cells.getNoiseBiome(x >> 2, y >> 2, z >> 2);
+    }
+
     /// The biome id of each column of chunk `(chunkX, chunkZ)`, indexed `z * 16 + x`, at `surfaceY` (same indexing;
     /// see [SurfaceHeights]). Columns at [SurfaceHeights#NONE] use `fallbackY` instead. Ids are null where the source
     /// has none.
     @NotNull
     public String[] columns(int chunkX, int chunkZ, int @NotNull [] surfaceY, int fallbackY) {
-        CachedCells cells = new CachedCells(source);
-        BlockBiomes blocks = zoom != null ? zoom.zoom(cells, zoomSeed)::biome
-            : (x, y, z) -> cells.getNoiseBiome(x >> 2, y >> 2, z >> 2);
+        return columns(forChunk(), chunkX, chunkZ, surfaceY, fallbackY);
+    }
 
+    /// As the other `columns`, through `blocks` (from [#forChunk]).
+    @NotNull
+    public String[] columns(
+        @NotNull BlockBiomes blocks, int chunkX, int chunkZ, int @NotNull [] surfaceY, int fallbackY
+    ) {
         String[] biomes = new String[256];
         for (int z = 0; z < 16; z++) {
             for (int x = 0; x < 16; x++) {
@@ -48,12 +61,6 @@ public final class SurfaceBiomes {
         }
 
         return biomes;
-    }
-
-    @FunctionalInterface
-    private interface BlockBiomes {
-
-        String biome(int x, int y, int z);
     }
 
     /// One chunk's quart cell biomes, each computed once. Neighbouring columns mostly read the same few cells.

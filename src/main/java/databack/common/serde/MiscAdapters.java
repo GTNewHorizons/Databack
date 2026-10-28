@@ -44,6 +44,40 @@ public class MiscAdapters {
 
     private static final HashSet<ResourceLocation> MISSING_BLOCKS = new HashSet<>();
 
+    /// A datapack block state as a 1.7 block state, through [BlockIdentityRegistry]. Unknown blocks become air (logged
+    /// once per name).
+    public static BlockState resolveBlockState(BlockStateDTO dto) {
+        BlockIdentity identity = BlockIdentityRegistry.INSTANCE.getObject(dto.Name);
+
+        BlockState state = new BlockStateImpl();
+
+        if (identity == null) {
+            synchronized (MISSING_BLOCKS) {
+                if (MISSING_BLOCKS.add(dto.Name)) {
+                    DatapackLoader.LOGGER.error("Could not find block {}, using air", dto.Name);
+                }
+            }
+
+            state.reset(Blocks.air);
+        } else {
+            state.reset(identity.block);
+
+            BlockExt_Identity blockExt = (BlockExt_Identity) identity.block;
+
+            if (blockExt.db$getVariantProperty() != null) {
+                state.setPropertyValue(blockExt.db$getVariantProperty(), identity.variant);
+            }
+
+            if (dto.Properties != null) {
+                for (var e : dto.Properties.entrySet()) {
+                    state.setPropertyValue(e.getKey(), e.getValue());
+                }
+            }
+        }
+
+        return state;
+    }
+
     @SubscribeEvent
     public static void resetMissingBlocks(DatapackStartLoadingEvent event) {
         synchronized (MISSING_BLOCKS) {
@@ -56,37 +90,7 @@ public class MiscAdapters {
         @Override
         public BlockState deserialize(JsonElement json, Type typeOfT, JsonDeserializationContext context)
             throws JsonParseException {
-            BlockStateDTO dto = context.deserialize(json, BlockStateDTO.class);
-
-            BlockIdentity identity = BlockIdentityRegistry.INSTANCE.getObject(dto.Name);
-
-            BlockState state = new BlockStateImpl();
-
-            if (identity == null) {
-                synchronized (MISSING_BLOCKS) {
-                    if (MISSING_BLOCKS.add(dto.Name)) {
-                        DatapackLoader.LOGGER.error("Could not find block {}, using air", dto.Name);
-                    }
-                }
-
-                state.reset(Blocks.air);
-            } else {
-                state.reset(identity.block);
-
-                BlockExt_Identity blockExt = (BlockExt_Identity) identity.block;
-
-                if (blockExt.db$getVariantProperty() != null) {
-                    state.setPropertyValue(blockExt.db$getVariantProperty(), identity.variant);
-                }
-
-                if (dto.Properties != null) {
-                    for (var e : dto.Properties.entrySet()) {
-                        state.setPropertyValue(e.getKey(), e.getValue());
-                    }
-                }
-            }
-
-            return state;
+            return resolveBlockState(context.deserialize(json, BlockStateDTO.class));
         }
 
         @Override

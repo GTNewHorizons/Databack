@@ -28,6 +28,7 @@ import databack.common.dto.worldgen.float_provider.BuiltinFloatProviders;
 import databack.common.dto.worldgen.height_provider.BuiltinHeightProviders;
 import databack.common.dto.worldgen.int_provider.BuiltinIntProviders;
 import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
+import databack.common.dto.worldgen.surface_rule.BuiltinSurfaceRules;
 import databack.common.dto.worldgen.placed_feature.BuiltinPlacementModifiers;
 import databack.common.dto.worldgen.processor_list.BuiltinProcessors;
 import databack.common.dto.worldgen.structure.BuiltinStructures;
@@ -95,6 +96,7 @@ public class CommonProxy {
         BuiltinStructures.init();
         BuiltinStructurePlacements.init();
         NoiseGeneratorSettings.init();
+        BuiltinSurfaceRules.init();
         BuiltinDimensionGenerators.init();
 
         ModernWorldType.init();

@@ -16,6 +16,8 @@ import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
 import databack.common.dto.worldgen.noise.DatapackNoise;
 import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
+import databack.common.dto.worldgen.surface_rule.BuiltinSurfaceRules;
+import databack.common.serde.MiscAdapters;
 import databack.common.serde.DatapackSerialization;
 
 /// Test fixture: reads density functions, noises and noise settings straight out of the extracted vanilla 26.1
@@ -43,6 +45,8 @@ public final class VanillaWorldgen {
             DatapackSerialization.init();
             BuiltinDensityFunctions.init();
             NoiseGeneratorSettings.init();
+            MiscAdapters.init();
+            BuiltinSurfaceRules.init();
             DatapackSerialization.finish();
             gson = DatapackSerialization.getGson();
         }
@@ -68,6 +72,11 @@ public final class VanillaWorldgen {
             FUNCTIONS.put(id, Files.exists(f) ? read(f, IDensityFunctionFactory.class) : null);
         }
         return FUNCTIONS.get(id);
+    }
+
+    /// Parses any datapack JSON the way the datapack loader would.
+    public static <T> T parse(JsonElement json, Class<T> type) {
+        return gson().fromJson(json, type);
     }
 
     /// Parses a density function the way the datapack loader would.

@@ -15,6 +15,9 @@ import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import net.minecraft.world.gen.ChunkProviderServer;
 
+import org.jetbrains.annotations.Nullable;
+
+import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import com.gtnewhorizon.gtnhlib.util.data.BlockMeta;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 import databack.common.context.WorldContext;
@@ -27,7 +30,10 @@ import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
 import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
+import databack.common.handlers.BiomeList;
 import databack.common.handlers.WorldPresetList;
+import databack.common.dto.worldgen.biome.DatapackBiome;
+import databack.common.serde.MiscAdapters;
 import databack.common.interop.ChunkBiomes;
 import databack.common.worldgen.biome.ClimateSampler;
 import databack.common.worldgen.biome.MultiNoiseBiomeSource;
@@ -37,6 +43,9 @@ import databack.common.worldgen.biome.SurfaceBiomes;
 import databack.common.worldgen.biome.SurfaceHeights;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.VanillaBiomeZoom;
+import databack.common.worldgen.surface.BlockBiomes;
+import databack.common.worldgen.surface.SurfaceBuildContext;
+import databack.common.worldgen.surface.SurfaceSystem;
 import databack.common.worldgen.density.ChunkDensitySampler;
 import databack.common.worldgen.density.DensityBuildContext;
 import databack.common.worldgen.density.DensityPrefetcher;
@@ -57,6 +66,8 @@ public class ModernWorldGenerator implements IChunkProvider {
     public final DimensionType dimensionType;
 
     private final SurfaceBiomes surfaceBiomes;
+    @Nullable
+    private final SurfaceSystem surfaceSystem;
     private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
 
     private final DensityRouter router;
@@ -120,6 +131,30 @@ public class ModernWorldGenerator implements IChunkProvider {
             MultiNoiseParameters.resolve(noiseBiomes, dimensionName), ClimateSampler.of(this.router));
         BiomeZoom zoom = VanillaBiomeZoom.get();
         this.surfaceBiomes = new SurfaceBiomes(biomeSource, zoom, zoom == null ? 0 : zoom.zoomSeed(world.getSeed()));
+        this.surfaceSystem = createSurfaceSystem(build, ns, world.getSeed());
+    }
+
+    /// Null when the noise settings have no surface rule.
+    @Nullable
+    private SurfaceSystem createSurfaceSystem(DensityBuildContext build, NoiseGeneratorSettings.NoiseSettings ns,
+        long seed) {
+        if (generatorSettings.surface_rule == null) return null;
+
+        SurfaceBuildContext ctx = new SurfaceBuildContext(build, ns.min_y, ns.height,
+            state -> toBlockMeta(MiscAdapters.resolveBlockState(state)), ModernWorldGenerator::biomeTemperature);
+        return new SurfaceSystem(generatorSettings.surface_rule.instantiate(ctx), ns.min_y, ns.height, seed,
+            build.noise("minecraft:surface"), build.noise("minecraft:surface_secondary"),
+            router.preliminarySurfaceLevel);
+    }
+
+    private static ImmutableBlockMeta toBlockMeta(BlockState state) {
+        return new BlockMeta(state.getBlock(), state.getBlockMeta(0));
+    }
+
+    /// A biome's datapack temperature; 0.5 (1.7's default) if it has none.
+    private static double biomeTemperature(String biome) {
+        DatapackBiome definition = BiomeList.RT.getHandler().getBiome(biome);
+        return definition == null ? 0.5 : definition.temperature;
     }
 
     public static String getDimensionName(int dimId) {
@@ -135,38 +170,36 @@ public class ModernWorldGenerator implements IChunkProvider {
     public Chunk provideChunk(int chunkX, int chunkZ) {
         Chunk chunk = new Chunk(world, chunkX, chunkZ);
 
-        ImmutableBlockMeta solid = new BlockMeta(
-            this.generatorSettings.default_block.getBlock(),
-            this.generatorSettings.default_block.getBlockMeta(0));
-        ImmutableBlockMeta fluid = new BlockMeta(
-            this.generatorSettings.default_fluid.getBlock(),
-            this.generatorSettings.default_fluid.getBlockMeta(0));
-        int seaLevel = this.generatorSettings.sea_level;
+        ImmutableBlockMeta solid = toBlockMeta(this.generatorSettings.default_block);
+        ImmutableBlockMeta fluid = toBlockMeta(this.generatorSettings.default_fluid);
 
-        // CPU path.
         double[] density = densityPrefetcher.get(chunkX, chunkZ, this::needsGeneration);
 
         int minY = densitySampler.minY();
-        int maxY = minY + densitySampler.height();
+        int layers = densitySampler.height();
 
-        fillBiomes(chunk, density, minY);
+        BlockBiomes biomes = surfaceBiomes.forChunk();
+        fillBiomes(chunk, biomes, density, minY);
+
+        byte[] kinds = kinds(density, minY);
+        ImmutableBlockMeta[] surface = surfaceSystem == null ? new ImmutableBlockMeta[kinds.length]
+            : surfaceSystem.apply(chunkX, chunkZ, kinds, minY, layers, biomes);
 
         for (int ebsY = 0; ebsY < 16; ebsY++) {
             ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
             chunk.getBlockStorageArray()[ebsY] = ebs;
 
             for (int y = 0; y < 16; y++) {
-                int worldY = ebsY << 4 | y;
-                if (worldY < minY || worldY >= maxY) continue;
+                int layer = (ebsY << 4 | y) - minY;
+                if (layer < 0 || layer >= layers) continue;
 
-                int row = (worldY - minY) * 256;
-
-                // Without aquifers (not implemented yet), everything open below sea level is the default fluid.
                 for (int z = 0; z < 16; z++) {
                     for (int x = 0; x < 16; x++) {
-                        if (density[row + z * 16 + x] > 0) {
-                            setBlock(ebs, x, y, z, solid);
-                        } else if (worldY < seaLevel) {
+                        int index = (layer * 16 + z) * 16 + x;
+                        byte kind = kinds[index];
+                        if (kind == SurfaceSystem.SOLID) {
+                            setBlock(ebs, x, y, z, surface[index] != null ? surface[index] : solid);
+                        } else if (kind == SurfaceSystem.FLUID) {
                             setBlock(ebs, x, y, z, fluid);
                         }
                     }
@@ -179,6 +212,19 @@ public class ModernWorldGenerator implements IChunkProvider {
         return chunk;
     }
 
+    /// Solid where density is positive; without aquifers (not implemented yet), open space below sea level is fluid.
+    private byte[] kinds(double[] density, int minY) {
+        int seaLevel = generatorSettings.sea_level;
+        byte[] kinds = new byte[density.length];
+
+        for (int i = 0; i < density.length; i++) {
+            if (density[i] > 0) kinds[i] = SurfaceSystem.SOLID;
+            else if (minY + (i >> 8) < seaLevel) kinds[i] = SurfaceSystem.FLUID;
+        }
+
+        return kinds;
+    }
+
     private static void setBlock(ExtendedBlockStorage ebs, int x, int y, int z, ImmutableBlockMeta block) {
         ebs.func_150818_a(x, y, z, block.getBlock());
         if (block.getBlockMeta() != 0) ebs.setExtBlockMetadata(x, y, z, block.getBlockMeta());
@@ -186,13 +232,14 @@ public class ModernWorldGenerator implements IChunkProvider {
 
     /// Fills the chunk's 2D biome array with each column's surface biome (the biome at its top solid block, or at sea
     /// level for columns without one).
-    private void fillBiomes(Chunk chunk, double[] density, int minY) {
+    private void fillBiomes(Chunk chunk, BlockBiomes biomes, double[] density, int minY) {
         int[] surface = SurfaceHeights.fromDensity(density, minY, densitySampler.height());
-        String[] ids = surfaceBiomes.columns(chunk.xPosition, chunk.zPosition, surface, generatorSettings.sea_level);
+        String[] ids = surfaceBiomes.columns(biomes, chunk.xPosition, chunk.zPosition, surface,
+            generatorSettings.sea_level);
 
-        int[] biomes = new int[256];
-        for (int column = 0; column < 256; column++) biomes[column] = biomeResolver.resolve(ids[column]).biomeID;
-        ChunkBiomes.current().write(chunk, biomes);
+        int[] numericIds = new int[256];
+        for (int column = 0; column < 256; column++) numericIds[column] = biomeResolver.resolve(ids[column]).biomeID;
+        ChunkBiomes.current().write(chunk, numericIds);
     }
 
     /// Whether a chunk will (probably) be generated later, i.e. it's neither loaded nor saved. Server thread only.
