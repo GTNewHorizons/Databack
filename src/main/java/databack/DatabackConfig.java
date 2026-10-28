@@ -13,6 +13,12 @@ public class DatabackConfig {
     @Config.DefaultString("compiled-df")
     public static String compiledDensityFunctionDumpDir;
 
+    @Config.Comment({ "Use a new biome for every datapack biome, including modern vanilla ones, instead of reusing 1.7's",
+        "vanilla biomes where modern has an equivalent. Needs many biome ids; with EndlessIDs that is not a problem.",
+        "Requires a restart." })
+    @Config.DefaultBoolean(false)
+    public static boolean modernBiomesOnly;
+
     @Config.Comment("Enable block/item/biome/entity tag debug mode")
     @Config.DefaultBoolean(true)
     public static boolean enableTagDebugMode;

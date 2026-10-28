@@ -12,6 +12,7 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.common.MinecraftForge;
+import databack.common.biome.ModernBiomeLifecycle;
 import databack.common.command.DatapackCommand;
 import databack.common.debug.DebugOverlayRegistry;
 import databack.common.dto.dimension.BuiltinDimensionGenerators;
@@ -99,6 +100,7 @@ public class CommonProxy {
         ModernWorldType.init();
 
         VanillaBlockIdentities.initVanilla();
+        ModernBiomeLifecycle.init(event.getModConfigurationDirectory());
 
         try {
             File gameDir = event.getModConfigurationDirectory().getParentFile();
@@ -118,7 +120,7 @@ public class CommonProxy {
     }
 
     public void postInit(FMLPostInitializationEvent event) {
-
+        ModernBiomeLifecycle.applyAliases();
     }
 
     public void serverStarting(FMLServerStartingEvent event) {

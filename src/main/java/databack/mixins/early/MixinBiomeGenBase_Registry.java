@@ -12,6 +12,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.ModContainer;
+import databack.common.biome.ModernBiome;
 import databack.common.interop.registry.IProxyRegistry;
 import databack.common.interop.registry.ProxyBiomeRegistry;
 
@@ -38,11 +40,15 @@ public class MixinBiomeGenBase_Registry {
 
     @Inject(method = "<init>(IZ)V", at = @At("TAIL"))
     private void db$hookBiomeInit(int p_i1971_1_, boolean register, CallbackInfo ci) {
-        this.db$domain = db$clinit ? "minecraft" : Loader.instance().activeModContainer().getModId();
+        // Biomes made outside mod loading (e.g. ModernBiomes, at world load) have no active mod container.
+        ModContainer active = Loader.instance().activeModContainer();
+        this.db$domain = db$clinit ? "minecraft" : active != null ? active.getModId() : "unknown";
     }
 
+    /// ModernBiomes register themselves under their datapack id instead.
     @Inject(method = "setBiomeName", at = @At("TAIL"))
     private void db$hookNameChange(String name, CallbackInfoReturnable<BiomeGenBase> cir) {
+        if ((Object) this instanceof ModernBiome) return;
         ProxyBiomeRegistry.INSTANCE.putBiome(new ResourceLocation(db$domain, IProxyRegistry.cleanId(name)), (BiomeGenBase) (Object) this);
     }
 }

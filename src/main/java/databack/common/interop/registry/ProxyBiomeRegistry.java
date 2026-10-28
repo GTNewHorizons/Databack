@@ -25,6 +25,15 @@ public class ProxyBiomeRegistry implements IProxyRegistry<BiomeGenBase> {
         biomes.put(id, biome);
     }
 
+    /// Registers `biome` under `id`, taking the id from any biome that held it and dropping any other id `biome` had.
+    public void putBiomeReplacing(ResourceLocation id, BiomeGenBase biome) {
+        biomes.forcePut(id, biome);
+    }
+
+    public void removeBiome(ResourceLocation id) {
+        biomes.remove(id);
+    }
+
     @Override
     public BiomeGenBase getObject(ResourceLocation id) {
         return biomes.get(id);

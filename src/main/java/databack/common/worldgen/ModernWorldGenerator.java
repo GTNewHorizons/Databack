@@ -1,6 +1,5 @@
 package databack.common.worldgen;
 
-import java.util.Arrays;
 import java.util.List;
 
 import net.minecraft.entity.EnumCreatureType;
@@ -29,6 +28,15 @@ import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
 import databack.common.handlers.WorldPresetList;
+import databack.common.interop.ChunkBiomes;
+import databack.common.worldgen.biome.ClimateSampler;
+import databack.common.worldgen.biome.MultiNoiseBiomeSource;
+import databack.common.worldgen.biome.MultiNoiseParameters;
+import databack.common.worldgen.biome.ProxyBiomeResolver;
+import databack.common.worldgen.biome.SurfaceBiomes;
+import databack.common.worldgen.biome.SurfaceHeights;
+import databack.common.worldgen.biome.zoom.BiomeZoom;
+import databack.common.worldgen.biome.zoom.VanillaBiomeZoom;
 import databack.common.worldgen.density.ChunkDensitySampler;
 import databack.common.worldgen.density.DensityBuildContext;
 import databack.common.worldgen.density.DensityPrefetcher;
@@ -48,7 +56,8 @@ public class ModernWorldGenerator implements IChunkProvider {
     public final NoiseGeneratorSettings generatorSettings;
     public final DimensionType dimensionType;
 
-    private final BiomeProvider biomeProvider;
+    private final SurfaceBiomes surfaceBiomes;
+    private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
 
     private final DensityRouter router;
     private final ChunkDensitySampler densitySampler;
@@ -106,7 +115,11 @@ public class ModernWorldGenerator implements IChunkProvider {
             throw new IllegalStateException("Invalid dimension type: " + world.provider.dimensionId + ", " + dim.type);
         }
 
-        biomeProvider = new NoiseBiomeProvider();
+        String dimensionName = getDimensionName(world.provider.dimensionId);
+        MultiNoiseBiomeSource biomeSource = MultiNoiseBiomeSource.create(
+            MultiNoiseParameters.resolve(noiseBiomes, dimensionName), ClimateSampler.of(this.router));
+        BiomeZoom zoom = VanillaBiomeZoom.get();
+        this.surfaceBiomes = new SurfaceBiomes(biomeSource, zoom, zoom == null ? 0 : zoom.zoomSeed(world.getSeed()));
     }
 
     public static String getDimensionName(int dimId) {
@@ -122,8 +135,6 @@ public class ModernWorldGenerator implements IChunkProvider {
     public Chunk provideChunk(int chunkX, int chunkZ) {
         Chunk chunk = new Chunk(world, chunkX, chunkZ);
 
-        Arrays.fill(chunk.getBiomeArray(), (byte) BiomeGenBase.plains.biomeID);
-
         ImmutableBlockMeta main = new BlockMeta(
             this.generatorSettings.default_block.getBlock(),
             this.generatorSettings.default_block.getBlockMeta(0));
@@ -133,6 +144,8 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         int minY = densitySampler.minY();
         int maxY = minY + densitySampler.height();
+
+        fillBiomes(chunk, density, minY);
 
         for (int ebsY = 0; ebsY < 16; ebsY++) {
             ExtendedBlockStorage ebs = new ExtendedBlockStorage(ebsY << 4, !world.provider.hasNoSky);
@@ -160,6 +173,17 @@ public class ModernWorldGenerator implements IChunkProvider {
         chunk.generateSkylightMap();
 
         return chunk;
+    }
+
+    /// Fills the chunk's 2D biome array with each column's surface biome (the biome at its top solid block, or at sea
+    /// level for columns without one).
+    private void fillBiomes(Chunk chunk, double[] density, int minY) {
+        int[] surface = SurfaceHeights.fromDensity(density, minY, densitySampler.height());
+        String[] ids = surfaceBiomes.columns(chunk.xPosition, chunk.zPosition, surface, generatorSettings.sea_level);
+
+        int[] biomes = new int[256];
+        for (int column = 0; column < 256; column++) biomes[column] = biomeResolver.resolve(ids[column]).biomeID;
+        ChunkBiomes.current().write(chunk, biomes);
     }
 
     /// Whether a chunk will (probably) be generated later, i.e. it's neither loaded nor saved. Server thread only.
