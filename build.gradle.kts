@@ -6,6 +6,9 @@ plugins {
 
 tasks.test.configure {
     useJUnitPlatform()
+    // The 26.1 client jar addon.gradle's downloadVanillaDatapack caches; biome preset tests read classes from it.
+    systemProperty("databack.vanillaJar",
+        gradle.gradleUserHomeDir.resolve("caches/minecraft-client-jars/minecraft-26.1-client.jar").absolutePath)
     testLogging {
         events("passed", "skipped", "failed")
     }

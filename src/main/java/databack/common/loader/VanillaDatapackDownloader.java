@@ -8,11 +8,14 @@ import java.util.zip.*;
 
 import com.google.gson.*;
 import org.apache.logging.log4j.*;
+import org.jetbrains.annotations.*;
+
+import databack.common.worldgen.biome.preset.VanillaPresetExtractor;
 
 /**
  * Downloads and caches the vanilla Minecraft datapack using HTTP range requests against the
- * official client JAR. Only the {@code data/} directory and {@code pack.mcmeta} are fetched;
- * the full JAR is never downloaded.
+ * official client JAR. Only the {@code data/} directory, {@code pack.mcmeta} and the few classes
+ * in {@link #VANILLA_CLASSES} are fetched; the full JAR is never downloaded.
  *
  * <p>The result is cached under {@code <gameDir>/databack/vanilla-datapack-<version>/} with a
  * {@code .complete} marker file. Subsequent calls return immediately if the marker exists.
@@ -25,6 +28,14 @@ public class VanillaDatapackDownloader {
     private static final String VERSION_MANIFEST_URL =
         "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json";
     static final String CACHE_DIR_NAME = "vanilla-datapack-" + MC_VERSION;
+
+    /**
+     * Class files that are run (never shipped) to build data the datapack itself lacks; see
+     * {@link VanillaPresetExtractor}. Cached under {@link #CLASSES_DIR_NAME}, outside {@code data/}.
+     */
+    public static final List<String> VANILLA_CLASSES = Collections.unmodifiableList(Arrays.asList(
+        VanillaPresetExtractor.OVERWORLD_CLASS, VanillaPresetExtractor.NETHER_CLASS));
+    private static final String CLASSES_DIR_NAME = "classes";
 
     // ZIP format signatures
     private static final int SIG_EOCD = 0x06054b50;
@@ -63,7 +74,7 @@ public class VanillaDatapackDownloader {
         if (cachedDir != null) return cachedDir;
 
         File cacheDir = new File(gameDir, "databack/" + CACHE_DIR_NAME);
-        if (new File(cacheDir, ".complete").exists()) {
+        if (isComplete(cacheDir)) {
             cachedDir = cacheDir;
             return cachedDir;
         }
@@ -85,6 +96,29 @@ public class VanillaDatapackDownloader {
 
         cachedDir = cacheDir;
         return cachedDir;
+    }
+
+    /** The directory a previous {@link #getOrDownload} call returned, or null if none succeeded yet. */
+    @Nullable
+    public static File getCachedDir() {
+        return cachedDir;
+    }
+
+    /** Where an entry of {@link #VANILLA_CLASSES} is cached inside a datapack directory. */
+    @NotNull
+    public static File getClassFile(@NotNull File datapackDir, @NotNull String entry) {
+        return new File(datapackDir, CLASSES_DIR_NAME + "/" + entry);
+    }
+
+    /** Caches made before {@link #VANILLA_CLASSES} existed lack the classes and are downloaded again. */
+    private static boolean isComplete(File cacheDir) {
+        if (!new File(cacheDir, ".complete").exists()) return false;
+
+        for (String entry : VANILLA_CLASSES) {
+            if (!getClassFile(cacheDir, entry).isFile()) return false;
+        }
+
+        return true;
     }
 
     // -------------------------------------------------------------------------
@@ -145,7 +179,7 @@ public class VanillaDatapackDownloader {
         byte[] cd = fetchRange(jarUrl, cdOffset, cdOffset + cdSize - 1);
 
         List<CdEntry> entries = parseCdEntries(cd);
-        LOGGER.info("Found {} entries to extract (data/ + pack.mcmeta)", entries.size());
+        LOGGER.info("Found {} entries to extract (data/ + pack.mcmeta + classes)", entries.size());
 
         if (entries.isEmpty()) {
             throw new IOException("No data/ or pack.mcmeta entries found in client JAR");
@@ -251,7 +285,7 @@ public class VanillaDatapackDownloader {
             return;
         }
 
-        File dest = new File(outDir, e.name);
+        File dest = VANILLA_CLASSES.contains(e.name) ? getClassFile(outDir, e.name) : new File(outDir, e.name);
         dest.getParentFile().mkdirs();
         try (FileOutputStream fos = new FileOutputStream(dest)) {
             fos.write(out);
@@ -303,7 +337,7 @@ public class VanillaDatapackDownloader {
             }
 
             boolean wanted = !name.endsWith("/")
-                && (name.startsWith("data/") || name.equals("pack.mcmeta"));
+                && (name.startsWith("data/") || name.equals("pack.mcmeta") || VANILLA_CLASSES.contains(name));
             if (wanted) {
                 result.add(new CdEntry(name, offset, cSize, uSize, method));
             }
