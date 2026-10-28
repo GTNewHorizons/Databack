@@ -55,6 +55,8 @@ import net.minecraft.world.level.levelgen.structure.StructureStart;
  *   ore veins disabled, which is what Databack generates so far).
  * - `case_<name>_<cx>_<cz>.bin.gz`: chunks of `cases/<name>.json`, a synthetic surface rule on otherwise vanilla
  *   terrain (aquifers and ore veins disabled); after the surface stage.
+ * - `<chunk file>.columns.tsv` beside each surface-stage file: per column, the preliminary surface level the chunk's
+ *   noise state reports.
  * - `index.tsv`: every file written, with its config or case, seed and chunk.
  *
  * Chunk format (gzip, big-endian): int minY, int height, int paletteSize, paletteSize UTF strings
@@ -165,9 +167,26 @@ final class SurfaceReference {
 
         BiomeManager biomes = new BiomeManager(
             (qx, qy, qz) -> source.getNoiseBiome(qx, qy, qz, state.sampler()), BiomeManager.obfuscateSeed(seed));
+        NoiseChunk noise = chunk.getOrCreateNoiseChunk(c -> {
+            throw new IllegalStateException("The noise step left no noise state");
+        });
+        writeColumns(Path.of(surfaceFile.toString().replace(".bin.gz", ".columns.tsv")), chunk, noise);
+
         generator.buildSurface(chunk, new WorldGenerationContext(generator, chunk), state, structures, biomes,
             ctx.biomeRegistry, Blender.empty());
         writeBlocks(surfaceFile, chunk);
+    }
+
+    private static void writeColumns(Path file, ProtoChunk chunk, NoiseChunk noise) throws IOException {
+        int minX = chunk.getPos().getMinBlockX(), minZ = chunk.getPos().getMinBlockZ();
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(file))) {
+            w.println("x\tz\tpreliminary_surface_level");
+            for (int z = 0; z < 16; z++) {
+                for (int x = 0; x < 16; x++) {
+                    w.println(x + "\t" + z + "\t" + noise.preliminarySurfaceLevel(minX + x, minZ + z));
+                }
+            }
+        }
     }
 
     private static NoiseGeneratorSettings withoutAquifers(NoiseGeneratorSettings s, SurfaceRules.RuleSource rule) {
