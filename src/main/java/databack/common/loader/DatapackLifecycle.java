@@ -46,14 +46,4 @@ public class DatapackLifecycle {
 
         DatapackLoader.unload();
     }
-
-    /**
-     * Returns the client to the main menu by unloading the current world.
-     * Must only be called when running on the physical client side
-     * ({@code FMLCommonHandler.instance().getSide() == Side.CLIENT}).
-     */
-    @SideOnly(Side.CLIENT)
-    private static void bailToMainMenu() {
-        Minecraft.getMinecraft().loadWorld(null);
-    }
 }
