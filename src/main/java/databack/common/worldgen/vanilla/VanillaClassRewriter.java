@@ -231,9 +231,18 @@ public final class VanillaClassRewriter {
             if (redirect != null) {
                 super.visitMethodInsn(opcode, redirect, name, mappings.mapDesc(desc), false);
             } else {
-                super.visitMethodInsn(opcode, mappings.mapName(owner), name, mappings.mapDesc(desc),
-                    mappings.isInterfaceCall(owner, itf));
+                boolean mappedItf = mappings.isInterfaceCall(owner, itf);
+                super.visitMethodInsn(virtualOpcode(opcode, mappedItf), mappings.mapName(owner), name,
+                    mappings.mapDesc(desc), mappedItf);
             }
+        }
+
+        /// A replacement may be an interface where vanilla's class was a class, or the other way around; virtual
+        /// calls must use the matching instruction.
+        private static int virtualOpcode(int opcode, boolean itf) {
+            if (opcode == Opcodes.INVOKEVIRTUAL && itf) return Opcodes.INVOKEINTERFACE;
+            if (opcode == Opcodes.INVOKEINTERFACE && !itf) return Opcodes.INVOKEVIRTUAL;
+            return opcode;
         }
 
         @Override

@@ -35,6 +35,9 @@ import databack.common.handlers.WorldPresetList;
 import databack.common.dto.worldgen.biome.DatapackBiome;
 import databack.common.serde.MiscAdapters;
 import databack.common.interop.ChunkBiomes;
+import databack.common.worldgen.aquifer.AquiferSystem;
+import databack.common.worldgen.aquifer.VanillaAquifer;
+import databack.common.worldgen.aquifer.VanillaAquifers;
 import databack.common.worldgen.biome.ClimateSampler;
 import databack.common.worldgen.biome.MultiNoiseBiomeSource;
 import databack.common.worldgen.biome.MultiNoiseParameters;
@@ -68,6 +71,8 @@ public class ModernWorldGenerator implements IChunkProvider {
     private final SurfaceBiomes surfaceBiomes;
     @Nullable
     private final SurfaceSystem surfaceSystem;
+    private final AquiferSystem aquiferSystem;
+    private static final ImmutableBlockMeta LAVA = new BlockMeta(Blocks.lava, 0);
     private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
 
     private final DensityRouter router;
@@ -132,6 +137,9 @@ public class ModernWorldGenerator implements IChunkProvider {
         BiomeZoom zoom = VanillaBiomeZoom.get();
         this.surfaceBiomes = new SurfaceBiomes(biomeSource, zoom, zoom == null ? 0 : zoom.zoomSeed(world.getSeed()));
         this.surfaceSystem = createSurfaceSystem(build, ns, world.getSeed());
+        VanillaAquifer aquifer = generatorSettings.aquifers_enabled ? VanillaAquifers.get() : null;
+        this.aquiferSystem = aquifer == null ? AquiferSystem.disabled(generatorSettings.sea_level)
+            : AquiferSystem.enabled(generatorSettings.sea_level, aquifer, this.router, rng);
     }
 
     /// Null when the noise settings have no surface rule.
@@ -181,7 +189,7 @@ public class ModernWorldGenerator implements IChunkProvider {
         BlockBiomes biomes = surfaceBiomes.forChunk();
         fillBiomes(chunk, biomes, density, minY);
 
-        byte[] kinds = kinds(density, minY);
+        byte[] kinds = aquiferSystem.kinds(chunkX, chunkZ, density, minY, layers);
         ImmutableBlockMeta[] surface = surfaceSystem == null ? new ImmutableBlockMeta[kinds.length]
             : surfaceSystem.apply(chunkX, chunkZ, kinds, minY, layers, biomes);
 
@@ -201,6 +209,8 @@ public class ModernWorldGenerator implements IChunkProvider {
                             setBlock(ebs, x, y, z, surface[index] != null ? surface[index] : solid);
                         } else if (kind == SurfaceSystem.FLUID) {
                             setBlock(ebs, x, y, z, fluid);
+                        } else if (kind == SurfaceSystem.LAVA) {
+                            setBlock(ebs, x, y, z, LAVA);
                         }
                     }
                 }
@@ -210,19 +220,6 @@ public class ModernWorldGenerator implements IChunkProvider {
         chunk.generateSkylightMap();
 
         return chunk;
-    }
-
-    /// Solid where density is positive; without aquifers (not implemented yet), open space below sea level is fluid.
-    private byte[] kinds(double[] density, int minY) {
-        int seaLevel = generatorSettings.sea_level;
-        byte[] kinds = new byte[density.length];
-
-        for (int i = 0; i < density.length; i++) {
-            if (density[i] > 0) kinds[i] = SurfaceSystem.SOLID;
-            else if (minY + (i >> 8) < seaLevel) kinds[i] = SurfaceSystem.FLUID;
-        }
-
-        return kinds;
     }
 
     private static void setBlock(ExtendedBlockStorage ebs, int x, int y, int z, ImmutableBlockMeta block) {

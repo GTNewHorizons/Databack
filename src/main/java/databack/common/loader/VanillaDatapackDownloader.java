@@ -10,6 +10,7 @@ import com.google.gson.*;
 import org.apache.logging.log4j.*;
 import org.jetbrains.annotations.*;
 
+import databack.common.worldgen.aquifer.VanillaAquifer;
 import databack.common.worldgen.biome.preset.VanillaPresetExtractor;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 
@@ -32,12 +33,12 @@ public class VanillaDatapackDownloader {
 
     /**
      * Class files that are run (never shipped) to build data the datapack itself lacks; see
-     * {@link VanillaPresetExtractor} and {@link BiomeZoom}. Cached under {@link #CLASSES_DIR_NAME}, outside
-     * {@code data/}.
+     * {@link VanillaPresetExtractor}, {@link BiomeZoom} and {@link VanillaAquifer}. Cached under
+     * {@link #CLASSES_DIR_NAME}, outside {@code data/}.
      */
     public static final List<String> VANILLA_CLASSES = Collections.unmodifiableList(Arrays.asList(
         VanillaPresetExtractor.OVERWORLD_CLASS, VanillaPresetExtractor.NETHER_CLASS, BiomeZoom.MANAGER_CLASS,
-        BiomeZoom.LCG_CLASS));
+        BiomeZoom.LCG_CLASS, VanillaAquifer.CLASS));
     private static final String CLASSES_DIR_NAME = "classes";
 
     // ZIP format signatures

@@ -14,7 +14,8 @@ import databack.common.worldgen.density.SeededNoise;
 @ThreadSafe
 public final class SurfaceSystem {
 
-    public static final byte AIR = 0, FLUID = 1, SOLID = 2;
+    /// Block kinds: [#FLUID] is the default fluid; [#LAVA] is lava (both are fluid to the surface rules).
+    public static final byte AIR = 0, FLUID = 1, SOLID = 2, LAVA = 3;
 
     @NotNull
     private final SurfaceRule rule;
@@ -43,8 +44,8 @@ public final class SurfaceSystem {
     }
 
     /// Decides the solid blocks of chunk `(chunkX, chunkZ)`. `kinds` covers `layers` layers from `bottomY`, each entry
-    /// [#AIR], [#FLUID] or [#SOLID], at index `((y - bottomY) * 16 + z) * 16 + x`. Returns, at the same indices, the
-    /// block the rule places at each solid position, or null where the default block stays.
+    /// [#AIR], [#FLUID], [#LAVA] or [#SOLID], at index `((y - bottomY) * 16 + z) * 16 + x`. Returns, at the same
+    /// indices, the block the rule places at each solid position, or null where the default block stays.
     @NotNull
     public ImmutableBlockMeta[] apply(
         int chunkX, int chunkZ, byte @NotNull [] kinds, int bottomY, int layers, @NotNull BlockBiomes biomes
@@ -83,9 +84,10 @@ public final class SurfaceSystem {
             byte kind = kinds[index];
 
             if (kind != SOLID) {
-                if (kind == FLUID && ctx.fluidLevel == SurfaceContext.NO_FLUID) ctx.fluidLevel = bottomY + layer + 1;
+                boolean fluid = kind == FLUID || kind == LAVA;
+                if (fluid && ctx.fluidLevel == SurfaceContext.NO_FLUID) ctx.fluidLevel = bottomY + layer + 1;
                 // Fluid under solid ground (a flooded cave), and fluid below it, neither resets nor counts.
-                buried = kind == FLUID && (previousSolid || buried);
+                buried = fluid && (previousSolid || buried);
                 if (!buried) depth = 0;
                 previousSolid = false;
                 continue;
