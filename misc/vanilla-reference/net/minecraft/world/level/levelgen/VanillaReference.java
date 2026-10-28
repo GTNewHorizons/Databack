@@ -50,6 +50,7 @@ public final class VanillaReference {
         // Optional section names after the output directory; all sections run when none are given.
         Set<String> sections = new HashSet<>(Arrays.asList(args).subList(1, args.length));
         if (sections.isEmpty() || sections.contains("biome")) BiomeReference.write(out, lookup);
+        if (sections.isEmpty() || sections.contains("surface")) SurfaceReference.write(out, lookup);
         if (!sections.isEmpty() && !sections.contains("density")) return;
 
         long[] seeds = { 12345L, -987654321L };

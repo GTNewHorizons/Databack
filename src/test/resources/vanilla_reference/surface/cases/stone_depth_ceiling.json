@@ -1,0 +1,290 @@
+{
+  "seed": 12345,
+  "surface_rule": {
+    "type": "minecraft:sequence",
+    "sequence": [
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 0,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:white_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 1,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:orange_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 2,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:magenta_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 3,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:light_blue_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 4,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:yellow_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 5,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:lime_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 6,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:pink_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 7,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:gray_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 8,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:light_gray_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 9,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:cyan_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 10,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:purple_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 11,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:blue_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 12,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:brown_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 13,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:green_wool"
+          }
+        }
+      },
+      {
+        "type": "minecraft:condition",
+        "if_true": {
+          "type": "minecraft:stone_depth",
+          "offset": 14,
+          "add_surface_depth": false,
+          "secondary_depth_range": 0,
+          "surface_type": "ceiling"
+        },
+        "then_run": {
+          "type": "minecraft:block",
+          "result_state": {
+            "Name": "minecraft:red_wool"
+          }
+        }
+      }
+    ]
+  },
+  "chunks": [
+    [
+      -218,
+      -70095
+    ],
+    [
+      -348,
+      6
+    ],
+    [
+      10,
+      455
+    ],
+    [
+      138,
+      107
+    ],
+    [
+      157,
+      -188
+    ],
+    [
+      379,
+      337
+    ],
+    [
+      -64,
+      -172
+    ],
+    [
+      -266,
+      -248
+    ],
+    [
+      22,
+      156
+    ],
+    [
+      -32,
+      -216
+    ]
+  ]
+}
