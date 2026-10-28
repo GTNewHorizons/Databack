@@ -1,0 +1,33 @@
+{
+  "seed": 12345,
+  "router": {
+    "final_density": -1.0,
+    "preliminary_surface_level": 100.0,
+    "barrier": 0.0,
+    "fluid_level_floodedness": 0.9,
+    "fluid_level_spread": 0.0,
+    "lava": 0.0
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      1,
+      1
+    ],
+    [
+      6,
+      -3
+    ]
+  ]
+}
