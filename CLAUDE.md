@@ -20,3 +20,5 @@ The vanilla 26.1 datapack is automatically extracted to build/modernData/data/mi
 When examining the structure of json files in a datapack, use the `jq` command as much as possible (when on linux).
 
 Write tests for as much code as possible.
+
+DO NOT copy Mojang's code. DO NOT use it as a reference. This project MUST be clean-roomed.
