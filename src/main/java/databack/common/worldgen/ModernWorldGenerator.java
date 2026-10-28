@@ -135,9 +135,13 @@ public class ModernWorldGenerator implements IChunkProvider {
     public Chunk provideChunk(int chunkX, int chunkZ) {
         Chunk chunk = new Chunk(world, chunkX, chunkZ);
 
-        ImmutableBlockMeta main = new BlockMeta(
+        ImmutableBlockMeta solid = new BlockMeta(
             this.generatorSettings.default_block.getBlock(),
             this.generatorSettings.default_block.getBlockMeta(0));
+        ImmutableBlockMeta fluid = new BlockMeta(
+            this.generatorSettings.default_fluid.getBlock(),
+            this.generatorSettings.default_fluid.getBlockMeta(0));
+        int seaLevel = this.generatorSettings.sea_level;
 
         // CPU path.
         double[] density = densityPrefetcher.get(chunkX, chunkZ, this::needsGeneration);
@@ -157,13 +161,13 @@ public class ModernWorldGenerator implements IChunkProvider {
 
                 int row = (worldY - minY) * 256;
 
+                // Without aquifers (not implemented yet), everything open below sea level is the default fluid.
                 for (int z = 0; z < 16; z++) {
                     for (int x = 0; x < 16; x++) {
                         if (density[row + z * 16 + x] > 0) {
-                            ebs.func_150818_a(x, y, z, main.getBlock());
-                            if (main.getBlockMeta() != 0) {
-                                ebs.setExtBlockMetadata(x, y, z, main.getBlockMeta());
-                            }
+                            setBlock(ebs, x, y, z, solid);
+                        } else if (worldY < seaLevel) {
+                            setBlock(ebs, x, y, z, fluid);
                         }
                     }
                 }
@@ -173,6 +177,11 @@ public class ModernWorldGenerator implements IChunkProvider {
         chunk.generateSkylightMap();
 
         return chunk;
+    }
+
+    private static void setBlock(ExtendedBlockStorage ebs, int x, int y, int z, ImmutableBlockMeta block) {
+        ebs.func_150818_a(x, y, z, block.getBlock());
+        if (block.getBlockMeta() != 0) ebs.setExtBlockMetadata(x, y, z, block.getBlockMeta());
     }
 
     /// Fills the chunk's 2D biome array with each column's surface biome (the biome at its top solid block, or at sea
