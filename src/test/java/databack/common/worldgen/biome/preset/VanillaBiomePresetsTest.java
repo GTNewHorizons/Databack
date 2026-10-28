@@ -5,27 +5,19 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.List;
-import java.util.zip.ZipFile;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
-import databack.common.loader.VanillaDatapackDownloader;
 import databack.common.worldgen.biome.ClimateEntry;
+import databack.common.worldgen.vanilla.VanillaJar;
 
 class VanillaBiomePresetsTest {
 
-    private static final Path JAR = Paths.get(System.getProperty("databack.vanillaJar",
-        System.getProperty("user.home") + "/.gradle/caches/minecraft-client-jars/minecraft-26.1-client.jar"));
-
     @Test
     void buildsPresetsFromCachedClasses(@TempDir File datapackDir) throws IOException {
-        cacheClasses(datapackDir);
+        VanillaJar.cacheClasses(datapackDir);
 
         List<ClimateEntry> overworld = VanillaBiomePresets.build("minecraft:overworld", datapackDir);
         List<ClimateEntry> nether = VanillaBiomePresets.build("minecraft:nether", datapackDir);
@@ -38,7 +30,7 @@ class VanillaBiomePresetsTest {
 
     @Test
     void unknownPresetIsNull(@TempDir File datapackDir) throws IOException {
-        cacheClasses(datapackDir);
+        VanillaJar.cacheClasses(datapackDir);
         assertNull(VanillaBiomePresets.build("minecraft:the_end", datapackDir));
     }
 
@@ -46,18 +38,5 @@ class VanillaBiomePresetsTest {
     void missingDownloadIsNull(@TempDir File datapackDir) {
         assertNull(VanillaBiomePresets.build("minecraft:overworld", null));
         assertNull(VanillaBiomePresets.build("minecraft:overworld", datapackDir));
-    }
-
-    /// Lays the classes out the way `VanillaDatapackDownloader` caches them.
-    private static void cacheClasses(File datapackDir) throws IOException {
-        try (ZipFile zip = new ZipFile(JAR.toFile())) {
-            for (String entry : VanillaDatapackDownloader.VANILLA_CLASSES) {
-                Path dest = VanillaDatapackDownloader.getClassFile(datapackDir, entry).toPath();
-                Files.createDirectories(dest.getParent());
-                try (InputStream in = zip.getInputStream(zip.getEntry(entry))) {
-                    Files.copy(in, dest);
-                }
-            }
-        }
     }
 }

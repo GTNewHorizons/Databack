@@ -11,6 +11,7 @@ import org.apache.logging.log4j.*;
 import org.jetbrains.annotations.*;
 
 import databack.common.worldgen.biome.preset.VanillaPresetExtractor;
+import databack.common.worldgen.biome.zoom.BiomeZoom;
 
 /**
  * Downloads and caches the vanilla Minecraft datapack using HTTP range requests against the
@@ -31,10 +32,12 @@ public class VanillaDatapackDownloader {
 
     /**
      * Class files that are run (never shipped) to build data the datapack itself lacks; see
-     * {@link VanillaPresetExtractor}. Cached under {@link #CLASSES_DIR_NAME}, outside {@code data/}.
+     * {@link VanillaPresetExtractor} and {@link BiomeZoom}. Cached under {@link #CLASSES_DIR_NAME}, outside
+     * {@code data/}.
      */
     public static final List<String> VANILLA_CLASSES = Collections.unmodifiableList(Arrays.asList(
-        VanillaPresetExtractor.OVERWORLD_CLASS, VanillaPresetExtractor.NETHER_CLASS));
+        VanillaPresetExtractor.OVERWORLD_CLASS, VanillaPresetExtractor.NETHER_CLASS, BiomeZoom.MANAGER_CLASS,
+        BiomeZoom.LCG_CLASS));
     private static final String CLASSES_DIR_NAME = "classes";
 
     // ZIP format signatures

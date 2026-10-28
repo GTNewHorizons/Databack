@@ -13,6 +13,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import databack.common.worldgen.biome.ClimateEntry;
+import databack.common.worldgen.vanilla.VanillaClassLoader;
 
 /// Builds vanilla 26.1's built-in multi-noise parameter list presets by running the vanilla classes that build them
 /// (downloaded from Mojang at runtime, see `VanillaDatapackDownloader`) against stand-ins. Nothing of vanilla's is
@@ -72,8 +73,8 @@ public final class VanillaPresetExtractor {
     }
 
     private static Class<?> load(String entry, byte[] classFile) throws ClassNotFoundException {
-        String name = entry.substring(0, entry.length() - ".class".length()).replace('/', '.');
-        return new PresetClassLoader(name, PresetClassRewriter.rewrite(classFile)).loadClass(name);
+        return VanillaClassLoader.load(Collections.singletonMap(entry, classFile), PresetMappings.MAPPINGS)
+            .loadClass(VanillaClassLoader.binaryName(entry));
     }
 
     private static ClimateEntry toEntry(Object pair) {

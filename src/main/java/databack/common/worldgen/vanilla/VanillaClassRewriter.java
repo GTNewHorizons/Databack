@@ -1,5 +1,7 @@
-package databack.common.worldgen.biome.preset;
+package databack.common.worldgen.vanilla;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 import org.jetbrains.annotations.Contract;
@@ -16,34 +18,36 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.TypePath;
 
-/// Turns a vanilla class file that builds a biome preset into one a Java 8 JVM can load next to the stand-ins:
+/// Turns a vanilla class file into one a Java 8 JVM can load next to Databack's replacements:
 ///
 /// - the class file version becomes Java 8's;
-/// - vanilla names become stand-ins (see [PresetMappings]), biome key constants become their ids, debug flags become
-///   `false` and `List.of` calls go to [PresetLists];
+/// - uses of vanilla classes, static fields and static methods are mapped as its [VanillaMappings] say, and the
+///   interfaces they add are added;
 /// - methods that use anything else ([ForeignMethodScanner]) throw [UnsupportedOperationException] instead, or are
 ///   removed when their descriptor names anything else;
 /// - generic signatures, debug info, annotations and nest/inner-class attributes are dropped.
 ///
 /// Nothing here depends on what the class's methods do, only on which names they use.
-final class PresetClassRewriter {
+public final class VanillaClassRewriter {
 
     private static final int JAVA_8 = 52;
 
-    private PresetClassRewriter() {}
+    private VanillaClassRewriter() {}
 
-    /// Throws when the class cannot be parsed.
+    /// `bundle` holds the internal names of the classes rewritten together; they may use each other freely. Throws
+    /// when the class cannot be parsed.
     @NotNull
-    @Contract("_ -> new")
-    static byte[] rewrite(byte @NotNull [] classFile) {
+    @Contract("_, _, _ -> new")
+    public static byte[] rewrite(
+        byte @NotNull [] classFile, @NotNull VanillaMappings mappings, @NotNull Set<String> bundle
+    ) {
         ClassReader reader = new ClassReader(withJava8Version(classFile));
 
-        ForeignMethodScanner scanner = new ForeignMethodScanner();
+        ForeignMethodScanner scanner = new ForeignMethodScanner(mappings, bundle);
         reader.accept(scanner, ClassReader.SKIP_DEBUG);
 
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-        reader.accept(new ClassRewriter(writer, scanner.foreignMethods(), scanner.unloadableMethods()),
-            ClassReader.SKIP_DEBUG);
+        reader.accept(new ClassRewriter(writer, mappings, scanner), ClassReader.SKIP_DEBUG);
         return writer.toByteArray();
     }
 
@@ -60,22 +64,24 @@ final class PresetClassRewriter {
 
     private static final class ClassRewriter extends ClassVisitor {
 
-        private final Set<String> foreignMethods;
-        private final Set<String> unloadableMethods;
+        private final VanillaMappings mappings;
+        private final ForeignMethodScanner scan;
 
-        ClassRewriter(ClassVisitor next, Set<String> foreignMethods, Set<String> unloadableMethods) {
+        ClassRewriter(ClassVisitor next, VanillaMappings mappings, ForeignMethodScanner scan) {
             super(Opcodes.ASM5, next);
-            this.foreignMethods = foreignMethods;
-            this.unloadableMethods = unloadableMethods;
+            this.mappings = mappings;
+            this.scan = scan;
         }
 
         @Override
         public void visit(
             int version, int access, String name, String signature, String superName, String[] interfaces
         ) {
-            String[] mapped = new String[interfaces.length];
-            for (int i = 0; i < interfaces.length; i++) mapped[i] = PresetMappings.mapName(interfaces[i]);
-            super.visit(JAVA_8, access, name, null, superName, mapped);
+            List<String> mapped = new ArrayList<>();
+            for (String itf : interfaces) mapped.add(mappings.mapName(itf));
+            mapped.addAll(mappings.addedInterfaces(name));
+
+            super.visit(JAVA_8, access, name, null, mappings.mapName(superName), mapped.toArray(new String[0]));
         }
 
         @Override
@@ -104,7 +110,7 @@ final class PresetClassRewriter {
 
         @Override
         public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-            super.visitField(access, name, PresetMappings.mapDesc(desc), null, value);
+            super.visitField(access, name, mappings.mapDesc(desc), null, value);
             return null;
         }
 
@@ -112,16 +118,16 @@ final class PresetClassRewriter {
         public MethodVisitor visitMethod(
             int access, String name, String desc, String signature, String[] exceptions
         ) {
-            if (unloadableMethods.contains(name + desc)) return null;
+            if (scan.unloadableMethods().contains(name + desc)) return null;
 
-            MethodVisitor next = super.visitMethod(access, name, PresetMappings.mapDesc(desc), null, exceptions);
+            MethodVisitor next = super.visitMethod(access, name, mappings.mapDesc(desc), null, exceptions);
 
-            if (foreignMethods.contains(name + desc)) {
+            if (scan.foreignMethods().contains(name + desc)) {
                 writeUnsupportedBody(next, name);
                 return null;
             }
 
-            return new MethodRewriter(next);
+            return new MethodRewriter(next, mappings);
         }
 
         private static void writeUnsupportedBody(MethodVisitor mv, String name) {
@@ -130,7 +136,7 @@ final class PresetClassRewriter {
             mv.visitCode();
             mv.visitTypeInsn(Opcodes.NEW, exception);
             mv.visitInsn(Opcodes.DUP);
-            mv.visitLdcInsn("Not available in extracted preset code: " + name);
+            mv.visitLdcInsn("Not available in rewritten vanilla code: " + name);
             mv.visitMethodInsn(Opcodes.INVOKESPECIAL, exception, "<init>", "(Ljava/lang/String;)V", false);
             mv.visitInsn(Opcodes.ATHROW);
             mv.visitMaxs(0, 0);
@@ -140,8 +146,11 @@ final class PresetClassRewriter {
 
     private static final class MethodRewriter extends MethodVisitor {
 
-        MethodRewriter(MethodVisitor next) {
+        private final VanillaMappings mappings;
+
+        MethodRewriter(MethodVisitor next, VanillaMappings mappings) {
             super(Opcodes.ASM5, next);
+            this.mappings = mappings;
         }
 
         @Override
@@ -187,57 +196,54 @@ final class PresetClassRewriter {
             super.visitFrame(type, nLocal, mapFrame(local, nLocal), nStack, mapFrame(stack, nStack));
         }
 
-        private static Object[] mapFrame(Object[] entries, int count) {
+        private Object[] mapFrame(Object[] entries, int count) {
             if (entries == null) return null;
 
             Object[] mapped = entries.clone();
             for (int i = 0; i < count; i++) {
-                if (mapped[i] instanceof String) mapped[i] = PresetMappings.mapName((String) mapped[i]);
+                if (mapped[i] instanceof String) mapped[i] = mappings.mapName((String) mapped[i]);
             }
             return mapped;
         }
 
         @Override
         public void visitTypeInsn(int opcode, String type) {
-            super.visitTypeInsn(opcode, PresetMappings.mapName(type));
+            super.visitTypeInsn(opcode, mappings.mapName(type));
         }
 
         @Override
         public void visitFieldInsn(int opcode, String owner, String name, String desc) {
-            if (opcode == Opcodes.GETSTATIC && PresetMappings.isBiomeKey(owner, desc)) {
-                super.visitLdcInsn(PresetMappings.biomeId(name));
-            } else if (opcode == Opcodes.GETSTATIC && PresetMappings.isDebugFlag(owner, desc)) {
-                super.visitInsn(Opcodes.ICONST_0);
+            Object constant = opcode == Opcodes.GETSTATIC ? mappings.constant(owner, name, desc) : null;
+
+            if (constant instanceof Boolean) {
+                super.visitInsn((Boolean) constant ? Opcodes.ICONST_1 : Opcodes.ICONST_0);
+            } else if (constant != null) {
+                super.visitLdcInsn(constant);
             } else {
-                super.visitFieldInsn(opcode, PresetMappings.mapName(owner), name, PresetMappings.mapDesc(desc));
+                super.visitFieldInsn(opcode, mappings.mapName(owner), name, mappings.mapDesc(desc));
             }
         }
 
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
-            if (opcode == Opcodes.INVOKESTATIC && PresetMappings.isListOf(owner, name)) {
-                super.visitMethodInsn(opcode, PresetMappings.listOfOwner(), name, desc, false);
-                return;
+            String redirect = opcode == Opcodes.INVOKESTATIC ? mappings.staticRedirect(owner, name) : null;
+
+            if (redirect != null) {
+                super.visitMethodInsn(opcode, redirect, name, mappings.mapDesc(desc), false);
+            } else {
+                super.visitMethodInsn(opcode, mappings.mapName(owner), name, mappings.mapDesc(desc),
+                    mappings.isInterfaceCall(owner, itf));
             }
-
-            String mappedOwner = PresetMappings.mapName(owner);
-            // A stand-in replacing a vanilla interface may be a class, and the other way around.
-            boolean mappedItf = mappedOwner.equals(owner) ? itf : isStandInInterface(mappedOwner);
-            super.visitMethodInsn(opcode, mappedOwner, name, PresetMappings.mapDesc(desc), mappedItf);
-        }
-
-        private static boolean isStandInInterface(String internalName) {
-            return internalName.equals(Type.getInternalName(PresetSourceProvider.class));
         }
 
         @Override
         public void visitMultiANewArrayInsn(String desc, int dims) {
-            super.visitMultiANewArrayInsn(PresetMappings.mapDesc(desc), dims);
+            super.visitMultiANewArrayInsn(mappings.mapDesc(desc), dims);
         }
 
         @Override
         public void visitTryCatchBlock(Label start, Label end, Label handler, String type) {
-            super.visitTryCatchBlock(start, end, handler, type == null ? null : PresetMappings.mapName(type));
+            super.visitTryCatchBlock(start, end, handler, type == null ? null : mappings.mapName(type));
         }
 
         @Override

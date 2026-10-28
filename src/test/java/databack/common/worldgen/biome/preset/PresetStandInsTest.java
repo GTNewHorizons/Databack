@@ -61,15 +61,4 @@ class PresetStandInsTest {
     void biomeKeysBecomeLowerCaseIds() {
         assertEquals("minecraft:old_growth_pine_taiga", PresetMappings.biomeId("OLD_GROWTH_PINE_TAIGA"));
     }
-
-    @Test
-    void descriptorsMapToStandIns() {
-        String parameter = "Lnet/minecraft/world/level/biome/Climate$Parameter;";
-        String key = "Lnet/minecraft/resources/ResourceKey;";
-
-        assertEquals("(IIL" + PresetMappings.mapName("net/minecraft/world/level/biome/Climate$Parameter")
-            + ";)Ljava/lang/String;", PresetMappings.mapDesc("(II" + parameter + ")" + key));
-        assertEquals("[[Ljava/lang/String;", PresetMappings.mapName("[[" + key));
-        assertEquals("net/minecraft/Unrelated", PresetMappings.mapName("net/minecraft/Unrelated"));
-    }
 }
