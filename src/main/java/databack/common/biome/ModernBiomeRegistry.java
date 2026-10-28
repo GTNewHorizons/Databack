@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
 import java.util.Set;
+import java.util.TreeMap;
+import java.util.function.Consumer;
 
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.biome.BiomeGenBase;
@@ -28,6 +30,9 @@ import databack.common.interop.registry.ProxyBiomeRegistry;
 ///
 /// In modern-only mode every datapack biome gets a [ModernBiome], and a 1.7 biome registered under the same id (e.g.
 /// `minecraft:plains`) is moved to `<namespace>:legacy/<path>` while the [ModernBiome] is active.
+///
+/// The server decides which biomes exist and their numbers ([#activate]); a client connected to a remote server
+/// mirrors that exactly ([#synchronize]).
 @NotThreadSafe
 public final class ModernBiomeRegistry {
 
@@ -40,22 +45,26 @@ public final class ModernBiomeRegistry {
     private final BiomeGenBase @NotNull [] biomeList;
     private final int idLimit;
     private final boolean modernOnly;
+    @NotNull
+    private final Consumer<ModernBiome> configure;
 
     private final Map<String, ModernBiome> interned = new HashMap<>();
     private final Set<String> active = new HashSet<>();
     /// 1.7 biomes moved aside for an active [ModernBiome] of the same id, by that id.
     private final Map<String, BiomeGenBase> displaced = new HashMap<>();
 
-    /// `biomeList` is the global biome list; ids at or above `idLimit` are never assigned.
+    /// `biomeList` is the global biome list; ids at or above `idLimit` are never assigned. `configure` is applied to
+    /// every active biome after each [#activate] or [#synchronize], e.g. to set its properties from the datapacks.
     public ModernBiomeRegistry(
         @NotNull ModernBiomeIds ids, @NotNull ProxyBiomeRegistry proxy, BiomeGenBase @NotNull [] biomeList,
-        int idLimit, boolean modernOnly
+        int idLimit, boolean modernOnly, @NotNull Consumer<ModernBiome> configure
     ) {
         this.ids = ids;
         this.proxy = proxy;
         this.biomeList = biomeList;
         this.idLimit = Math.min(idLimit, biomeList.length);
         this.modernOnly = modernOnly;
+        this.configure = configure;
     }
 
     /// Makes exactly the [ModernBiome]s the datapack biome ids `datapackBiomes` need active. Biomes without a free
@@ -72,9 +81,55 @@ public final class ModernBiomeRegistry {
 
         List<String> sorted = new ArrayList<>(needed);
         sorted.sort(null);
+        int known = interned.size();
         for (String id : sorted) {
             if (!active.contains(id)) activate(id);
         }
+
+        configureActive();
+        LOGGER.info("{} of {} datapack biomes use modern biomes ({} new this session); the rest use 1.7 biomes",
+            active.size(), datapackBiomes.size(), interned.size() - known);
+    }
+
+    /// Makes exactly the biomes in `served` (datapack id to numeric id, as a server's [#activeIds]) active, with those
+    /// numbers. Never assigns or saves ids. A biome whose number is taken by another biome stays unavailable (logged).
+    public void synchronize(@NotNull Map<String, Integer> served) {
+        for (String id : new ArrayList<>(active)) {
+            Integer number = served.get(id);
+            if (number == null || number != interned.get(id).biomeID) deactivate(interned.get(id));
+        }
+
+        for (Map.Entry<String, Integer> e : new TreeMap<>(served).entrySet()) {
+            if (active.contains(e.getKey())) continue;
+
+            ModernBiome biome = interned.get(e.getKey());
+            int number = e.getValue();
+
+            if (biome == null || biome.biomeID != number) {
+                if (number < 0 || number >= biomeList.length || biomeList[number] != null) {
+                    LOGGER.warn("Server biome id {} of {} is unusable here; {} is unavailable", number, e.getKey(),
+                        e.getKey());
+                    continue;
+                }
+                biome = new ModernBiome(number, e.getKey());
+                interned.put(e.getKey(), biome);
+            } else if (!claimSlot(biome)) {
+                continue;
+            }
+
+            register(biome);
+        }
+
+        configureActive();
+        LOGGER.info("Using the server's {} modern biomes ({} of them available here)", served.size(), active.size());
+    }
+
+    /// The active biomes' numeric ids, by datapack id.
+    @NotNull
+    public Map<String, Integer> activeIds() {
+        Map<String, Integer> result = new TreeMap<>();
+        for (String id : active) result.put(id, interned.get(id).biomeID);
+        return result;
     }
 
     /// The active [ModernBiome] for a datapack id, or null.
@@ -97,15 +152,31 @@ public final class ModernBiomeRegistry {
             biome = create(id);
             if (biome == null) return;
             interned.put(id, biome);
-        } else if (biomeList[biome.biomeID] != null && biomeList[biome.biomeID] != biome) {
-            LOGGER.warn("Biome id {} of {} is now used by {}; {} is unavailable", biome.biomeID, id,
-                biomeList[biome.biomeID].biomeName, id);
+        } else if (!claimSlot(biome)) {
             return;
-        } else {
-            biomeList[biome.biomeID] = biome;
         }
 
+        register(biome);
+    }
+
+    /// Puts an interned biome back into its slot of the global list. False (logged) when another biome holds it.
+    private boolean claimSlot(ModernBiome biome) {
+        BiomeGenBase holder = biomeList[biome.biomeID];
+        if (holder != null && holder != biome) {
+            LOGGER.warn("Biome id {} of {} is now used by {}; {} is unavailable", biome.biomeID,
+                biome.getDatapackId(), holder.biomeName, biome.getDatapackId());
+            return false;
+        }
+
+        biomeList[biome.biomeID] = biome;
+        return true;
+    }
+
+    /// Registers a biome that holds its slot under its datapack id, moving a same-named 1.7 biome aside.
+    private void register(ModernBiome biome) {
+        String id = biome.getDatapackId();
         ResourceLocation key = new ResourceLocation(id);
+
         BiomeGenBase existing = proxy.getObject(key);
         if (existing != null && !(existing instanceof ModernBiome)) {
             displaced.put(id, existing);
@@ -114,6 +185,10 @@ public final class ModernBiomeRegistry {
 
         proxy.putBiomeReplacing(key, biome);
         active.add(id);
+    }
+
+    private void configureActive() {
+        for (String id : active) configure.accept(interned.get(id));
     }
 
     @Nullable

@@ -35,6 +35,8 @@ public class DatapackEvent extends Event {
 
     }
 
+    /// Posted after every handler has synced its data to `player` (or refreshed the integrated client), so packets
+    /// sent from a subscriber arrive after that data.
     public static class DatapackSyncEvent extends DatapackEvent {
 
         public final EntityPlayerMP player;

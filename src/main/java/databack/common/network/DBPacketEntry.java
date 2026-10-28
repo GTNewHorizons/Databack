@@ -4,6 +4,7 @@ public enum DBPacketEntry {
 
     SyncJsonHandler(new PacketEncoderSyncJsonHandler()),
     SyncTagHandler(new PacketEncoderSyncTagHandler()),
+    SyncModernBiomes(new PacketEncoderSyncModernBiomes()),
     //
     ;
 

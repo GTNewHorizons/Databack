@@ -190,8 +190,6 @@ public final class DatapackLoader {
     }
 
     public static void syncToPlayer(EntityPlayerMP player) {
-        MinecraftForge.EVENT_BUS.post(new DatapackSyncEvent(player));
-
         if (isIntegratedServer()) {
             DatapackHandlerRegistry.forEach((path, handler) -> {
                 try {
@@ -216,6 +214,8 @@ public final class DatapackLoader {
                 }
             });
         }
+
+        MinecraftForge.EVENT_BUS.post(new DatapackSyncEvent(player));
     }
 
     /**
