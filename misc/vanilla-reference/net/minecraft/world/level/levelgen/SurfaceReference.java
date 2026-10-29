@@ -145,9 +145,14 @@ final class SurfaceReference {
         }
     }
 
+    /// A chunk after the surface step, with what later steps need.
+    record Generated(ProtoChunk chunk, NoiseBasedChunkGenerator generator, RandomState state, BiomeManager biomes,
+        StructureManager structures) {}
+
     /// Runs the biome, noise and surface steps on one chunk. `noiseFile` (if not null) gets the chunk after the noise
-    /// step, `surfaceFile` (if not null; otherwise the surface step is skipped) after the surface step.
-    static void generate(
+    /// step, `surfaceFile` (if not null; otherwise the surface step is skipped and null returned) after the surface
+    /// step.
+    static Generated generate(
         Context ctx, NoiseGeneratorSettings settings, MultiNoiseBiomeSourceParameterList.Preset preset, long seed,
         int chunkX, int chunkZ, Path noiseFile, Path surfaceFile
     ) throws IOException {
@@ -164,7 +169,7 @@ final class SurfaceReference {
         chunk.fillBiomesFromNoise(source, state.sampler());
         generator.fillFromNoise(Blender.empty(), state, structures, chunk).join();
         if (noiseFile != null) writeBlocks(noiseFile, chunk);
-        if (surfaceFile == null) return;
+        if (surfaceFile == null) return null;
 
         BiomeManager biomes = new BiomeManager(
             (qx, qy, qz) -> source.getNoiseBiome(qx, qy, qz, state.sampler()), BiomeManager.obfuscateSeed(seed));
@@ -176,6 +181,7 @@ final class SurfaceReference {
         generator.buildSurface(chunk, new WorldGenerationContext(generator, chunk), state, structures, biomes,
             ctx.biomeRegistry, Blender.empty());
         writeBlocks(surfaceFile, chunk);
+        return new Generated(chunk, generator, state, biomes, structures);
     }
 
     private static void writeColumns(Path file, ProtoChunk chunk, NoiseChunk noise) throws IOException {
@@ -202,7 +208,7 @@ final class SurfaceReference {
             s.spawnTarget(), s.seaLevel(), s.disableMobGeneration(), aquifers, oreVeins, s.useLegacyRandomSource());
     }
 
-    private static void writeBlocks(Path file, ProtoChunk chunk) throws IOException {
+    static void writeBlocks(Path file, ProtoChunk chunk) throws IOException {
         int minY = chunk.getMinY(), height = chunk.getHeight();
         int minX = chunk.getPos().getMinBlockX(), minZ = chunk.getPos().getMinBlockZ();
 
