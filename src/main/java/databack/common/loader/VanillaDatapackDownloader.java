@@ -12,6 +12,7 @@ import org.jetbrains.annotations.*;
 
 import databack.common.worldgen.aquifer.VanillaAquifer;
 import databack.common.worldgen.carver.VanillaCarvers;
+import databack.common.worldgen.feature.VanillaFeatures;
 import databack.common.worldgen.biome.preset.VanillaPresetExtractor;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 
@@ -34,16 +35,17 @@ public class VanillaDatapackDownloader {
 
     /**
      * Class files that are run (never shipped) to build data the datapack itself lacks; see
-     * {@link VanillaPresetExtractor}, {@link BiomeZoom} and {@link VanillaAquifer}. Cached under
-     * {@link #CLASSES_DIR_NAME}, outside {@code data/}.
+     * {@link VanillaPresetExtractor}, {@link BiomeZoom}, {@link VanillaAquifer}, {@link VanillaCarvers} and
+     * {@link VanillaFeatures}. Cached under {@link #CLASSES_DIR_NAME}, outside {@code data/}.
      */
     public static final List<String> VANILLA_CLASSES = Collections.unmodifiableList(concat(Arrays.asList(
         VanillaPresetExtractor.OVERWORLD_CLASS, VanillaPresetExtractor.NETHER_CLASS, BiomeZoom.MANAGER_CLASS,
-        BiomeZoom.LCG_CLASS, VanillaAquifer.CLASS), VanillaCarvers.CLASSES));
+        BiomeZoom.LCG_CLASS, VanillaAquifer.CLASS), VanillaCarvers.CLASSES, VanillaFeatures.CLASSES));
 
-    private static List<String> concat(List<String> a, List<String> b) {
-        List<String> all = new java.util.ArrayList<>(a);
-        all.addAll(b);
+    @SafeVarargs
+    private static List<String> concat(List<String> first, List<String>... rest) {
+        List<String> all = new java.util.ArrayList<>(first);
+        for (List<String> list : rest) all.addAll(list);
         return all;
     }
     private static final String CLASSES_DIR_NAME = "classes";

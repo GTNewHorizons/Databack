@@ -11,6 +11,8 @@ import java.util.Set;
 import java.util.function.Supplier;
 
 import org.junit.jupiter.api.Test;
+import org.objectweb.asm.Handle;
+import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 class VanillaMappingsTest {
@@ -66,5 +68,46 @@ class VanillaMappingsTest {
             mappings.addedInterfaces("net/minecraft/Thing"));
         assertThrows(IllegalArgumentException.class,
             () -> VanillaMappings.builder().addInterface("x/Y", String.class));
+    }
+
+    @Test
+    void recordsStayRecordsOnlyOnModernRuntimes() {
+        Set<String> bundle = Collections.emptySet();
+        VanillaMappings modern = VanillaMappings.builder().modernRuntime(true).build();
+        VanillaMappings legacy = VanillaMappings.builder().modernRuntime(false).build();
+
+        assertEquals("java/lang/Record", modern.mapName("java/lang/Record"));
+        assertEquals("java/lang/Object", legacy.mapName("java/lang/Record"));
+        assertTrue(modern.isSupportedClass(bundle, "java/lang/Record"));
+    }
+
+    @Test
+    void recordMethodsAndConcatenationNeedAModernRuntime() {
+        Set<String> bundle = Collections.singleton("net/minecraft/Self");
+        Handle objectMethods = new Handle(Opcodes.H_INVOKESTATIC, "java/lang/runtime/ObjectMethods", "bootstrap",
+            "()Ljava/lang/Object;");
+        Handle concat = new Handle(Opcodes.H_INVOKESTATIC, "java/lang/invoke/StringConcatFactory",
+            "makeConcatWithConstants", "()Ljava/lang/invoke/CallSite;");
+        Object[] recordArgs = { Type.getObjectType("net/minecraft/Self"), "x",
+            new Handle(Opcodes.H_GETFIELD, "net/minecraft/Self", "x", "I") };
+        Object[] foreignArgs = { Type.getObjectType("net/minecraft/Self"), "x",
+            new Handle(Opcodes.H_GETFIELD, "net/minecraft/Other", "x", "I") };
+
+        VanillaMappings modern = VanillaMappings.builder().modernRuntime(true).build();
+        VanillaMappings legacy = VanillaMappings.builder().modernRuntime(false).build();
+
+        assertEquals(VanillaMappings.Lambda.MAPPED,
+            modern.lambda(bundle, "(Lnet/minecraft/Self;)I", objectMethods, recordArgs));
+        assertEquals(VanillaMappings.Lambda.UNSUPPORTED,
+            modern.lambda(bundle, "(Lnet/minecraft/Self;)I", objectMethods, foreignArgs));
+        assertEquals(VanillaMappings.Lambda.UNSUPPORTED,
+            legacy.lambda(bundle, "(Lnet/minecraft/Self;)I", objectMethods, recordArgs));
+
+        assertEquals(VanillaMappings.Lambda.MAPPED,
+            modern.lambda(bundle, "(I)Ljava/lang/String;", concat, new Object[] { "\u0001!" }));
+        assertEquals(VanillaMappings.Lambda.UNSUPPORTED,
+            modern.lambda(bundle, "(Lnet/minecraft/Other;)Ljava/lang/String;", concat, new Object[] { "\u0001" }));
+        assertEquals(VanillaMappings.Lambda.UNSUPPORTED,
+            legacy.lambda(bundle, "(I)Ljava/lang/String;", concat, new Object[] { "\u0001!" }));
     }
 }

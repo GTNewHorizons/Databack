@@ -54,6 +54,7 @@ public final class VanillaReference {
         if (sections.isEmpty() || sections.contains("aquifer")) AquiferReference.write(out, lookup);
         if (sections.isEmpty() || sections.contains("ore_vein")) OreVeinReference.write(out, lookup);
         if (sections.isEmpty() || sections.contains("carver")) CarverReference.write(out, lookup);
+        if (sections.isEmpty() || sections.contains("feature")) FeatureReference.write(out, lookup);
         if (!sections.isEmpty() && !sections.contains("density")) return;
 
         long[] seeds = { 12345L, -987654321L };

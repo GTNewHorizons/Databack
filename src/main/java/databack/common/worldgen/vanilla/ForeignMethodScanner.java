@@ -1,6 +1,8 @@
 package databack.common.worldgen.vanilla;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import org.jetbrains.annotations.NotNull;
@@ -20,6 +22,7 @@ final class ForeignMethodScanner extends ClassVisitor {
     private final Set<String> bundle;
     private final Set<String> foreign = new HashSet<>();
     private final Set<String> unloadable = new HashSet<>();
+    private final Map<String, Set<String>> bundleCalls = new HashMap<>();
 
     ForeignMethodScanner(VanillaMappings mappings, Set<String> bundle) {
         super(Opcodes.ASM5);
@@ -39,8 +42,18 @@ final class ForeignMethodScanner extends ClassVisitor {
         return unloadable;
     }
 
+    /// The calls each method makes to the bundle's classes, as `owner.name` + descriptor, by `name + desc`. Valid
+    /// after the class has been visited.
+    @NotNull
+    Map<String, Set<String>> bundleCalls() {
+        return bundleCalls;
+    }
+
     @Override
     public MethodVisitor visitMethod(int access, String name, String desc, String signature, String[] exceptions) {
+        // Static initializers are best-effort ([VanillaClassRewriter]), never foreign.
+        if (name.equals("<clinit>")) return null;
+
         if (!isSupportedDescriptor(desc)) {
             foreign.add(name + desc);
             unloadable.add(name + desc);
@@ -85,6 +98,9 @@ final class ForeignMethodScanner extends ClassVisitor {
         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
             boolean redirected = opcode == Opcodes.INVOKESTATIC && mappings.staticRedirect(owner, name) != null;
             require(redirected || mappings.isSupportedClass(bundle, owner));
+            if (bundle.contains(owner)) {
+                bundleCalls.computeIfAbsent(method, k -> new HashSet<>()).add(owner + "." + name + desc);
+            }
         }
 
         @Override

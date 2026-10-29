@@ -28,10 +28,12 @@ public final class VanillaClassLoader extends ClassLoader {
         Set<String> bundle = new HashSet<>();
         for (String entry : classFiles.keySet()) bundle.add(internalName(entry));
 
+        Set<String> foreign = VanillaClassRewriter.failingMethods(classFiles.values(), mappings, bundle);
+
         Map<String, byte[]> rewritten = new HashMap<>();
         for (Map.Entry<String, byte[]> e : classFiles.entrySet()) {
             rewritten.put(binaryName(e.getKey()),
-                VanillaClassRewriter.rewrite(e.getValue(), mappings, bundle));
+                VanillaClassRewriter.rewrite(e.getValue(), mappings, bundle, foreign));
         }
 
         return new VanillaClassLoader(rewritten);

@@ -120,10 +120,9 @@ public class BuiltinIntProviders {
 
         @Override
         public int get(Random random) {
-            float f = (float)(max - min);
-            float g = (float)plateau;
-            float h = (f - g) / 2.0f;
-            return min + (int)Math.floor(h + Math.abs(random.nextFloat() * f - h - g / 2.0f));
+            float range = max - min;
+            float slope = (range - plateau) / 2.0f;
+            return min + (int) Math.floor(slope + Math.abs(random.nextFloat() * range - slope - plateau / 2.0f));
         }
     }
 }

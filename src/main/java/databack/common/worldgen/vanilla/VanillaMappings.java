@@ -26,6 +26,7 @@ import org.objectweb.asm.Type;
 public final class VanillaMappings {
 
     private static final Pattern OBJECT_TYPE = Pattern.compile("L([^;]+);");
+    static final String OBJECT = "java/lang/Object";
 
     private final Map<String, String> classes;
     private final Set<String> interfaceReplacements;
@@ -34,6 +35,8 @@ public final class VanillaMappings {
     private final Map<String, Function<String, Object>> constantFields;
     private final Map<String, List<String>> addedInterfaces;
     private final Set<String> nullLambdaTargets;
+    private final List<String> inertPrefixes;
+    private final boolean modernRuntime;
 
     private VanillaMappings(Builder b) {
         this.classes = new HashMap<>(b.classes);
@@ -43,6 +46,14 @@ public final class VanillaMappings {
         this.constantFields = new HashMap<>(b.constantFields);
         this.addedInterfaces = new HashMap<>(b.addedInterfaces);
         this.nullLambdaTargets = new HashSet<>(b.nullLambdaTargets);
+        this.inertPrefixes = new ArrayList<>(b.inertPrefixes);
+        this.modernRuntime = b.modernRuntime;
+        // Records stay records where the JVM has them; elsewhere they are plain classes.
+        if (modernRuntime) {
+            passthrough.add(RECORD);
+        } else {
+            classes.put(RECORD, OBJECT);
+        }
     }
 
     @NotNull
@@ -56,8 +67,54 @@ public final class VanillaMappings {
     @Contract(pure = true)
     public String mapName(@NotNull String name) {
         if (name.startsWith("[")) return mapDesc(name);
+        if (isInert(name)) return OBJECT;
         String mapped = classes.get(name);
         return mapped != null ? mapped : name;
+    }
+
+    /// Maps a field's descriptor. Fields of unsupported types become [Object] fields: only best-effort static
+    /// initializers can set them (to null), and reflection on the class would otherwise try to load the type.
+    @NotNull
+    @Contract(pure = true)
+    String mapFieldDesc(@NotNull Set<String> bundle, @NotNull String desc) {
+        return isSupportedType(bundle, Type.getType(desc)) ? mapDesc(desc) : "L" + OBJECT + ";";
+    }
+
+    /// Whether `type` is an inert class ([Builder#inert]), or an array of one.
+    @Contract(pure = true)
+    boolean isInertType(@NotNull Type type) {
+        Type element = type.getSort() == Type.ARRAY ? type.getElementType() : type;
+        return element.getSort() == Type.OBJECT && isInert(element.getInternalName());
+    }
+
+    /// Whether `owner` (a vanilla name) is replaced by a Databack class ([Builder#mapClass]).
+    @Contract(pure = true)
+    boolean isReplaced(@NotNull String owner) {
+        return classes.containsKey(owner);
+    }
+
+    /// Erases the bundled classes in a field or method descriptor to [Object]. Replacements are compiled without the
+    /// bundle, so this is how they see it.
+    @NotNull
+    @Contract(pure = true)
+    String eraseBundle(@NotNull Set<String> bundle, @NotNull String desc) {
+        Matcher m = OBJECT_TYPE.matcher(desc);
+        StringBuffer out = new StringBuffer();
+        while (m.find()) {
+            String name = bundle.contains(m.group(1)) ? OBJECT : m.group(1);
+            m.appendReplacement(out, Matcher.quoteReplacement("L" + name + ";"));
+        }
+        m.appendTail(out);
+        return out.toString();
+    }
+
+    /// Whether `name` (a class's internal name) is inert ([Builder#inert]).
+    @Contract(pure = true)
+    public boolean isInert(@NotNull String name) {
+        for (String prefix : inertPrefixes) {
+            if (name.startsWith(prefix)) return true;
+        }
+        return false;
     }
 
     /// Maps every class named in a field or method descriptor.
@@ -94,7 +151,7 @@ public final class VanillaMappings {
         if (element.getSort() != Type.OBJECT) return true;
 
         String name = element.getInternalName();
-        return bundle.contains(name) || classes.containsKey(name) || passthrough.contains(name);
+        return bundle.contains(name) || classes.containsKey(name) || passthrough.contains(name) || isInert(name);
     }
 
     /// The constant a static field read becomes, or null if the field is not replaced by a constant.
@@ -114,7 +171,7 @@ public final class VanillaMappings {
 
     /// How an `invokedynamic` instruction is rewritten.
     enum Lambda {
-        /// Kept, with its types and implementation method mapped.
+        /// Kept, with its types and method handles mapped.
         MAPPED,
         /// Replaced by null ([Builder#nullLambdasOver]).
         NULL,
@@ -123,18 +180,29 @@ public final class VanillaMappings {
     }
 
     private static final String LAMBDA_FACTORY = "java/lang/invoke/LambdaMetafactory";
+    private static final String OBJECT_METHODS = "java/lang/runtime/ObjectMethods";
+    private static final String STRING_CONCAT = "java/lang/invoke/StringConcatFactory";
+    private static final String RECORD = "java/lang/Record";
 
-    /// Classifies an `invokedynamic`. Only plain lambdas and method references ([java.lang.invoke.LambdaMetafactory]'s
-    /// `metafactory`) are supported.
+    /// Classifies an `invokedynamic`. Supported: plain lambdas and method references
+    /// ([java.lang.invoke.LambdaMetafactory]'s `metafactory`), and on a modern runtime ([Builder#modernRuntime])
+    /// records' generated methods and string concatenation. References to inert classes' methods are null.
     @NotNull
     @Contract(pure = true)
     Lambda lambda(@NotNull Set<String> bundle, @NotNull String desc, @NotNull Handle bootstrap, Object @NotNull [] args) {
+        if (bootstrap.getOwner().equals(OBJECT_METHODS) || bootstrap.getOwner().equals(STRING_CONCAT)) {
+            return modernRuntime && isSupportedMethod(bundle, desc) && areSupportedConstants(bundle, args)
+                ? Lambda.MAPPED : Lambda.UNSUPPORTED;
+        }
         if (!bootstrap.getOwner().equals(LAMBDA_FACTORY) || !bootstrap.getName().equals("metafactory")
             || args.length != 3 || !(args[1] instanceof Handle)) {
             return Lambda.UNSUPPORTED;
         }
 
         Handle impl = (Handle) args[1];
+        // A method of an inert class would do nothing; so may the lambda.
+        if (isInert(impl.getOwner())) return Lambda.NULL;
+
         boolean nulled = nullLambdaTargets.contains(impl.getOwner());
         for (Type t : methodTypes(impl.getDesc())) nulled |= nullLambdaTargets.contains(typeName(t));
 
@@ -144,6 +212,17 @@ public final class VanillaMappings {
         if (!isSupportedMethod(bundle, desc)) return Lambda.UNSUPPORTED;
         if (supported) return Lambda.MAPPED;
         return nulled ? Lambda.NULL : Lambda.UNSUPPORTED;
+    }
+
+    /// Whether the classes and method handles among an `invokedynamic`'s bootstrap arguments are supported.
+    private boolean areSupportedConstants(Set<String> bundle, Object[] args) {
+        for (Object arg : args) {
+            if (arg instanceof Type && ((Type) arg).getSort() != Type.METHOD && !isSupportedType(bundle, (Type) arg)) {
+                return false;
+            }
+            if (arg instanceof Handle && !isSupportedClass(bundle, ((Handle) arg).getOwner())) return false;
+        }
+        return true;
     }
 
     /// Whether every type in a method descriptor is supported.
@@ -191,9 +270,12 @@ public final class VanillaMappings {
         private final Map<String, Function<String, Object>> constantFields = new HashMap<>();
         private final Map<String, List<String>> addedInterfaces = new HashMap<>();
         private final Set<String> nullLambdaTargets = new HashSet<>();
+        private final List<String> inertPrefixes = new ArrayList<>();
+        private boolean modernRuntime = isModernRuntime();
 
         private Builder() {
             passthrough.add("java/lang/Object");
+            passthrough.add("java/lang/String");
         }
 
         /// Replaces every use of `vanilla` with `replacement`, which must have the members the vanilla code uses,
@@ -251,6 +333,35 @@ public final class VanillaMappings {
         public Builder nullLambdasOver(@NotNull String... names) {
             Collections.addAll(nullLambdaTargets, names);
             return this;
+        }
+
+        /// Makes the classes whose internal names start with one of `prefixes` inert: code that only builds things
+        /// nobody uses (codecs, registries). Their types become [Object], reading their static fields or calling
+        /// their methods (constructors included) gives null, zero or nothing, and they are dropped from interface
+        /// lists. Such classes must never be what a supported computation depends on.
+        @NotNull
+        @Contract("_ -> this")
+        public Builder inert(@NotNull String... prefixes) {
+            Collections.addAll(inertPrefixes, prefixes);
+            return this;
+        }
+
+        /// Whether the JVM running the rewritten classes has records and indified string concatenation (Java 16+).
+        /// Detected by default; set only to test either case.
+        @NotNull
+        @Contract("_ -> this")
+        public Builder modernRuntime(boolean modern) {
+            this.modernRuntime = modern;
+            return this;
+        }
+
+        private static boolean isModernRuntime() {
+            try {
+                Class.forName("java.lang.Record");
+                return true;
+            } catch (ClassNotFoundException e) {
+                return false;
+            }
         }
 
         @NotNull
