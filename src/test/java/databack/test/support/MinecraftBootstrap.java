@@ -12,11 +12,13 @@ import sun.misc.Unsafe;
 
 import com.gtnewhorizon.gtnhlib.blockstate.init.BlockPropertyInit;
 
+import databack.common.interop.EFRBlockIdentities;
 import databack.common.interop.VanillaBlockIdentities;
 import databack.common.interop.registry.BlockIdentityRegistry;
 
-/// Registers 1.7.10's blocks and items, and Databack's vanilla block identities, outside the game, so tests can use
-/// [net.minecraft.init.Blocks], block metas and identities. Applies the member-only mixins first ([TestMixins]).
+/// Registers 1.7.10's blocks and items, Et Futurum Requiem's blocks ([EFRBootstrap]), and Databack's block identities,
+/// outside the game, so tests can use [net.minecraft.init.Blocks], block metas and identities. Applies the
+/// member-only mixins first ([TestMixins]).
 /// Every test JVM runs it first ([MinecraftTestSession]); benchmarks call [#init] themselves.
 ///
 /// Forge's registry asks [Loader] for the active mod, and a real Loader only works under LaunchWrapper's class
@@ -39,8 +41,11 @@ public final class MinecraftBootstrap {
         Item.registerItems();
         // GTNHLib registers the vanilla blocks' properties in its own init, which tests do not run.
         BlockPropertyInit.init();
+        EFRBootstrap.registerBlocks();
 
+        // As CommonProxy does with Et Futurum Requiem present; FML's loader itself still lists no mods.
         VanillaBlockIdentities.init();
+        EFRBlockIdentities.init();
         BlockIdentityRegistry.INSTANCE.claimUnrenamedVanilla();
     }
 

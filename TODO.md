@@ -110,3 +110,25 @@ ore, deepslate iron ore, raw copper/iron blocks, granite, tuff; deepslate and it
 The full 26.1 block list (ids and state properties) comes from vanilla's data generator, run on the harness jar:
 `java -cp <harness classpath> net.minecraft.data.Main --reports --output <dir>` → `reports/blocks.json`
 (`jq -r 'keys[]' blocks.json` for ids).
+
+---
+
+## EFR block properties — GTNHLib properties for EFR's own blocks
+
+Modern block state properties reach 1.7 meta through GTNHLib's `BlockPropertyRegistry` (`MiscAdapters.resolveBlockState`
+writes them, `LegacyStates.toModern` reads them back). EFR registers no GTNHLib properties itself. GTNHLib's own
+registrations reach EFR blocks only where they are by type: EFR stairs (`facing`, half), slabs (top), logs and pillars
+(`axis`) and trapdoors (`facing`, half, `open`) already work.
+
+These EFR blocks report no properties, so a datapack's `facing`, `axis` and the like are dropped (logged as having no
+1.7 equivalent) and the block gets its default meta:
+
+- observer, barrel, smoker (GTNHLib's furnace `facing` is registered on vanilla's furnace only), bee nest / beehive
+  (`facing`, `honey_level`), chain (`axis`), lantern (`hanging`);
+- EFR doors (vanilla's wooden door reports none either).
+
+Survey the rest of `ModBlocks` the same way (dump `BlockPropertyRegistry.getBlockState(block, meta).toMap()` per meta in
+a test; tests register EFR's blocks, see `src/test/java/databack/test/support/EFRBootstrap.java`). Register the missing
+properties with `BlockPropertyRegistry.registerProperty`, next to `EFRBlockIdentities`, using modern property names and
+values (or translating in `PropertyTranslator`). Meta layouts come from each block's 1.7 class. Needed once features or
+structures place oriented EFR blocks.

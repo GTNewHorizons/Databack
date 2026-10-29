@@ -18,7 +18,8 @@ import net.minecraft.launchwrapper.Launch;
 import net.minecraft.launchwrapper.LaunchClassLoader;
 
 /// Runs Mixin in tests, with Databack's early mixins (`mixins.databack.test.json`): Mixin's own transformer, driven
-/// by a load-time agent instead of LaunchWrapper. The service glue is [TestMixinService] and [TestGlobalProperties].
+/// by a load-time agent instead of LaunchWrapper, after FML's optional stripping ([TestOptionalStripper]) and Et
+/// Futurum Requiem's access transformer ([TestAccessTransformer]). The service glue is [TestMixinService] and [TestGlobalProperties].
 ///
 /// The side is the server's, so client-only mixins are left out. Assumption: installed before any mixin target
 /// loads.
@@ -42,7 +43,7 @@ final class TestMixins {
 
         Instrumentation instrumentation = ByteBuddyAgent.install();
         checkNothingLoaded(instrumentation);
-        instrumentation.addTransformer(new Agent(transformer));
+        instrumentation.addTransformer(new Agent(new TestAccessTransformer("etfuturum_at.cfg"), transformer));
     }
 
     /// Mixins can't change classes already loaded. Minecraft's own classes are the targets; LaunchWrapper's are not.
@@ -79,11 +80,14 @@ final class TestMixins {
         }
     }
 
+    /// Strips absent optional parts, applies the access transformers, then the mixins, as FML's launch orders them.
     private static final class Agent implements ClassFileTransformer {
 
+        private final TestAccessTransformer access;
         private final IMixinTransformer transformer;
 
-        Agent(IMixinTransformer transformer) {
+        Agent(TestAccessTransformer access, IMixinTransformer transformer) {
+            this.access = access;
             this.transformer = transformer;
         }
 
@@ -95,7 +99,11 @@ final class TestMixins {
 
             try {
                 String name = className.replace('/', '.');
-                byte[] transformed = transformer.transformClassBytes(name, name, bytes);
+                byte[] stripped = TestOptionalStripper.transform(bytes);
+                byte[] input = stripped == null ? bytes : stripped;
+                byte[] widened = access.transform(className, input);
+                if (widened != null) input = widened;
+                byte[] transformed = transformer.transformClassBytes(name, name, input);
                 return transformed == bytes ? null : transformed;
             } catch (Throwable t) {
                 // The JVM swallows exceptions thrown here; make them visible.

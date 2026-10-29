@@ -12,11 +12,13 @@ import java.util.List;
 
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
+import net.minecraft.util.ResourceLocation;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import databack.common.dto.worldgen.biome.DatapackBiome;
+import databack.common.interop.registry.BlockIdentityRegistry;
 import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 import databack.common.worldgen.density.VanillaWorldgen;
@@ -78,9 +80,16 @@ class FeatureDecoratorTest {
         }
     }
 
-    /// Granite, diorite, andesite and tuff have no 1.7 blocks without Et Futurum: their blobs leave stone alone.
+    /// Et Futurum's stones stand in for granite, diorite and andesite.
     @Test
-    void blocksWithoutA17CounterpartAreNotPlaced() {
+    void stoneBlobsUseEtFuturumsStones() {
+        Block granite = BlockIdentityRegistry.INSTANCE.getObject(new ResourceLocation("minecraft:granite")).block;
+        assertTrue(decorate(0, 0).count(granite) > 0);
+    }
+
+    /// Nothing is carved out: blocks without a 1.7 counterpart are skipped, not written as air.
+    @Test
+    void noBlobLeavesAir() {
         assertEquals(0, decorate(0, 0).count(Blocks.air));
     }
 

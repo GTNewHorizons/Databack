@@ -35,6 +35,15 @@ class MinecraftBootstrapTest {
     }
 
     @Test
+    void efrBlocksAreRegisteredWithIdentities() {
+        Block deepslate = Block.getBlockFromName("etfuturum:deepslate");
+        assertNotNull(deepslate);
+        assertEquals(new ResourceLocation("minecraft:deepslate"),
+            BlockIdentityRegistry.INSTANCE.getBlockIdentity(deepslate, 0).identityId);
+        assertSame(deepslate, BlockIdentityRegistry.INSTANCE.getObject(new ResourceLocation("minecraft:deepslate")).block);
+    }
+
+    @Test
     void noModsAreLoaded() {
         assertFalse(Loader.isModLoaded("etfuturum"));
     }
