@@ -33,8 +33,7 @@ public class BuiltinHeightProviders {
             } else {
                 throw new JsonParseException("Expected int, VerticalAnchor object, or typed HeightProvider: " + json);
             }
-            int y = anchor.resolve();
-            return random -> y;
+            return (random, minY, height) -> anchor.resolve(minY, height);
         });
     }
 
@@ -43,8 +42,8 @@ public class BuiltinHeightProviders {
         public VerticalAnchor value;
 
         @Override
-        public int get(Random random) {
-            return value.resolve();
+        public int get(Random random, int minY, int height) {
+            return value.resolve(minY, height);
         }
     }
 
@@ -54,9 +53,9 @@ public class BuiltinHeightProviders {
         public VerticalAnchor max_inclusive;
 
         @Override
-        public int get(Random random) {
-            int min = min_inclusive.resolve();
-            int max = max_inclusive.resolve();
+        public int get(Random random, int minY, int height) {
+            int min = min_inclusive.resolve(minY, height);
+            int max = max_inclusive.resolve(minY, height);
             return min + random.nextInt(max - min + 1);
         }
     }
@@ -68,9 +67,9 @@ public class BuiltinHeightProviders {
         @Nullable public Integer inner;
 
         @Override
-        public int get(Random random) {
-            int min = min_inclusive.resolve();
-            int max = max_inclusive.resolve();
+        public int get(Random random, int minY, int height) {
+            int min = min_inclusive.resolve(minY, height);
+            int max = max_inclusive.resolve(minY, height);
             int range = max - min;
             int samples = inner != null ? inner + 1 : 2;
 
@@ -89,9 +88,9 @@ public class BuiltinHeightProviders {
         @Nullable public Integer inner;
 
         @Override
-        public int get(Random random) {
-            int min = min_inclusive.resolve();
-            int max = max_inclusive.resolve();
+        public int get(Random random, int minY, int height) {
+            int min = min_inclusive.resolve(minY, height);
+            int max = max_inclusive.resolve(minY, height);
             int range = max - min;
             int samples = inner != null ? inner + 2 : 3;
 
@@ -113,7 +112,7 @@ public class BuiltinHeightProviders {
         public List<WeightedEntry> distribution;
 
         @Override
-        public int get(Random random) {
+        public int get(Random random, int minY, int height) {
             int totalWeight = 0;
             for (WeightedEntry entry : distribution) {
                 totalWeight += entry.weight;
@@ -122,10 +121,10 @@ public class BuiltinHeightProviders {
             int roll = random.nextInt(totalWeight);
             for (WeightedEntry entry : distribution) {
                 roll -= entry.weight;
-                if (roll < 0) return entry.data.get(random);
+                if (roll < 0) return entry.data.get(random, minY, height);
             }
 
-            return distribution.get(distribution.size() - 1).data.get(random);
+            return distribution.get(distribution.size() - 1).data.get(random, minY, height);
         }
     }
 
@@ -136,14 +135,14 @@ public class BuiltinHeightProviders {
         @Nullable public Integer plateau;
 
         @Override
-        public int get(Random random) {
-            int minY = min_inclusive.resolve();
-            int maxY = max_inclusive.resolve();
+        public int get(Random random, int minY, int height) {
+            int min = min_inclusive.resolve(minY, height);
+            int max = max_inclusive.resolve(minY, height);
             int plat = plateau != null ? plateau : 0;
-            float f = (float)(maxY - minY);
+            float f = (float)(max - min);
             float g = (float)plat;
             float h = (f - g) / 2.0f;
-            return minY + (int)Math.floor(h + Math.abs(random.nextFloat() * f - h - g / 2.0f));
+            return min + (int)Math.floor(h + Math.abs(random.nextFloat() * f - h - g / 2.0f));
         }
     }
 }

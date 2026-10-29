@@ -109,7 +109,8 @@ public final class XoroshiroRandom implements RandomSource {
         }
     }
 
-    private long nextBits(int bits) {
+    /// The top `bits` bits of the next long.
+    public long nextBits(int bits) {
         return this.nextLong() >>> 64 - bits;
     }
 

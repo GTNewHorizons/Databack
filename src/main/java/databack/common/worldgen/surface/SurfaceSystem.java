@@ -2,6 +2,7 @@ package databack.common.worldgen.surface;
 
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 
@@ -68,6 +69,19 @@ public final class SurfaceSystem {
         }
 
         return result;
+    }
+
+    /// The block the rule places at one exposed block, as if it were the top of its column (floor and ceiling depth 1),
+    /// or null for none. Carvers re-run the rule on the dirt they expose under grass. `underFluid` puts a fluid right
+    /// above it. **Approximation:** steepness is not known for a single block and is taken as false.
+    @Nullable
+    public ImmutableBlockMeta topMaterial(int x, int y, int z, @NotNull BlockBiomes biomes, boolean underFluid) {
+        SurfaceContext ctx = new SurfaceContext(minY, height, seed, biomes);
+        ctx.startColumn(x, z, surfaceDepth(x, z), secondaryNoise.getValue(x, 0, z), preliminarySurface(x & ~3, z & ~3),
+            false);
+        if (underFluid) ctx.fluidLevel = y + 1;
+        ctx.startBlock(y, 1, 1);
+        return rule.apply(ctx);
     }
 
     /// Top-down: floor depth (section 1.1), the fluid level, and the rule for each solid block.

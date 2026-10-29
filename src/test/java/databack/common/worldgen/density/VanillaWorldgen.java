@@ -13,7 +13,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions;
+import databack.common.dto.worldgen.carver.BuiltinCarvers;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
+import databack.common.dto.worldgen.float_provider.BuiltinFloatProviders;
+import databack.common.dto.worldgen.height_provider.BuiltinHeightProviders;
 import databack.common.dto.worldgen.noise.DatapackNoise;
 import databack.common.dto.worldgen.noise_settings.NoiseGeneratorSettings;
 import databack.common.dto.worldgen.surface_rule.BuiltinSurfaceRules;
@@ -47,6 +50,9 @@ public final class VanillaWorldgen {
             NoiseGeneratorSettings.init();
             MiscAdapters.init();
             BuiltinSurfaceRules.init();
+            BuiltinFloatProviders.init();
+            BuiltinHeightProviders.init();
+            BuiltinCarvers.init();
             DatapackSerialization.finish();
             gson = DatapackSerialization.getGson();
         }

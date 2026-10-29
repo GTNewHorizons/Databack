@@ -1,6 +1,5 @@
 package databack.common.dto.worldgen.height_provider;
 
-import databack.common.WorldUtils;
 import org.jetbrains.annotations.Nullable;
 
 public class VerticalAnchor {
@@ -9,10 +8,12 @@ public class VerticalAnchor {
     @Nullable public Integer above_bottom;
     @Nullable public Integer below_top;
 
-    public int resolve() {
+    /// The height in a dimension spanning `height` blocks from `minY`: `above_bottom` counts from `minY`, `below_top`
+    /// down from the top block (`minY + height - 1`).
+    public int resolve(int minY, int height) {
         if (absolute != null) return absolute;
-        if (above_bottom != null) return above_bottom;
-        if (below_top != null) return WorldUtils.getWorldHeight() - below_top;
+        if (above_bottom != null) return minY + above_bottom;
+        if (below_top != null) return minY + height - 1 - below_top;
         throw new IllegalStateException("Empty VerticalAnchor");
     }
 

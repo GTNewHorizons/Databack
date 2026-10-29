@@ -12,6 +12,7 @@ import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassVisitor;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.FieldVisitor;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -23,6 +24,7 @@ import org.objectweb.asm.TypePath;
 /// - the class file version becomes Java 8's;
 /// - uses of vanilla classes, static fields and static methods are mapped as its [VanillaMappings] say, and the
 ///   interfaces they add are added;
+/// - lambdas are kept with their types mapped, or become null where the mappings say so;
 /// - methods that use anything else ([ForeignMethodScanner]) throw [UnsupportedOperationException] instead, or are
 ///   removed when their descriptor names anything else;
 /// - generic signatures, debug info, annotations and nest/inner-class attributes are dropped.
@@ -47,7 +49,7 @@ public final class VanillaClassRewriter {
         reader.accept(scanner, ClassReader.SKIP_DEBUG);
 
         ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_MAXS);
-        reader.accept(new ClassRewriter(writer, mappings, scanner), ClassReader.SKIP_DEBUG);
+        reader.accept(new ClassRewriter(writer, mappings, scanner, bundle), ClassReader.SKIP_DEBUG);
         return writer.toByteArray();
     }
 
@@ -66,11 +68,13 @@ public final class VanillaClassRewriter {
 
         private final VanillaMappings mappings;
         private final ForeignMethodScanner scan;
+        private final Set<String> bundle;
 
-        ClassRewriter(ClassVisitor next, VanillaMappings mappings, ForeignMethodScanner scan) {
+        ClassRewriter(ClassVisitor next, VanillaMappings mappings, ForeignMethodScanner scan, Set<String> bundle) {
             super(Opcodes.ASM5, next);
             this.mappings = mappings;
             this.scan = scan;
+            this.bundle = bundle;
         }
 
         @Override
@@ -127,7 +131,7 @@ public final class VanillaClassRewriter {
                 return null;
             }
 
-            return new MethodRewriter(next, mappings);
+            return new MethodRewriter(next, mappings, bundle);
         }
 
         private static void writeUnsupportedBody(MethodVisitor mv, String name) {
@@ -147,10 +151,12 @@ public final class VanillaClassRewriter {
     private static final class MethodRewriter extends MethodVisitor {
 
         private final VanillaMappings mappings;
+        private final Set<String> bundle;
 
-        MethodRewriter(MethodVisitor next, VanillaMappings mappings) {
+        MethodRewriter(MethodVisitor next, VanillaMappings mappings, Set<String> bundle) {
             super(Opcodes.ASM5, next);
             this.mappings = mappings;
+            this.bundle = bundle;
         }
 
         @Override
@@ -243,6 +249,39 @@ public final class VanillaClassRewriter {
             if (opcode == Opcodes.INVOKEVIRTUAL && itf) return Opcodes.INVOKEINTERFACE;
             if (opcode == Opcodes.INVOKEINTERFACE && !itf) return Opcodes.INVOKEVIRTUAL;
             return opcode;
+        }
+
+        @Override
+        public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
+            if (mappings.lambda(bundle, desc, bsm, bsmArgs) == VanillaMappings.Lambda.NULL) {
+                // The captured values are on the stack; the lambda would have consumed them.
+                Type[] captured = Type.getArgumentTypes(desc);
+                for (int i = captured.length - 1; i >= 0; i--) {
+                    super.visitInsn(captured[i].getSize() == 2 ? Opcodes.POP2 : Opcodes.POP);
+                }
+                super.visitInsn(Opcodes.ACONST_NULL);
+                return;
+            }
+
+            Object[] mapped = new Object[bsmArgs.length];
+            for (int i = 0; i < bsmArgs.length; i++) mapped[i] = mapConstant(bsmArgs[i]);
+            super.visitInvokeDynamicInsn(name, mappings.mapDesc(desc), bsm, mapped);
+        }
+
+        private Object mapConstant(Object constant) {
+            if (constant instanceof Type) {
+                Type type = (Type) constant;
+                return type.getSort() == Type.METHOD ? Type.getMethodType(mappings.mapDesc(type.getDescriptor()))
+                    : Type.getType(mappings.mapDesc(type.getDescriptor()));
+            }
+            if (constant instanceof Handle) {
+                Handle h = (Handle) constant;
+                boolean itf = mappings.isInterfaceCall(h.getOwner(), h.getTag() == Opcodes.H_INVOKEINTERFACE);
+                int tag = h.getTag() == Opcodes.H_INVOKEVIRTUAL && itf ? Opcodes.H_INVOKEINTERFACE
+                    : h.getTag() == Opcodes.H_INVOKEINTERFACE && !itf ? Opcodes.H_INVOKEVIRTUAL : h.getTag();
+                return new Handle(tag, mappings.mapName(h.getOwner()), h.getName(), mappings.mapDesc(h.getDesc()));
+            }
+            return constant;
         }
 
         @Override

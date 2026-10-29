@@ -9,6 +9,7 @@ import databack.common.worldgen.aquifer.standin.AqAquifer;
 import databack.common.worldgen.aquifer.standin.AqBlockState;
 import databack.common.worldgen.aquifer.standin.AqBlocks;
 import databack.common.worldgen.aquifer.standin.AqChunkPos;
+import databack.common.worldgen.aquifer.standin.AqContext;
 import databack.common.worldgen.aquifer.standin.AqFluidPicker;
 import databack.common.worldgen.aquifer.standin.AqFluidStatus;
 import databack.common.worldgen.aquifer.standin.AqFunction;
@@ -81,10 +82,7 @@ public final class AquiferSystem {
     /// `layers` layers from `bottomY` at index `((y - bottomY) * 16 + z) * 16 + x`; positive is solid.
     @NotNull
     public byte[] kinds(int chunkX, int chunkZ, double @NotNull [] density, int bottomY, int layers) {
-        AqFluidPicker global = this::globalFluid;
-        AqAquifer chunkAquifer = aquifer == null ? null
-            : aquifer.create(this::preliminarySurface, new AqChunkPos(chunkX, chunkZ), router, random, bottomY, layers,
-                global);
+        AqAquifer chunkAquifer = chunkAquifer(chunkX, chunkZ, bottomY, layers);
 
         byte[] kinds = new byte[density.length];
         for (int index = 0; index < density.length; index++) {
@@ -94,12 +92,36 @@ public final class AquiferSystem {
             }
 
             int x = chunkX * 16 + (index & 15), y = bottomY + (index >> 8), z = chunkZ * 16 + ((index >> 4) & 15);
-            AqBlockState state = chunkAquifer == null ? global.computeFluid(x, y, z).at(y)
-                : chunkAquifer.computeSubstance(new AqPoint(x, y, z), density[index]);
+            AqBlockState state = chunkAquifer.computeSubstance(new AqPoint(x, y, z), density[index]);
             kinds[index] = kind(state);
         }
 
         return kinds;
+    }
+
+    /// The aquifer of chunk `(chunkX, chunkZ)` over `layers` layers from `bottomY`: vanilla's, or the global fluid rule
+    /// when aquifers are off. Later steps (carvers) ask the same aquifer. Not thread-safe; one per chunk.
+    @NotNull
+    public AqAquifer chunkAquifer(int chunkX, int chunkZ, int bottomY, int layers) {
+        AqFluidPicker global = this::globalFluid;
+        if (aquifer != null) {
+            return aquifer.create(this::preliminarySurface, new AqChunkPos(chunkX, chunkZ), router, random, bottomY,
+                layers, global);
+        }
+
+        return new AqAquifer() {
+
+            @Override
+            public AqBlockState computeSubstance(AqContext ctx, double density) {
+                if (density > 0) return null;
+                return global.computeFluid(ctx.blockX(), ctx.blockY(), ctx.blockZ()).at(ctx.blockY());
+            }
+
+            @Override
+            public boolean shouldScheduleFluidUpdate() {
+                return false;
+            }
+        };
     }
 
     /// The global fluid rule (section 1): lava deep down, the default fluid below sea level.

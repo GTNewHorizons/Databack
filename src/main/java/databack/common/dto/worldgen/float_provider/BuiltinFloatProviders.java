@@ -77,12 +77,14 @@ public class BuiltinFloatProviders {
         public float max;
         public float plateau;
 
+        /// The sum of two uniform draws, the wider one first: their widths add up to the range and differ by the
+        /// plateau (`carver/probes/providers.tsv`).
         @Override
         public float get(Random random) {
-            float f = max - min;
-            float g = plateau;
-            float h = (f - g) / 2.0f;
-            return min + h + Math.abs(random.nextFloat() * f - h - g / 2.0f);
+            float range = max - min;
+            float narrow = (range - plateau) / 2.0f;
+            float wide = range - narrow;
+            return min + random.nextFloat() * wide + random.nextFloat() * narrow;
         }
     }
 }

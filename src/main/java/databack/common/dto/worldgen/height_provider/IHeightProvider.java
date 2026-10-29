@@ -4,6 +4,7 @@ import java.util.Random;
 
 public interface IHeightProvider {
 
-    int get(Random random);
+    /// A height in a dimension spanning `height` blocks from `minY` (anchors resolve against it).
+    int get(Random random, int minY, int height);
 
 }

@@ -1,5 +1,7 @@
 package databack.common.dto.worldgen.placed_feature;
 
+import databack.common.WorldUtils;
+
 import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
@@ -199,7 +201,9 @@ public class BuiltinPlacementModifiers {
 
         @Override
         public Pos3DArrayList apply(World world, Pos3DArrayList positions, String featureId) {
-            positions.replaceAll((Vector3i v) -> v.set(v.x(), height.get(world.rand), v.z()));
+            // Features place in the 1.7 world's range until population knows the dimension's.
+            positions.replaceAll((Vector3i v) -> v.set(v.x(), height.get(world.rand, 0, WorldUtils.getWorldHeight()),
+                v.z()));
             return positions;
         }
     }

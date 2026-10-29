@@ -89,7 +89,7 @@ final class ForeignMethodScanner extends ClassVisitor {
 
         @Override
         public void visitInvokeDynamicInsn(String name, String desc, Handle bsm, Object... bsmArgs) {
-            require(false);
+            require(mappings.lambda(bundle, desc, bsm, bsmArgs) != VanillaMappings.Lambda.UNSUPPORTED);
         }
 
         @Override

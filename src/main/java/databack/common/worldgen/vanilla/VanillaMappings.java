@@ -1,6 +1,7 @@
 package databack.common.worldgen.vanilla;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -14,6 +15,7 @@ import java.util.regex.Pattern;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.Type;
 
 /// What a set of vanilla classes may use from outside the set, and what each use becomes when the classes are
@@ -31,6 +33,7 @@ public final class VanillaMappings {
     private final Map<String, String> staticRedirects;
     private final Map<String, Function<String, Object>> constantFields;
     private final Map<String, List<String>> addedInterfaces;
+    private final Set<String> nullLambdaTargets;
 
     private VanillaMappings(Builder b) {
         this.classes = new HashMap<>(b.classes);
@@ -39,6 +42,7 @@ public final class VanillaMappings {
         this.staticRedirects = new HashMap<>(b.staticRedirects);
         this.constantFields = new HashMap<>(b.constantFields);
         this.addedInterfaces = new HashMap<>(b.addedInterfaces);
+        this.nullLambdaTargets = new HashSet<>(b.nullLambdaTargets);
     }
 
     @NotNull
@@ -108,6 +112,68 @@ public final class VanillaMappings {
         return staticRedirects.get(owner + "." + name);
     }
 
+    /// How an `invokedynamic` instruction is rewritten.
+    enum Lambda {
+        /// Kept, with its types and implementation method mapped.
+        MAPPED,
+        /// Replaced by null ([Builder#nullLambdasOver]).
+        NULL,
+        /// Unsupported: its method is foreign.
+        UNSUPPORTED
+    }
+
+    private static final String LAMBDA_FACTORY = "java/lang/invoke/LambdaMetafactory";
+
+    /// Classifies an `invokedynamic`. Only plain lambdas and method references ([java.lang.invoke.LambdaMetafactory]'s
+    /// `metafactory`) are supported.
+    @NotNull
+    @Contract(pure = true)
+    Lambda lambda(@NotNull Set<String> bundle, @NotNull String desc, @NotNull Handle bootstrap, Object @NotNull [] args) {
+        if (!bootstrap.getOwner().equals(LAMBDA_FACTORY) || !bootstrap.getName().equals("metafactory")
+            || args.length != 3 || !(args[1] instanceof Handle)) {
+            return Lambda.UNSUPPORTED;
+        }
+
+        Handle impl = (Handle) args[1];
+        boolean nulled = nullLambdaTargets.contains(impl.getOwner());
+        for (Type t : methodTypes(impl.getDesc())) nulled |= nullLambdaTargets.contains(typeName(t));
+
+        boolean supported = isSupportedClass(bundle, impl.getOwner()) && isSupportedMethod(bundle, impl.getDesc())
+            && isSupportedMethod(bundle, ((Type) args[0]).getDescriptor())
+            && isSupportedMethod(bundle, ((Type) args[2]).getDescriptor());
+        if (!isSupportedMethod(bundle, desc)) return Lambda.UNSUPPORTED;
+        if (supported) return Lambda.MAPPED;
+        return nulled ? Lambda.NULL : Lambda.UNSUPPORTED;
+    }
+
+    /// Whether every type in a method descriptor is supported.
+    @Contract(pure = true)
+    boolean isSupportedMethod(@NotNull Set<String> bundle, @NotNull String desc) {
+        for (Type t : methodTypes(desc)) {
+            if (!isSupportedType(bundle, t)) return false;
+        }
+        return true;
+    }
+
+    private static List<Type> methodTypes(String desc) {
+        Type method = Type.getMethodType(desc);
+        List<Type> types = new ArrayList<>(Arrays.asList(method.getArgumentTypes()));
+        types.add(method.getReturnType());
+        return types;
+    }
+
+    private static String typeName(Type type) {
+        Type element = type.getSort() == Type.ARRAY ? type.getElementType() : type;
+        return element.getSort() == Type.OBJECT ? element.getInternalName() : "";
+    }
+
+    /// Whether a lambda whose implementation method names `name` (a vanilla internal name) in its owner or descriptor
+    /// becomes null instead of making its method unsupported.
+    @Contract(pure = true)
+    boolean nullsLambdasOver(@NotNull String name) {
+        return nullLambdaTargets.contains(name);
+    }
+
     /// Interfaces to add to `className` (a vanilla name), so callers can reach its methods without reflection.
     @NotNull
     @Contract(pure = true)
@@ -124,6 +190,7 @@ public final class VanillaMappings {
         private final Map<String, String> staticRedirects = new HashMap<>();
         private final Map<String, Function<String, Object>> constantFields = new HashMap<>();
         private final Map<String, List<String>> addedInterfaces = new HashMap<>();
+        private final Set<String> nullLambdaTargets = new HashSet<>();
 
         private Builder() {
             passthrough.add("java/lang/Object");
@@ -174,6 +241,15 @@ public final class VanillaMappings {
         public Builder addInterface(@NotNull String className, @NotNull Class<?> itf) {
             if (!itf.isInterface()) throw new IllegalArgumentException(itf + " is not an interface");
             addedInterfaces.computeIfAbsent(className, k -> new ArrayList<>()).add(Type.getInternalName(itf));
+            return this;
+        }
+
+        /// Lambdas whose implementation method involves `names` (unsupported vanilla classes, as owner or in the
+        /// descriptor) evaluate to null instead. Only for lambdas handed to replacements that ignore them.
+        @NotNull
+        @Contract("_ -> this")
+        public Builder nullLambdasOver(@NotNull String... names) {
+            Collections.addAll(nullLambdaTargets, names);
             return this;
         }
 

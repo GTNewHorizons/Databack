@@ -9,6 +9,9 @@ import java.util.Map;
 
 import javax.annotation.Nonnegative;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.gson.JsonArray;
@@ -23,15 +26,26 @@ import databack.common.dto.worldgen.height_provider.IHeightProvider;
 import databack.common.dto.worldgen.height_provider.VerticalAnchor;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
+import databack.common.worldgen.carver.CarverBuildContext;
+import databack.common.worldgen.carver.ConfiguredCarver;
+import databack.common.worldgen.carver.standin.CvAnchor;
+import databack.common.worldgen.carver.standin.CvCanyonConfiguration;
+import databack.common.worldgen.carver.standin.CvCanyonShape;
+import databack.common.worldgen.carver.standin.CvCarverConfiguration;
+import databack.common.worldgen.carver.standin.CvCaveConfiguration;
+import databack.common.worldgen.carver.standin.CvFloatProvider;
+import databack.common.worldgen.carver.standin.CvHeightProvider;
 
 public class BuiltinCarvers {
+
+    private static final Logger LOGGER = LogManager.getLogger("databack-carver");
 
     public static void init() {
         TaggedUnionLoader<IConfiguredCarver> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/configured_carver", IConfiguredCarver.class);
 
         loader.addVariant("minecraft:cave", CaveCarver.class);
-        loader.addVariant("minecraft:nether_cave", CaveCarver.class);
+        loader.addVariant("minecraft:nether_cave", NetherCaveCarver.class);
         loader.addVariant("minecraft:canyon", CanyonCarver.class);
 
         // String → lazy resource-location ref to a configured_carver data file
@@ -53,6 +67,13 @@ public class BuiltinCarvers {
 
         CarverRef(String id) {
             this.id = id;
+        }
+
+        @Override
+        public ConfiguredCarver instantiate(@NotNull CarverBuildContext ctx) {
+            ConfiguredCarver carver = ctx.reference(id);
+            if (carver == null) LOGGER.warn("Unknown configured carver {}; skipping it", id);
+            return carver;
         }
 
     }
@@ -88,6 +109,14 @@ public class BuiltinCarvers {
         /** Block IDs or a block tag. String or String[]. @since 1.19 */
         @Nullable public JsonElement replaceable;
 
+        CvCarverConfiguration base(CarverBuildContext ctx) {
+            if (debug_settings != null && Boolean.TRUE.equals(debug_settings.debug_mode)) {
+                LOGGER.warn("Carver debug settings are not supported; carving normally");
+            }
+            return new CvCarverConfiguration(probability, new CvHeightProvider(y), new CvFloatProvider(yScale),
+                new CvAnchor(lava_level), ctx.blockSet(replaceable));
+        }
+
     }
 
     static class CaveCarverConfig extends CarverConfigBase {
@@ -97,11 +126,30 @@ public class BuiltinCarvers {
         @RangeFloat(min = -1, max = 1)
         public IFloatProvider floor_level;
 
+        CvCaveConfiguration build(CarverBuildContext ctx) {
+            return new CvCaveConfiguration(base(ctx), new CvFloatProvider(horizontal_radius_multiplier),
+                new CvFloatProvider(vertical_radius_multiplier), new CvFloatProvider(floor_level));
+        }
+
     }
 
     static class CaveCarver implements IConfiguredCarver {
 
         public CaveCarverConfig config;
+
+        @Override
+        public ConfiguredCarver instantiate(@NotNull CarverBuildContext ctx) {
+            return new ConfiguredCarver(ctx.carvers.cave, config.build(ctx));
+        }
+
+    }
+
+    static class NetherCaveCarver extends CaveCarver {
+
+        @Override
+        public ConfiguredCarver instantiate(@NotNull CarverBuildContext ctx) {
+            return new ConfiguredCarver(ctx.carvers.netherCave, config.build(ctx));
+        }
 
     }
 
@@ -115,6 +163,12 @@ public class BuiltinCarvers {
         public float vertical_radius_default_factor;
         public float vertical_radius_center_factor;
 
+        CvCanyonShape build() {
+            return new CvCanyonShape(new CvFloatProvider(distance_factor), new CvFloatProvider(thickness),
+                width_smoothness, new CvFloatProvider(horizontal_radius_factor), vertical_radius_default_factor,
+                vertical_radius_center_factor);
+        }
+
     }
 
     static class CanyonCarverConfig extends CarverConfigBase {
@@ -127,6 +181,12 @@ public class BuiltinCarvers {
     static class CanyonCarver implements IConfiguredCarver {
 
         public CanyonCarverConfig config;
+
+        @Override
+        public ConfiguredCarver instantiate(@NotNull CarverBuildContext ctx) {
+            return new ConfiguredCarver(ctx.carvers.canyon, new CvCanyonConfiguration(config.base(ctx),
+                new CvFloatProvider(config.vertical_rotation), config.shape.build()));
+        }
 
     }
 

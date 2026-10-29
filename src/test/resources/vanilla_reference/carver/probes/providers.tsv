@@ -1,0 +1,1401 @@
+provider	seed	value	next
+uniform_float(0.1,0.9)	0	0.6847742	0.831441
+uniform_float(0.1,0.9)	1	0.6847025	0.100473166
+uniform_float(0.1,0.9)	2	0.6849175	0.2933765
+uniform_float(0.1,0.9)	3	0.68484586	0.56240875
+uniform_float(0.1,0.9)	4	0.6844875	0.9075698
+uniform_float(0.1,0.9)	5	0.6844159	0.17660207
+uniform_float(0.1,0.9)	6	0.6846309	0.3695054
+uniform_float(0.1,0.9)	7	0.68455917	0.63853765
+uniform_float(0.1,0.9)	8	0.6842008	0.9836987
+uniform_float(0.1,0.9)	9	0.68412924	0.2527309
+uniform_float(0.1,0.9)	10	0.6843442	0.44563425
+uniform_float(0.1,0.9)	11	0.6842725	0.7146665
+uniform_float(0.1,0.9)	12	0.68391424	0.059827566
+uniform_float(0.1,0.9)	13	0.68384254	0.3288598
+uniform_float(0.1,0.9)	14	0.68405753	0.52176315
+uniform_float(0.1,0.9)	15	0.6839859	0.7907954
+uniform_float(0.1,0.9)	16	0.68592083	0.5269255
+uniform_float(0.1,0.9)	17	0.6858492	0.7959577
+uniform_float(0.1,0.9)	18	0.6860642	0.988861
+uniform_float(0.1,0.9)	19	0.68599254	0.25789326
+uniform_float(0.1,0.9)	20	0.6856342	0.60305434
+uniform_float(0.1,0.9)	21	0.6855625	0.8720866
+uniform_float(0.1,0.9)	22	0.6857775	0.064989924
+uniform_float(0.1,0.9)	23	0.68570584	0.33402216
+uniform_float(0.1,0.9)	24	0.6853475	0.67918324
+uniform_float(0.1,0.9)	25	0.68527585	0.9482154
+uniform_float(0.1,0.9)	26	0.68549085	0.14111876
+uniform_float(0.1,0.9)	27	0.68541914	0.410151
+uniform_float(0.1,0.9)	28	0.68506086	0.7553121
+uniform_float(0.1,0.9)	29	0.6849892	0.024344325
+uniform_float(0.1,0.9)	30	0.68520415	0.21724766
+uniform_float(0.1,0.9)	31	0.68513256	0.4862799
+uniform_float(0.1,0.9)	32	0.6824809	0.44047195
+uniform_float(0.1,0.9)	33	0.6824092	0.7095041
+uniform_float(0.1,0.9)	34	0.6826242	0.90240747
+uniform_float(0.1,0.9)	35	0.6825526	0.1714397
+uniform_float(0.1,0.9)	36	0.6821943	0.5166008
+uniform_float(0.1,0.9)	37	0.6821226	0.785633
+uniform_float(0.1,0.9)	38	0.6823376	0.97853637
+uniform_float(0.1,0.9)	39	0.6822659	0.2475686
+uniform_float(0.1,0.9)	40	0.6819076	0.5927297
+uniform_float(0.1,0.9)	41	0.68183595	0.86176187
+uniform_float(0.1,0.9)	42	0.68205094	0.054665208
+uniform_float(0.1,0.9)	43	0.68197924	0.32369745
+uniform_float(0.1,0.9)	44	0.6816209	0.6688585
+uniform_float(0.1,0.9)	45	0.68154925	0.93789077
+uniform_float(0.1,0.9)	46	0.68176425	0.13079411
+uniform_float(0.1,0.9)	47	0.6816926	0.39982635
+uniform_float(0.1,0.9)	48	0.68362755	0.13595647
+uniform_float(0.1,0.9)	49	0.6835559	0.40498865
+uniform_float(0.1,0.9)	50	0.6837709	0.597892
+uniform_float(0.1,0.9)	51	0.6836992	0.8669242
+uniform_float(0.1,0.9)	52	0.68334085	0.2120853
+uniform_float(0.1,0.9)	53	0.6832692	0.48111755
+uniform_float(0.1,0.9)	54	0.6834842	0.6740209
+uniform_float(0.1,0.9)	55	0.68341255	0.9430531
+uniform_float(0.1,0.9)	56	0.68305427	0.2882142
+uniform_float(0.1,0.9)	57	0.68298256	0.5572464
+uniform_float(0.1,0.9)	58	0.68319756	0.7501497
+uniform_float(0.1,0.9)	59	0.6831259	0.019181967
+uniform_float(0.1,0.9)	60	0.68276757	0.36434305
+uniform_float(0.1,0.9)	61	0.6826959	0.6333753
+uniform_float(0.1,0.9)	62	0.6829109	0.8262786
+uniform_float(0.1,0.9)	63	0.6828392	0.09531087
+uniform_float(0.1,0.9)	64	0.68018764	0.04950291
+uniform_float(0.1,0.9)	65	0.680116	0.3185351
+uniform_float(0.1,0.9)	66	0.680331	0.5114384
+uniform_float(0.1,0.9)	67	0.6802593	0.78047067
+uniform_float(0.1,0.9)	68	0.67990094	0.12563175
+uniform_float(0.1,0.9)	69	0.6798293	0.394664
+uniform_float(0.1,0.9)	70	0.6800443	0.5875673
+uniform_float(0.1,0.9)	71	0.67997265	0.85659957
+uniform_float(0.1,0.9)	72	0.6796143	0.20176065
+uniform_float(0.1,0.9)	73	0.6795426	0.47079283
+uniform_float(0.1,0.9)	74	0.67975765	0.66369617
+uniform_float(0.1,0.9)	75	0.67968595	0.9327284
+uniform_float(0.1,0.9)	76	0.67932767	0.2778895
+uniform_float(0.1,0.9)	77	0.679256	0.54692173
+uniform_float(0.1,0.9)	78	0.67947096	0.73982507
+uniform_float(0.1,0.9)	79	0.6793993	0.00885731
+uniform_float(0.1,0.9)	80	0.68133426	0.7449874
+uniform_float(0.1,0.9)	81	0.6812626	0.0140196085
+uniform_float(0.1,0.9)	82	0.6814776	0.20692295
+uniform_float(0.1,0.9)	83	0.6814059	0.4759552
+uniform_float(0.1,0.9)	84	0.6810476	0.82111627
+uniform_float(0.1,0.9)	85	0.680976	0.09014851
+uniform_float(0.1,0.9)	86	0.68119097	0.28305185
+uniform_float(0.1,0.9)	87	0.68111926	0.5520841
+uniform_float(0.1,0.9)	88	0.6807609	0.89724517
+uniform_float(0.1,0.9)	89	0.6806893	0.16627735
+uniform_float(0.1,0.9)	90	0.68090427	0.3591807
+uniform_float(0.1,0.9)	91	0.6808326	0.6282129
+uniform_float(0.1,0.9)	92	0.6804743	0.973374
+uniform_float(0.1,0.9)	93	0.6804026	0.24240625
+uniform_float(0.1,0.9)	94	0.68061763	0.4353096
+uniform_float(0.1,0.9)	95	0.6805459	0.7043418
+uniform_float(0.1,0.9)	96	0.67789435	0.6585339
+uniform_float(0.1,0.9)	97	0.67782265	0.92756605
+uniform_float(0.1,0.9)	98	0.6780377	0.12046939
+uniform_float(0.1,0.9)	99	0.677966	0.38950163
+uniform_float(0.1,0.9)	100	0.67760766	0.7346627
+uniform_float(0.1,0.9)	101	0.677536	0.0036949515
+uniform_float(0.1,0.9)	102	0.677751	0.19659829
+uniform_float(0.1,0.9)	103	0.67767936	0.46563053
+uniform_float(0.1,0.9)	104	0.677321	0.8107916
+uniform_float(0.1,0.9)	105	0.6772494	0.07982379
+uniform_float(0.1,0.9)	106	0.6774643	0.27272713
+uniform_float(0.1,0.9)	107	0.6773927	0.5417594
+uniform_float(0.1,0.9)	108	0.6770344	0.88692045
+uniform_float(0.1,0.9)	109	0.6769627	0.15595269
+uniform_float(0.1,0.9)	110	0.6771777	0.34885603
+uniform_float(0.1,0.9)	111	0.677106	0.6178883
+uniform_float(0.1,0.9)	112	0.67904097	0.3540184
+uniform_float(0.1,0.9)	113	0.6789693	0.6230506
+uniform_float(0.1,0.9)	114	0.6791843	0.8159539
+uniform_float(0.1,0.9)	115	0.6791127	0.08498615
+uniform_float(0.1,0.9)	116	0.6787543	0.43014723
+uniform_float(0.1,0.9)	117	0.6786826	0.6991795
+uniform_float(0.1,0.9)	118	0.6788977	0.8920828
+uniform_float(0.1,0.9)	119	0.678826	0.16111505
+uniform_float(0.1,0.9)	120	0.67846763	0.50627613
+uniform_float(0.1,0.9)	121	0.67839605	0.7753083
+uniform_float(0.1,0.9)	122	0.678611	0.96821165
+uniform_float(0.1,0.9)	123	0.67853934	0.23724389
+uniform_float(0.1,0.9)	124	0.678181	0.582405
+uniform_float(0.1,0.9)	125	0.67810935	0.8514372
+uniform_float(0.1,0.9)	126	0.67832434	0.04434055
+uniform_float(0.1,0.9)	127	0.6782527	0.3133728
+uniform_float(0.1,0.9)	128	0.6939473	0.39531714
+uniform_float(0.1,0.9)	129	0.6938756	0.6643493
+uniform_float(0.1,0.9)	130	0.69409066	0.85725266
+uniform_float(0.1,0.9)	131	0.69401896	0.1262849
+uniform_float(0.1,0.9)	132	0.6936607	0.47144598
+uniform_float(0.1,0.9)	133	0.69358903	0.7404782
+uniform_float(0.1,0.9)	134	0.69380397	0.93338156
+uniform_float(0.1,0.9)	135	0.6937323	0.2024138
+uniform_float(0.1,0.9)	136	0.693374	0.5475749
+uniform_float(0.1,0.9)	137	0.69330233	0.81660706
+uniform_float(0.1,0.9)	138	0.6935173	0.009510398
+uniform_float(0.1,0.9)	139	0.6934457	0.27854264
+uniform_float(0.1,0.9)	140	0.69308734	0.6237037
+uniform_float(0.1,0.9)	141	0.69301564	0.89273596
+uniform_float(0.1,0.9)	142	0.6932307	0.0856393
+uniform_float(0.1,0.9)	143	0.693159	0.35467154
+uniform_float(0.1,0.9)	144	0.6950939	0.090801656
+uniform_float(0.1,0.9)	145	0.6950223	0.35983384
+uniform_float(0.1,0.9)	146	0.6952373	0.5527372
+uniform_float(0.1,0.9)	147	0.69516563	0.8217694
+uniform_float(0.1,0.9)	148	0.6948073	0.1669305
+uniform_float(0.1,0.9)	149	0.69473565	0.43596274
+uniform_float(0.1,0.9)	150	0.69495064	0.6288661
+uniform_float(0.1,0.9)	151	0.69487894	0.8978983
+uniform_float(0.1,0.9)	152	0.69452065	0.2430594
+uniform_float(0.1,0.9)	153	0.694449	0.5120916
+uniform_float(0.1,0.9)	154	0.694664	0.7049949
+uniform_float(0.1,0.9)	155	0.6945923	0.97402716
+uniform_float(0.1,0.9)	156	0.69423395	0.31918824
+uniform_float(0.1,0.9)	157	0.6941623	0.5882205
+uniform_float(0.1,0.9)	158	0.6943773	0.7811238
+uniform_float(0.1,0.9)	159	0.69430566	0.050156057
+uniform_float(0.1,0.9)	160	0.691654	0.004348099
+uniform_float(0.1,0.9)	161	0.6915824	0.27338028
+uniform_float(0.1,0.9)	162	0.6917974	0.46628362
+uniform_float(0.1,0.9)	163	0.69172573	0.73531586
+uniform_float(0.1,0.9)	164	0.6913674	0.08047694
+uniform_float(0.1,0.9)	165	0.6912957	0.34950918
+uniform_float(0.1,0.9)	166	0.69151074	0.5424125
+uniform_float(0.1,0.9)	167	0.69143903	0.81144476
+uniform_float(0.1,0.9)	168	0.6910807	0.15660584
+uniform_float(0.1,0.9)	169	0.69100904	0.42563802
+uniform_float(0.1,0.9)	170	0.69122404	0.61854136
+uniform_float(0.1,0.9)	171	0.6911524	0.8875736
+uniform_float(0.1,0.9)	172	0.69079405	0.23273468
+uniform_float(0.1,0.9)	173	0.6907224	0.5017669
+uniform_float(0.1,0.9)	174	0.69093734	0.69467026
+uniform_float(0.1,0.9)	175	0.69086576	0.9637025
+uniform_float(0.1,0.9)	176	0.6928007	0.6998326
+uniform_float(0.1,0.9)	177	0.69272906	0.9688648
+uniform_float(0.1,0.9)	178	0.692944	0.16176814
+uniform_float(0.1,0.9)	179	0.69287235	0.43080038
+uniform_float(0.1,0.9)	180	0.692514	0.77596146
+uniform_float(0.1,0.9)	181	0.69244236	0.0449937
+uniform_float(0.1,0.9)	182	0.69265735	0.23789704
+uniform_float(0.1,0.9)	183	0.6925857	0.5069293
+uniform_float(0.1,0.9)	184	0.69222736	0.85209036
+uniform_float(0.1,0.9)	185	0.69215566	0.12112254
+uniform_float(0.1,0.9)	186	0.6923707	0.31402588
+uniform_float(0.1,0.9)	187	0.692299	0.5830581
+uniform_float(0.1,0.9)	188	0.69194067	0.9282192
+uniform_float(0.1,0.9)	189	0.691869	0.19725144
+uniform_float(0.1,0.9)	190	0.692084	0.39015478
+uniform_float(0.1,0.9)	191	0.69201237	0.659187
+uniform_float(0.1,0.9)	192	0.68936074	0.61337906
+uniform_float(0.1,0.9)	193	0.6892891	0.88241124
+uniform_float(0.1,0.9)	194	0.6895041	0.07531458
+uniform_float(0.1,0.9)	195	0.68943244	0.34434682
+uniform_float(0.1,0.9)	196	0.6890741	0.6895079
+uniform_float(0.1,0.9)	197	0.6890024	0.95854014
+uniform_float(0.1,0.9)	198	0.6892174	0.15144348
+uniform_float(0.1,0.9)	199	0.68914574	0.42047572
+uniform_float(-1,-0.4)	0	-0.56141937	0.831441
+uniform_float(-1,-0.4)	1	-0.5614731	0.100473166
+uniform_float(-1,-0.4)	2	-0.56131184	0.2933765
+uniform_float(-1,-0.4)	3	-0.5613656	0.56240875
+uniform_float(-1,-0.4)	4	-0.5616343	0.9075698
+uniform_float(-1,-0.4)	5	-0.56168807	0.17660207
+uniform_float(-1,-0.4)	6	-0.56152683	0.3695054
+uniform_float(-1,-0.4)	7	-0.56158054	0.63853765
+uniform_float(-1,-0.4)	8	-0.56184936	0.9836987
+uniform_float(-1,-0.4)	9	-0.56190306	0.2527309
+uniform_float(-1,-0.4)	10	-0.5617418	0.44563425
+uniform_float(-1,-0.4)	11	-0.5617956	0.7146665
+uniform_float(-1,-0.4)	12	-0.5620643	0.059827566
+uniform_float(-1,-0.4)	13	-0.56211805	0.3288598
+uniform_float(-1,-0.4)	14	-0.56195676	0.52176315
+uniform_float(-1,-0.4)	15	-0.5620105	0.7907954
+uniform_float(-1,-0.4)	16	-0.56055933	0.5269255
+uniform_float(-1,-0.4)	17	-0.5606131	0.7959577
+uniform_float(-1,-0.4)	18	-0.56045187	0.988861
+uniform_float(-1,-0.4)	19	-0.5605056	0.25789326
+uniform_float(-1,-0.4)	20	-0.5607743	0.60305434
+uniform_float(-1,-0.4)	21	-0.5608281	0.8720866
+uniform_float(-1,-0.4)	22	-0.5606668	0.064989924
+uniform_float(-1,-0.4)	23	-0.56072056	0.33402216
+uniform_float(-1,-0.4)	24	-0.5609894	0.67918324
+uniform_float(-1,-0.4)	25	-0.56104314	0.9482154
+uniform_float(-1,-0.4)	26	-0.56088185	0.14111876
+uniform_float(-1,-0.4)	27	-0.5609356	0.410151
+uniform_float(-1,-0.4)	28	-0.5612043	0.7553121
+uniform_float(-1,-0.4)	29	-0.5612581	0.024344325
+uniform_float(-1,-0.4)	30	-0.56109685	0.21724766
+uniform_float(-1,-0.4)	31	-0.56115055	0.4862799
+uniform_float(-1,-0.4)	32	-0.5631393	0.44047195
+uniform_float(-1,-0.4)	33	-0.5631931	0.7095041
+uniform_float(-1,-0.4)	34	-0.5630318	0.90240747
+uniform_float(-1,-0.4)	35	-0.56308556	0.1714397
+uniform_float(-1,-0.4)	36	-0.56335425	0.5166008
+uniform_float(-1,-0.4)	37	-0.563408	0.785633
+uniform_float(-1,-0.4)	38	-0.56324685	0.97853637
+uniform_float(-1,-0.4)	39	-0.56330055	0.2475686
+uniform_float(-1,-0.4)	40	-0.5635693	0.5927297
+uniform_float(-1,-0.4)	41	-0.5636231	0.86176187
+uniform_float(-1,-0.4)	42	-0.5634618	0.054665208
+uniform_float(-1,-0.4)	43	-0.56351554	0.32369745
+uniform_float(-1,-0.4)	44	-0.56378424	0.6688585
+uniform_float(-1,-0.4)	45	-0.563838	0.93789077
+uniform_float(-1,-0.4)	46	-0.5636768	0.13079411
+uniform_float(-1,-0.4)	47	-0.56373054	0.39982635
+uniform_float(-1,-0.4)	48	-0.56227934	0.13595647
+uniform_float(-1,-0.4)	49	-0.5623331	0.40498865
+uniform_float(-1,-0.4)	50	-0.5621718	0.597892
+uniform_float(-1,-0.4)	51	-0.5622256	0.8669242
+uniform_float(-1,-0.4)	52	-0.5624943	0.2120853
+uniform_float(-1,-0.4)	53	-0.56254804	0.48111755
+uniform_float(-1,-0.4)	54	-0.5623868	0.6740209
+uniform_float(-1,-0.4)	55	-0.5624406	0.9430531
+uniform_float(-1,-0.4)	56	-0.56270933	0.2882142
+uniform_float(-1,-0.4)	57	-0.56276304	0.5572464
+uniform_float(-1,-0.4)	58	-0.5626018	0.7501497
+uniform_float(-1,-0.4)	59	-0.56265557	0.019181967
+uniform_float(-1,-0.4)	60	-0.56292427	0.36434305
+uniform_float(-1,-0.4)	61	-0.562978	0.6333753
+uniform_float(-1,-0.4)	62	-0.5628168	0.8262786
+uniform_float(-1,-0.4)	63	-0.5628705	0.09531087
+uniform_float(-1,-0.4)	64	-0.5648593	0.04950291
+uniform_float(-1,-0.4)	65	-0.56491303	0.3185351
+uniform_float(-1,-0.4)	66	-0.56475174	0.5114384
+uniform_float(-1,-0.4)	67	-0.5648055	0.78047067
+uniform_float(-1,-0.4)	68	-0.5650742	0.12563175
+uniform_float(-1,-0.4)	69	-0.56512797	0.394664
+uniform_float(-1,-0.4)	70	-0.56496674	0.5875673
+uniform_float(-1,-0.4)	71	-0.5650205	0.85659957
+uniform_float(-1,-0.4)	72	-0.56528926	0.20176065
+uniform_float(-1,-0.4)	73	-0.565343	0.47079283
+uniform_float(-1,-0.4)	74	-0.56518173	0.66369617
+uniform_float(-1,-0.4)	75	-0.5652355	0.9327284
+uniform_float(-1,-0.4)	76	-0.5655042	0.2778895
+uniform_float(-1,-0.4)	77	-0.56555796	0.54692173
+uniform_float(-1,-0.4)	78	-0.5653968	0.73982507
+uniform_float(-1,-0.4)	79	-0.56545055	0.00885731
+uniform_float(-1,-0.4)	80	-0.5639993	0.7449874
+uniform_float(-1,-0.4)	81	-0.564053	0.0140196085
+uniform_float(-1,-0.4)	82	-0.56389177	0.20692295
+uniform_float(-1,-0.4)	83	-0.56394553	0.4759552
+uniform_float(-1,-0.4)	84	-0.5642142	0.82111627
+uniform_float(-1,-0.4)	85	-0.564268	0.09014851
+uniform_float(-1,-0.4)	86	-0.56410676	0.28305185
+uniform_float(-1,-0.4)	87	-0.56416047	0.5520841
+uniform_float(-1,-0.4)	88	-0.5644293	0.89724517
+uniform_float(-1,-0.4)	89	-0.56448305	0.16627735
+uniform_float(-1,-0.4)	90	-0.56432176	0.3591807
+uniform_float(-1,-0.4)	91	-0.5643755	0.6282129
+uniform_float(-1,-0.4)	92	-0.5646443	0.973374
+uniform_float(-1,-0.4)	93	-0.564698	0.24240625
+uniform_float(-1,-0.4)	94	-0.5645368	0.4353096
+uniform_float(-1,-0.4)	95	-0.5645905	0.7043418
+uniform_float(-1,-0.4)	96	-0.5665792	0.6585339
+uniform_float(-1,-0.4)	97	-0.566633	0.92756605
+uniform_float(-1,-0.4)	98	-0.5664717	0.12046939
+uniform_float(-1,-0.4)	99	-0.56652546	0.38950163
+uniform_float(-1,-0.4)	100	-0.5667942	0.7346627
+uniform_float(-1,-0.4)	101	-0.566848	0.0036949515
+uniform_float(-1,-0.4)	102	-0.56668675	0.19659829
+uniform_float(-1,-0.4)	103	-0.5667405	0.46563053
+uniform_float(-1,-0.4)	104	-0.5670092	0.8107916
+uniform_float(-1,-0.4)	105	-0.567063	0.07982379
+uniform_float(-1,-0.4)	106	-0.5669017	0.27272713
+uniform_float(-1,-0.4)	107	-0.56695545	0.5417594
+uniform_float(-1,-0.4)	108	-0.5672242	0.88692045
+uniform_float(-1,-0.4)	109	-0.5672779	0.15595269
+uniform_float(-1,-0.4)	110	-0.56711674	0.34885603
+uniform_float(-1,-0.4)	111	-0.56717044	0.6178883
+uniform_float(-1,-0.4)	112	-0.56571925	0.3540184
+uniform_float(-1,-0.4)	113	-0.565773	0.6230506
+uniform_float(-1,-0.4)	114	-0.5656117	0.8159539
+uniform_float(-1,-0.4)	115	-0.5656655	0.08498615
+uniform_float(-1,-0.4)	116	-0.56593424	0.43014723
+uniform_float(-1,-0.4)	117	-0.56598794	0.6991795
+uniform_float(-1,-0.4)	118	-0.5658268	0.8920828
+uniform_float(-1,-0.4)	119	-0.5658805	0.16111505
+uniform_float(-1,-0.4)	120	-0.56614923	0.50627613
+uniform_float(-1,-0.4)	121	-0.566203	0.7753083
+uniform_float(-1,-0.4)	122	-0.5660417	0.96821165
+uniform_float(-1,-0.4)	123	-0.5660955	0.23724389
+uniform_float(-1,-0.4)	124	-0.56636417	0.582405
+uniform_float(-1,-0.4)	125	-0.56641793	0.8514372
+uniform_float(-1,-0.4)	126	-0.5662567	0.04434055
+uniform_float(-1,-0.4)	127	-0.56631047	0.3133728
+uniform_float(-1,-0.4)	128	-0.5545395	0.39531714
+uniform_float(-1,-0.4)	129	-0.5545932	0.6643493
+uniform_float(-1,-0.4)	130	-0.55443203	0.85725266
+uniform_float(-1,-0.4)	131	-0.55448574	0.1262849
+uniform_float(-1,-0.4)	132	-0.5547545	0.47144598
+uniform_float(-1,-0.4)	133	-0.55480826	0.7404782
+uniform_float(-1,-0.4)	134	-0.55464697	0.93338156
+uniform_float(-1,-0.4)	135	-0.55470073	0.2024138
+uniform_float(-1,-0.4)	136	-0.55496943	0.5475749
+uniform_float(-1,-0.4)	137	-0.5550232	0.81660706
+uniform_float(-1,-0.4)	138	-0.55486196	0.009510398
+uniform_float(-1,-0.4)	139	-0.5549157	0.27854264
+uniform_float(-1,-0.4)	140	-0.5551845	0.6237037
+uniform_float(-1,-0.4)	141	-0.55523825	0.89273596
+uniform_float(-1,-0.4)	142	-0.55507696	0.0856393
+uniform_float(-1,-0.4)	143	-0.5551307	0.35467154
+uniform_float(-1,-0.4)	144	-0.55367947	0.090801656
+uniform_float(-1,-0.4)	145	-0.5537332	0.35983384
+uniform_float(-1,-0.4)	146	-0.553572	0.5527372
+uniform_float(-1,-0.4)	147	-0.55362576	0.8217694
+uniform_float(-1,-0.4)	148	-0.5538945	0.1669305
+uniform_float(-1,-0.4)	149	-0.5539482	0.43596274
+uniform_float(-1,-0.4)	150	-0.553787	0.6288661
+uniform_float(-1,-0.4)	151	-0.55384076	0.8978983
+uniform_float(-1,-0.4)	152	-0.55410945	0.2430594
+uniform_float(-1,-0.4)	153	-0.5541632	0.5120916
+uniform_float(-1,-0.4)	154	-0.554002	0.7049949
+uniform_float(-1,-0.4)	155	-0.5540557	0.97402716
+uniform_float(-1,-0.4)	156	-0.5543245	0.31918824
+uniform_float(-1,-0.4)	157	-0.5543783	0.5882205
+uniform_float(-1,-0.4)	158	-0.554217	0.7811238
+uniform_float(-1,-0.4)	159	-0.55427074	0.050156057
+uniform_float(-1,-0.4)	160	-0.5562594	0.004348099
+uniform_float(-1,-0.4)	161	-0.55631316	0.27338028
+uniform_float(-1,-0.4)	162	-0.5561519	0.46628362
+uniform_float(-1,-0.4)	163	-0.5562057	0.73531586
+uniform_float(-1,-0.4)	164	-0.55647445	0.08047694
+uniform_float(-1,-0.4)	165	-0.5565282	0.34950918
+uniform_float(-1,-0.4)	166	-0.5563669	0.5424125
+uniform_float(-1,-0.4)	167	-0.5564207	0.81144476
+uniform_float(-1,-0.4)	168	-0.55668944	0.15660584
+uniform_float(-1,-0.4)	169	-0.5567432	0.42563802
+uniform_float(-1,-0.4)	170	-0.556582	0.61854136
+uniform_float(-1,-0.4)	171	-0.55663574	0.8875736
+uniform_float(-1,-0.4)	172	-0.55690444	0.23273468
+uniform_float(-1,-0.4)	173	-0.5569582	0.5017669
+uniform_float(-1,-0.4)	174	-0.5567969	0.69467026
+uniform_float(-1,-0.4)	175	-0.5568507	0.9637025
+uniform_float(-1,-0.4)	176	-0.5553994	0.6998326
+uniform_float(-1,-0.4)	177	-0.5554532	0.9688648
+uniform_float(-1,-0.4)	178	-0.555292	0.16176814
+uniform_float(-1,-0.4)	179	-0.5553458	0.43080038
+uniform_float(-1,-0.4)	180	-0.5556145	0.77596146
+uniform_float(-1,-0.4)	181	-0.55566823	0.0449937
+uniform_float(-1,-0.4)	182	-0.55550694	0.23789704
+uniform_float(-1,-0.4)	183	-0.5555607	0.5069293
+uniform_float(-1,-0.4)	184	-0.55582947	0.85209036
+uniform_float(-1,-0.4)	185	-0.55588317	0.12112254
+uniform_float(-1,-0.4)	186	-0.555722	0.31402588
+uniform_float(-1,-0.4)	187	-0.5557757	0.5830581
+uniform_float(-1,-0.4)	188	-0.55604446	0.9282192
+uniform_float(-1,-0.4)	189	-0.5560982	0.19725144
+uniform_float(-1,-0.4)	190	-0.55593693	0.39015478
+uniform_float(-1,-0.4)	191	-0.5559907	0.659187
+uniform_float(-1,-0.4)	192	-0.5579794	0.61337906
+uniform_float(-1,-0.4)	193	-0.55803317	0.88241124
+uniform_float(-1,-0.4)	194	-0.55787194	0.07531458
+uniform_float(-1,-0.4)	195	-0.5579257	0.34434682
+uniform_float(-1,-0.4)	196	-0.5581944	0.6895079
+uniform_float(-1,-0.4)	197	-0.55824816	0.95854014
+uniform_float(-1,-0.4)	198	-0.5580869	0.15144348
+uniform_float(-1,-0.4)	199	-0.55814064	0.42047572
+trapezoid(0,6,2)	0	4.586753	0.24053639
+trapezoid(0,6,2)	1	3.124459	0.4100808
+trapezoid(0,6,2)	2	3.5113406	0.9014476
+trapezoid(0,6,2)	3	4.049047	0.07099199
+trapezoid(0,6,2)	4	4.7375774	0.918714
+trapezoid(0,6,2)	5	3.2752833	0.088258386
+trapezoid(0,6,2)	6	3.6621652	0.5796252
+trapezoid(0,6,2)	7	4.199871	0.7491696
+trapezoid(0,6,2)	8	4.888402	0.5968916
+trapezoid(0,6,2)	9	3.426108	0.766436
+trapezoid(0,6,2)	10	3.8129895	0.25780278
+trapezoid(0,6,2)	11	4.3506956	0.42734718
+trapezoid(0,6,2)	12	3.0392263	0.27506912
+trapezoid(0,6,2)	13	3.5769324	0.44461352
+trapezoid(0,6,2)	14	3.9638143	0.9359804
+trapezoid(0,6,2)	15	4.50152	0.10552478
+trapezoid(0,6,2)	16	3.9834552	0.5278261
+trapezoid(0,6,2)	17	4.521161	0.69737047
+trapezoid(0,6,2)	18	4.908043	0.18873727
+trapezoid(0,6,2)	19	3.4457493	0.35828167
+trapezoid(0,6,2)	20	4.1342797	0.2060036
+trapezoid(0,6,2)	21	4.6719856	0.375548
+trapezoid(0,6,2)	22	3.0588675	0.86691487
+trapezoid(0,6,2)	23	3.5965736	0.036459267
+trapezoid(0,6,2)	24	4.285104	0.8841812
+trapezoid(0,6,2)	25	4.82281	0.0537256
+trapezoid(0,6,2)	26	3.2096918	0.5450924
+trapezoid(0,6,2)	27	3.747398	0.7146368
+trapezoid(0,6,2)	28	4.4359283	0.5623588
+trapezoid(0,6,2)	29	2.9736347	0.7319032
+trapezoid(0,6,2)	30	3.360516	0.22327
+trapezoid(0,6,2)	31	3.8982224	0.3928144
+trapezoid(0,6,2)	32	3.7933483	0.6659571
+trapezoid(0,6,2)	33	4.3310547	0.8355015
+trapezoid(0,6,2)	34	4.717936	0.3268683
+trapezoid(0,6,2)	35	3.2556424	0.4964127
+trapezoid(0,6,2)	36	3.9441729	0.34413463
+trapezoid(0,6,2)	37	4.481879	0.513679
+trapezoid(0,6,2)	38	4.8687606	0.005045891
+trapezoid(0,6,2)	39	3.4064667	0.17459029
+trapezoid(0,6,2)	40	4.0949974	0.022312224
+trapezoid(0,6,2)	41	4.6327033	0.19185662
+trapezoid(0,6,2)	42	3.0195851	0.6832234
+trapezoid(0,6,2)	43	3.5572913	0.8527678
+trapezoid(0,6,2)	44	4.245822	0.7004898
+trapezoid(0,6,2)	45	4.783528	0.8700342
+trapezoid(0,6,2)	46	3.1704097	0.36140102
+trapezoid(0,6,2)	47	3.7081156	0.5309454
+trapezoid(0,6,2)	48	3.1900506	0.9532467
+trapezoid(0,6,2)	49	3.7277567	0.12279111
+trapezoid(0,6,2)	50	4.1146383	0.6141579
+trapezoid(0,6,2)	51	4.6523447	0.7837023
+trapezoid(0,6,2)	52	3.3408751	0.6314243
+trapezoid(0,6,2)	53	3.878581	0.8009687
+trapezoid(0,6,2)	54	4.265463	0.2923355
+trapezoid(0,6,2)	55	4.8031693	0.4618799
+trapezoid(0,6,2)	56	3.4916997	0.3096019
+trapezoid(0,6,2)	57	4.0294056	0.4791463
+trapezoid(0,6,2)	58	4.4162874	0.9705131
+trapezoid(0,6,2)	59	2.9539936	0.1400575
+trapezoid(0,6,2)	60	3.642524	0.9877795
+trapezoid(0,6,2)	61	4.18023	0.1573239
+trapezoid(0,6,2)	62	4.567112	0.6486907
+trapezoid(0,6,2)	63	3.1048179	0.8182351
+trapezoid(0,6,2)	64	2.9999442	0.091377735
+trapezoid(0,6,2)	65	3.53765	0.26092213
+trapezoid(0,6,2)	66	3.924532	0.75228894
+trapezoid(0,6,2)	67	4.462238	0.92183334
+trapezoid(0,6,2)	68	3.1507683	0.76955533
+trapezoid(0,6,2)	69	3.6884747	0.9390997
+trapezoid(0,6,2)	70	4.0753565	0.43046653
+trapezoid(0,6,2)	71	4.6130624	0.60001093
+trapezoid(0,6,2)	72	3.3015928	0.44773293
+trapezoid(0,6,2)	73	3.8392987	0.6172773
+trapezoid(0,6,2)	74	4.2261806	0.10864413
+trapezoid(0,6,2)	75	4.7638865	0.27818853
+trapezoid(0,6,2)	76	3.4524174	0.12591052
+trapezoid(0,6,2)	77	3.9901235	0.29545492
+trapezoid(0,6,2)	78	4.377005	0.7868217
+trapezoid(0,6,2)	79	2.914711	0.9563661
+trapezoid(0,6,2)	80	4.396646	0.3786674
+trapezoid(0,6,2)	81	2.9343524	0.5482118
+trapezoid(0,6,2)	82	3.3212337	0.039578617
+trapezoid(0,6,2)	83	3.8589401	0.20912302
+trapezoid(0,6,2)	84	4.5474706	0.05684501
+trapezoid(0,6,2)	85	3.085177	0.22638941
+trapezoid(0,6,2)	86	3.4720585	0.7177562
+trapezoid(0,6,2)	87	4.0097647	0.8873006
+trapezoid(0,6,2)	88	4.698295	0.7350226
+trapezoid(0,6,2)	89	3.236001	0.904567
+trapezoid(0,6,2)	90	3.6228828	0.3959338
+trapezoid(0,6,2)	91	4.160589	0.5654782
+trapezoid(0,6,2)	92	4.849119	0.41320014
+trapezoid(0,6,2)	93	3.3868256	0.58274454
+trapezoid(0,6,2)	94	3.7737074	0.0741114
+trapezoid(0,6,2)	95	4.3114133	0.24365574
+trapezoid(0,6,2)	96	4.2065396	0.51679844
+trapezoid(0,6,2)	97	4.7442455	0.68634284
+trapezoid(0,6,2)	98	3.1311274	0.17770964
+trapezoid(0,6,2)	99	3.6688333	0.34725404
+trapezoid(0,6,2)	100	4.3573637	0.19497603
+trapezoid(0,6,2)	101	2.89507	0.36452043
+trapezoid(0,6,2)	102	3.2819517	0.85588723
+trapezoid(0,6,2)	103	3.8196578	0.025431633
+trapezoid(0,6,2)	104	4.5081882	0.8731536
+trapezoid(0,6,2)	105	3.0458946	0.042698026
+trapezoid(0,6,2)	106	3.432776	0.5340648
+trapezoid(0,6,2)	107	3.9704823	0.7036092
+trapezoid(0,6,2)	108	4.659013	0.55133116
+trapezoid(0,6,2)	109	3.196719	0.72087556
+trapezoid(0,6,2)	110	3.5836005	0.21224242
+trapezoid(0,6,2)	111	4.121307	0.38178676
+trapezoid(0,6,2)	112	3.603242	0.8040881
+trapezoid(0,6,2)	113	4.140948	0.9736325
+trapezoid(0,6,2)	114	4.5278296	0.46499932
+trapezoid(0,6,2)	115	3.0655355	0.6345437
+trapezoid(0,6,2)	116	3.754066	0.48226565
+trapezoid(0,6,2)	117	4.2917724	0.65181005
+trapezoid(0,6,2)	118	4.6786537	0.14317691
+trapezoid(0,6,2)	119	3.21636	0.31272125
+trapezoid(0,6,2)	120	3.9048905	0.16044325
+trapezoid(0,6,2)	121	4.442597	0.32998765
+trapezoid(0,6,2)	122	4.8294783	0.82135445
+trapezoid(0,6,2)	123	3.3671844	0.99089885
+trapezoid(0,6,2)	124	4.055715	0.83862084
+trapezoid(0,6,2)	125	4.593421	0.00816524
+trapezoid(0,6,2)	126	2.9803028	0.49953204
+trapezoid(0,6,2)	127	3.5180092	0.66907644
+trapezoid(0,6,2)	128	3.7603707	0.53885365
+trapezoid(0,6,2)	129	4.2980766	0.70839804
+trapezoid(0,6,2)	130	4.6849585	0.19976485
+trapezoid(0,6,2)	131	3.2226648	0.36930925
+trapezoid(0,6,2)	132	3.9111953	0.21703124
+trapezoid(0,6,2)	133	4.4489017	0.38657564
+trapezoid(0,6,2)	134	4.835783	0.87794244
+trapezoid(0,6,2)	135	3.3734894	0.04748684
+trapezoid(0,6,2)	136	4.06202	0.89520884
+trapezoid(0,6,2)	137	4.5997257	0.064753234
+trapezoid(0,6,2)	138	2.9866076	0.55612004
+trapezoid(0,6,2)	139	3.5243137	0.72566444
+trapezoid(0,6,2)	140	4.212844	0.57338643
+trapezoid(0,6,2)	141	4.7505503	0.7429308
+trapezoid(0,6,2)	142	3.137432	0.23429763
+trapezoid(0,6,2)	143	3.675138	0.40384203
+trapezoid(0,6,2)	144	3.157073	0.8261433
+trapezoid(0,6,2)	145	3.6947792	0.9956877
+trapezoid(0,6,2)	146	4.0816607	0.48705453
+trapezoid(0,6,2)	147	4.619367	0.6565989
+trapezoid(0,6,2)	148	3.3078976	0.5043209
+trapezoid(0,6,2)	149	3.845604	0.6738653
+trapezoid(0,6,2)	150	4.2324853	0.16523212
+trapezoid(0,6,2)	151	4.770191	0.33477652
+trapezoid(0,6,2)	152	3.458722	0.18249851
+trapezoid(0,6,2)	153	3.996428	0.3520429
+trapezoid(0,6,2)	154	4.38331	0.8434097
+trapezoid(0,6,2)	155	4.9210157	0.012954116
+trapezoid(0,6,2)	156	3.6095464	0.8606761
+trapezoid(0,6,2)	157	4.1472526	0.030220449
+trapezoid(0,6,2)	158	4.5341344	0.5215873
+trapezoid(0,6,2)	159	3.0718403	0.6911317
+trapezoid(0,6,2)	160	2.9669666	0.96427435
+trapezoid(0,6,2)	161	3.5046725	0.13381875
+trapezoid(0,6,2)	162	3.8915544	0.62518555
+trapezoid(0,6,2)	163	4.4292603	0.79472995
+trapezoid(0,6,2)	164	3.1177907	0.64245194
+trapezoid(0,6,2)	165	3.655497	0.81199634
+trapezoid(0,6,2)	166	4.0423784	0.30336314
+trapezoid(0,6,2)	167	4.580085	0.47290754
+trapezoid(0,6,2)	168	3.2686152	0.32062954
+trapezoid(0,6,2)	169	3.8063211	0.49017394
+trapezoid(0,6,2)	170	4.193203	0.98154074
+trapezoid(0,6,2)	171	4.7309093	0.15108514
+trapezoid(0,6,2)	172	3.4194398	0.99880713
+trapezoid(0,6,2)	173	3.957146	0.16835147
+trapezoid(0,6,2)	174	4.3440275	0.65971833
+trapezoid(0,6,2)	175	4.881734	0.82926273
+trapezoid(0,6,2)	176	4.363669	0.25156403
+trapezoid(0,6,2)	177	4.901375	0.42110842
+trapezoid(0,6,2)	178	3.2882562	0.9124752
+trapezoid(0,6,2)	179	3.8259625	0.08201963
+trapezoid(0,6,2)	180	4.514493	0.9297416
+trapezoid(0,6,2)	181	3.0521994	0.09928596
+trapezoid(0,6,2)	182	3.439081	0.5906528
+trapezoid(0,6,2)	183	3.976787	0.7601972
+trapezoid(0,6,2)	184	4.6653175	0.60791916
+trapezoid(0,6,2)	185	3.2030234	0.77746356
+trapezoid(0,6,2)	186	3.5899053	0.26883036
+trapezoid(0,6,2)	187	4.127611	0.43837476
+trapezoid(0,6,2)	188	4.816142	0.28609675
+trapezoid(0,6,2)	189	3.353848	0.45564115
+trapezoid(0,6,2)	190	3.7407298	0.94700795
+trapezoid(0,6,2)	191	4.2784357	0.11655235
+trapezoid(0,6,2)	192	4.173562	0.38969505
+trapezoid(0,6,2)	193	4.711268	0.55923945
+trapezoid(0,6,2)	194	3.0981498	0.05060625
+trapezoid(0,6,2)	195	3.6358557	0.22015065
+trapezoid(0,6,2)	196	4.324386	0.06787264
+trapezoid(0,6,2)	197	4.8620925	0.23741698
+trapezoid(0,6,2)	198	3.248974	0.72878385
+trapezoid(0,6,2)	199	3.7866802	0.89832824
+constant(3)	0	3.0	0.73096776
+constant(3)	1	3.0	0.7308782
+constant(3)	2	3.0	0.73114693
+constant(3)	3	3.0	0.73105735
+constant(3)	4	3.0	0.7306094
+constant(3)	5	3.0	0.73051983
+constant(3)	6	3.0	0.7307886
+constant(3)	7	3.0	0.730699
+constant(3)	8	3.0	0.7302511
+constant(3)	9	3.0	0.73016155
+constant(3)	10	3.0	0.73043025
+constant(3)	11	3.0	0.73034066
+constant(3)	12	3.0	0.7298928
+constant(3)	13	3.0	0.7298032
+constant(3)	14	3.0	0.73007196
+constant(3)	15	3.0	0.7299824
+constant(3)	16	3.0	0.7324011
+constant(3)	17	3.0	0.7323115
+constant(3)	18	3.0	0.73258024
+constant(3)	19	3.0	0.73249066
+constant(3)	20	3.0	0.73204273
+constant(3)	21	3.0	0.73195314
+constant(3)	22	3.0	0.7322219
+constant(3)	23	3.0	0.7321323
+constant(3)	24	3.0	0.7316844
+constant(3)	25	3.0	0.7315948
+constant(3)	26	3.0	0.73186356
+constant(3)	27	3.0	0.731774
+constant(3)	28	3.0	0.7313261
+constant(3)	29	3.0	0.7312365
+constant(3)	30	3.0	0.7315052
+constant(3)	31	3.0	0.7314157
+constant(3)	32	3.0	0.72810113
+constant(3)	33	3.0	0.72801155
+constant(3)	34	3.0	0.7282803
+constant(3)	35	3.0	0.7281907
+constant(3)	36	3.0	0.72774285
+constant(3)	37	3.0	0.72765326
+constant(3)	38	3.0	0.72792196
+constant(3)	39	3.0	0.7278324
+constant(3)	40	3.0	0.7273845
+constant(3)	41	3.0	0.7272949
+constant(3)	42	3.0	0.7275637
+constant(3)	43	3.0	0.7274741
+constant(3)	44	3.0	0.72702616
+constant(3)	45	3.0	0.7269366
+constant(3)	46	3.0	0.72720534
+constant(3)	47	3.0	0.72711575
+constant(3)	48	3.0	0.72953445
+constant(3)	49	3.0	0.72944486
+constant(3)	50	3.0	0.7297136
+constant(3)	51	3.0	0.72962403
+constant(3)	52	3.0	0.7291761
+constant(3)	53	3.0	0.7290865
+constant(3)	54	3.0	0.7293553
+constant(3)	55	3.0	0.7292657
+constant(3)	56	3.0	0.7288178
+constant(3)	57	3.0	0.72872823
+constant(3)	58	3.0	0.728997
+constant(3)	59	3.0	0.7289074
+constant(3)	60	3.0	0.7284595
+constant(3)	61	3.0	0.7283699
+constant(3)	62	3.0	0.72863865
+constant(3)	63	3.0	0.72854906
+constant(3)	64	3.0	0.72523457
+constant(3)	65	3.0	0.725145
+constant(3)	66	3.0	0.72541374
+constant(3)	67	3.0	0.72532415
+constant(3)	68	3.0	0.7248762
+constant(3)	69	3.0	0.72478664
+constant(3)	70	3.0	0.7250554
+constant(3)	71	3.0	0.7249658
+constant(3)	72	3.0	0.7245179
+constant(3)	73	3.0	0.7244283
+constant(3)	74	3.0	0.72469705
+constant(3)	75	3.0	0.72460747
+constant(3)	76	3.0	0.7241596
+constant(3)	77	3.0	0.72407
+constant(3)	78	3.0	0.7243387
+constant(3)	79	3.0	0.7242491
+constant(3)	80	3.0	0.7266678
+constant(3)	81	3.0	0.7265783
+constant(3)	82	3.0	0.726847
+constant(3)	83	3.0	0.7267574
+constant(3)	84	3.0	0.72630954
+constant(3)	85	3.0	0.72621995
+constant(3)	86	3.0	0.7264887
+constant(3)	87	3.0	0.7263991
+constant(3)	88	3.0	0.7259512
+constant(3)	89	3.0	0.7258616
+constant(3)	90	3.0	0.72613037
+constant(3)	91	3.0	0.7260408
+constant(3)	92	3.0	0.72559285
+constant(3)	93	3.0	0.72550327
+constant(3)	94	3.0	0.725772
+constant(3)	95	3.0	0.72568244
+constant(3)	96	3.0	0.72236794
+constant(3)	97	3.0	0.72227836
+constant(3)	98	3.0	0.7225471
+constant(3)	99	3.0	0.7224575
+constant(3)	100	3.0	0.7220096
+constant(3)	101	3.0	0.72192
+constant(3)	102	3.0	0.7221888
+constant(3)	103	3.0	0.7220992
+constant(3)	104	3.0	0.7216513
+constant(3)	105	3.0	0.72156173
+constant(3)	106	3.0	0.7218304
+constant(3)	107	3.0	0.7217409
+constant(3)	108	3.0	0.721293
+constant(3)	109	3.0	0.7212034
+constant(3)	110	3.0	0.72147214
+constant(3)	111	3.0	0.72138256
+constant(3)	112	3.0	0.72380126
+constant(3)	113	3.0	0.72371167
+constant(3)	114	3.0	0.7239804
+constant(3)	115	3.0	0.72389084
+constant(3)	116	3.0	0.7234429
+constant(3)	117	3.0	0.7233533
+constant(3)	118	3.0	0.7236221
+constant(3)	119	3.0	0.7235325
+constant(3)	120	3.0	0.72308457
+constant(3)	121	3.0	0.72299504
+constant(3)	122	3.0	0.72326374
+constant(3)	123	3.0	0.72317415
+constant(3)	124	3.0	0.7227263
+constant(3)	125	3.0	0.7226367
+constant(3)	126	3.0	0.72290546
+constant(3)	127	3.0	0.7228159
+constant(3)	128	3.0	0.74243414
+constant(3)	129	3.0	0.74234456
+constant(3)	130	3.0	0.7426133
+constant(3)	131	3.0	0.7425237
+constant(3)	132	3.0	0.74207586
+constant(3)	133	3.0	0.7419863
+constant(3)	134	3.0	0.742255
+constant(3)	135	3.0	0.74216545
+constant(3)	136	3.0	0.7417175
+constant(3)	137	3.0	0.74162793
+constant(3)	138	3.0	0.7418967
+constant(3)	139	3.0	0.7418071
+constant(3)	140	3.0	0.7413592
+constant(3)	141	3.0	0.7412696
+constant(3)	142	3.0	0.74153835
+constant(3)	143	3.0	0.74144876
+constant(3)	144	3.0	0.74386746
+constant(3)	145	3.0	0.7437779
+constant(3)	146	3.0	0.7440466
+constant(3)	147	3.0	0.74395704
+constant(3)	148	3.0	0.7435091
+constant(3)	149	3.0	0.7434196
+constant(3)	150	3.0	0.7436883
+constant(3)	151	3.0	0.7435987
+constant(3)	152	3.0	0.74315083
+constant(3)	153	3.0	0.74306124
+constant(3)	154	3.0	0.74333
+constant(3)	155	3.0	0.7432404
+constant(3)	156	3.0	0.7427925
+constant(3)	157	3.0	0.7427029
+constant(3)	158	3.0	0.74297166
+constant(3)	159	3.0	0.7428821
+constant(3)	160	3.0	0.7395676
+constant(3)	161	3.0	0.739478
+constant(3)	162	3.0	0.73974675
+constant(3)	163	3.0	0.73965716
+constant(3)	164	3.0	0.73920923
+constant(3)	165	3.0	0.73911965
+constant(3)	166	3.0	0.7393884
+constant(3)	167	3.0	0.7392988
+constant(3)	168	3.0	0.7388509
+constant(3)	169	3.0	0.7387613
+constant(3)	170	3.0	0.73903006
+constant(3)	171	3.0	0.7389405
+constant(3)	172	3.0	0.7384926
+constant(3)	173	3.0	0.738403
+constant(3)	174	3.0	0.7386717
+constant(3)	175	3.0	0.7385822
+constant(3)	176	3.0	0.7410009
+constant(3)	177	3.0	0.7409113
+constant(3)	178	3.0	0.74118
+constant(3)	179	3.0	0.7410904
+constant(3)	180	3.0	0.74064255
+constant(3)	181	3.0	0.74055296
+constant(3)	182	3.0	0.7408217
+constant(3)	183	3.0	0.74073213
+constant(3)	184	3.0	0.7402842
+constant(3)	185	3.0	0.7401946
+constant(3)	186	3.0	0.7404634
+constant(3)	187	3.0	0.7403738
+constant(3)	188	3.0	0.73992586
+constant(3)	189	3.0	0.7398363
+constant(3)	190	3.0	0.74010503
+constant(3)	191	3.0	0.74001545
+constant(3)	192	3.0	0.73670095
+constant(3)	193	3.0	0.73661137
+constant(3)	194	3.0	0.7368801
+constant(3)	195	3.0	0.73679054
+constant(3)	196	3.0	0.7363426
+constant(3)	197	3.0	0.736253
+constant(3)	198	3.0	0.7365218
+constant(3)	199	3.0	0.7364322
+uniform_height(above_bottom 8,absolute 180)	0	7	0.831441
+uniform_height(above_bottom 8,absolute 180)	1	76	0.100473166
+uniform_height(above_bottom 8,absolute 180)	2	104	0.2933765
+uniform_height(above_bottom 8,absolute 180)	3	174	0.56240875
+uniform_height(above_bottom 8,absolute 180)	4	48	0.9075698
+uniform_height(above_bottom 8,absolute 180)	5	117	0.17660207
+uniform_height(above_bottom 8,absolute 180)	6	146	0.3695054
+uniform_height(above_bottom 8,absolute 180)	7	-22	0.63853765
+uniform_height(above_bottom 8,absolute 180)	8	89	0.9836987
+uniform_height(above_bottom 8,absolute 180)	9	158	0.2527309
+uniform_height(above_bottom 8,absolute 180)	10	-50	0.44563425
+uniform_height(above_bottom 8,absolute 180)	11	19	0.7146665
+uniform_height(above_bottom 8,absolute 180)	12	130	0.059827566
+uniform_height(above_bottom 8,absolute 180)	13	-37	0.3288598
+uniform_height(above_bottom 8,absolute 180)	14	-9	0.52176315
+uniform_height(above_bottom 8,absolute 180)	15	61	0.7907954
+uniform_height(above_bottom 8,absolute 180)	16	79	0.5269255
+uniform_height(above_bottom 8,absolute 180)	17	148	0.7959577
+uniform_height(above_bottom 8,absolute 180)	18	177	0.988861
+uniform_height(above_bottom 8,absolute 180)	19	9	0.25789326
+uniform_height(above_bottom 8,absolute 180)	20	120	0.60305434
+uniform_height(above_bottom 8,absolute 180)	21	-48	0.8720866
+uniform_height(above_bottom 8,absolute 180)	22	-19	0.064989924
+uniform_height(above_bottom 8,absolute 180)	23	50	0.33402216
+uniform_height(above_bottom 8,absolute 180)	24	161	0.67918324
+uniform_height(above_bottom 8,absolute 180)	25	-6	0.9482154
+uniform_height(above_bottom 8,absolute 180)	26	22	0.14111876
+uniform_height(above_bottom 8,absolute 180)	27	92	0.410151
+uniform_height(above_bottom 8,absolute 180)	28	-35	0.7553121
+uniform_height(above_bottom 8,absolute 180)	29	35	0.024344325
+uniform_height(above_bottom 8,absolute 180)	30	63	0.21724766
+uniform_height(above_bottom 8,absolute 180)	31	133	0.4862799
+uniform_height(above_bottom 8,absolute 180)	32	99	0.44047195
+uniform_height(above_bottom 8,absolute 180)	33	169	0.7095041
+uniform_height(above_bottom 8,absolute 180)	34	-40	0.90240747
+uniform_height(above_bottom 8,absolute 180)	35	30	0.1714397
+uniform_height(above_bottom 8,absolute 180)	36	140	0.5166008
+uniform_height(above_bottom 8,absolute 180)	37	-27	0.785633
+uniform_height(above_bottom 8,absolute 180)	38	1	0.97853637
+uniform_height(above_bottom 8,absolute 180)	39	71	0.2475686
+uniform_height(above_bottom 8,absolute 180)	40	-55	0.5927297
+uniform_height(above_bottom 8,absolute 180)	41	14	0.86176187
+uniform_height(above_bottom 8,absolute 180)	42	42	0.054665208
+uniform_height(above_bottom 8,absolute 180)	43	112	0.32369745
+uniform_height(above_bottom 8,absolute 180)	44	-14	0.6688585
+uniform_height(above_bottom 8,absolute 180)	45	55	0.93789077
+uniform_height(above_bottom 8,absolute 180)	46	84	0.13079411
+uniform_height(above_bottom 8,absolute 180)	47	153	0.39982635
+uniform_height(above_bottom 8,absolute 180)	48	171	0.13595647
+uniform_height(above_bottom 8,absolute 180)	49	4	0.40498865
+uniform_height(above_bottom 8,absolute 180)	50	32	0.597892
+uniform_height(above_bottom 8,absolute 180)	51	102	0.8669242
+uniform_height(above_bottom 8,absolute 180)	52	-24	0.2120853
+uniform_height(above_bottom 8,absolute 180)	53	45	0.48111755
+uniform_height(above_bottom 8,absolute 180)	54	73	0.6740209
+uniform_height(above_bottom 8,absolute 180)	55	143	0.9430531
+uniform_height(above_bottom 8,absolute 180)	56	17	0.2882142
+uniform_height(above_bottom 8,absolute 180)	57	86	0.5572464
+uniform_height(above_bottom 8,absolute 180)	58	115	0.7501497
+uniform_height(above_bottom 8,absolute 180)	59	-53	0.019181967
+uniform_height(above_bottom 8,absolute 180)	60	58	0.36434305
+uniform_height(above_bottom 8,absolute 180)	61	127	0.6333753
+uniform_height(above_bottom 8,absolute 180)	62	156	0.8262786
+uniform_height(above_bottom 8,absolute 180)	63	-12	0.09531087
+uniform_height(above_bottom 8,absolute 180)	64	-45	0.04950291
+uniform_height(above_bottom 8,absolute 180)	65	24	0.3185351
+uniform_height(above_bottom 8,absolute 180)	66	53	0.5114384
+uniform_height(above_bottom 8,absolute 180)	67	122	0.78047067
+uniform_height(above_bottom 8,absolute 180)	68	-4	0.12563175
+uniform_height(above_bottom 8,absolute 180)	69	65	0.394664
+uniform_height(above_bottom 8,absolute 180)	70	94	0.5875673
+uniform_height(above_bottom 8,absolute 180)	71	163	0.85659957
+uniform_height(above_bottom 8,absolute 180)	72	37	0.20176065
+uniform_height(above_bottom 8,absolute 180)	73	107	0.47079283
+uniform_height(above_bottom 8,absolute 180)	74	135	0.66369617
+uniform_height(above_bottom 8,absolute 180)	75	-32	0.9327284
+uniform_height(above_bottom 8,absolute 180)	76	78	0.2778895
+uniform_height(above_bottom 8,absolute 180)	77	148	0.54692173
+uniform_height(above_bottom 8,absolute 180)	78	176	0.73982507
+uniform_height(above_bottom 8,absolute 180)	79	9	0.00885731
+uniform_height(above_bottom 8,absolute 180)	80	27	0.7449874
+uniform_height(above_bottom 8,absolute 180)	81	96	0.0140196085
+uniform_height(above_bottom 8,absolute 180)	82	125	0.20692295
+uniform_height(above_bottom 8,absolute 180)	83	-43	0.4759552
+uniform_height(above_bottom 8,absolute 180)	84	68	0.82111627
+uniform_height(above_bottom 8,absolute 180)	85	138	0.09014851
+uniform_height(above_bottom 8,absolute 180)	86	166	0.28305185
+uniform_height(above_bottom 8,absolute 180)	87	-1	0.5520841
+uniform_height(above_bottom 8,absolute 180)	88	109	0.89724517
+uniform_height(above_bottom 8,absolute 180)	89	179	0.16627735
+uniform_height(above_bottom 8,absolute 180)	90	-30	0.3591807
+uniform_height(above_bottom 8,absolute 180)	91	40	0.6282129
+uniform_height(above_bottom 8,absolute 180)	92	151	0.973374
+uniform_height(above_bottom 8,absolute 180)	93	-17	0.24240625
+uniform_height(above_bottom 8,absolute 180)	94	11	0.4353096
+uniform_height(above_bottom 8,absolute 180)	95	81	0.7043418
+uniform_height(above_bottom 8,absolute 180)	96	47	0.6585339
+uniform_height(above_bottom 8,absolute 180)	97	117	0.92756605
+uniform_height(above_bottom 8,absolute 180)	98	145	0.12046939
+uniform_height(above_bottom 8,absolute 180)	99	-22	0.38950163
+uniform_height(above_bottom 8,absolute 180)	100	89	0.7346627
+uniform_height(above_bottom 8,absolute 180)	101	158	0.0036949515
+uniform_height(above_bottom 8,absolute 180)	102	-51	0.19659829
+uniform_height(above_bottom 8,absolute 180)	103	19	0.46563053
+uniform_height(above_bottom 8,absolute 180)	104	130	0.8107916
+uniform_height(above_bottom 8,absolute 180)	105	-38	0.07982379
+uniform_height(above_bottom 8,absolute 180)	106	-9	0.27272713
+uniform_height(above_bottom 8,absolute 180)	107	60	0.5417594
+uniform_height(above_bottom 8,absolute 180)	108	171	0.88692045
+uniform_height(above_bottom 8,absolute 180)	109	3	0.15595269
+uniform_height(above_bottom 8,absolute 180)	110	32	0.34885603
+uniform_height(above_bottom 8,absolute 180)	111	101	0.6178883
+uniform_height(above_bottom 8,absolute 180)	112	120	0.3540184
+uniform_height(above_bottom 8,absolute 180)	113	-48	0.6230506
+uniform_height(above_bottom 8,absolute 180)	114	-20	0.8159539
+uniform_height(above_bottom 8,absolute 180)	115	50	0.08498615
+uniform_height(above_bottom 8,absolute 180)	116	161	0.43014723
+uniform_height(above_bottom 8,absolute 180)	117	-7	0.6991795
+uniform_height(above_bottom 8,absolute 180)	118	22	0.8920828
+uniform_height(above_bottom 8,absolute 180)	119	91	0.16111505
+uniform_height(above_bottom 8,absolute 180)	120	-35	0.50627613
+uniform_height(above_bottom 8,absolute 180)	121	34	0.7753083
+uniform_height(above_bottom 8,absolute 180)	122	63	0.96821165
+uniform_height(above_bottom 8,absolute 180)	123	132	0.23724389
+uniform_height(above_bottom 8,absolute 180)	124	6	0.582405
+uniform_height(above_bottom 8,absolute 180)	125	76	0.8514372
+uniform_height(above_bottom 8,absolute 180)	126	104	0.04434055
+uniform_height(above_bottom 8,absolute 180)	127	174	0.3133728
+uniform_height(above_bottom 8,absolute 180)	128	110	0.39531714
+uniform_height(above_bottom 8,absolute 180)	129	180	0.6643493
+uniform_height(above_bottom 8,absolute 180)	130	-29	0.85725266
+uniform_height(above_bottom 8,absolute 180)	131	41	0.1262849
+uniform_height(above_bottom 8,absolute 180)	132	151	0.47144598
+uniform_height(above_bottom 8,absolute 180)	133	-16	0.7404782
+uniform_height(above_bottom 8,absolute 180)	134	12	0.93338156
+uniform_height(above_bottom 8,absolute 180)	135	82	0.2024138
+uniform_height(above_bottom 8,absolute 180)	136	-44	0.5475749
+uniform_height(above_bottom 8,absolute 180)	137	25	0.81660706
+uniform_height(above_bottom 8,absolute 180)	138	53	0.009510398
+uniform_height(above_bottom 8,absolute 180)	139	123	0.27854264
+uniform_height(above_bottom 8,absolute 180)	140	-3	0.6237037
+uniform_height(above_bottom 8,absolute 180)	141	66	0.89273596
+uniform_height(above_bottom 8,absolute 180)	142	95	0.0856393
+uniform_height(above_bottom 8,absolute 180)	143	164	0.35467154
+uniform_height(above_bottom 8,absolute 180)	144	-55	0.090801656
+uniform_height(above_bottom 8,absolute 180)	145	15	0.35983384
+uniform_height(above_bottom 8,absolute 180)	146	43	0.5527372
+uniform_height(above_bottom 8,absolute 180)	147	113	0.8217694
+uniform_height(above_bottom 8,absolute 180)	148	-13	0.1669305
+uniform_height(above_bottom 8,absolute 180)	149	56	0.43596274
+uniform_height(above_bottom 8,absolute 180)	150	84	0.6288661
+uniform_height(above_bottom 8,absolute 180)	151	154	0.8978983
+uniform_height(above_bottom 8,absolute 180)	152	28	0.2430594
+uniform_height(above_bottom 8,absolute 180)	153	97	0.5120916
+uniform_height(above_bottom 8,absolute 180)	154	126	0.7049949
+uniform_height(above_bottom 8,absolute 180)	155	-42	0.97402716
+uniform_height(above_bottom 8,absolute 180)	156	69	0.31918824
+uniform_height(above_bottom 8,absolute 180)	157	138	0.5882205
+uniform_height(above_bottom 8,absolute 180)	158	167	0.7811238
+uniform_height(above_bottom 8,absolute 180)	159	-1	0.050156057
+uniform_height(above_bottom 8,absolute 180)	160	-34	0.004348099
+uniform_height(above_bottom 8,absolute 180)	161	35	0.27338028
+uniform_height(above_bottom 8,absolute 180)	162	64	0.46628362
+uniform_height(above_bottom 8,absolute 180)	163	133	0.73531586
+uniform_height(above_bottom 8,absolute 180)	164	7	0.08047694
+uniform_height(above_bottom 8,absolute 180)	165	76	0.34950918
+uniform_height(above_bottom 8,absolute 180)	166	105	0.5424125
+uniform_height(above_bottom 8,absolute 180)	167	174	0.81144476
+uniform_height(above_bottom 8,absolute 180)	168	48	0.15660584
+uniform_height(above_bottom 8,absolute 180)	169	118	0.42563802
+uniform_height(above_bottom 8,absolute 180)	170	146	0.61854136
+uniform_height(above_bottom 8,absolute 180)	171	-21	0.8875736
+uniform_height(above_bottom 8,absolute 180)	172	89	0.23273468
+uniform_height(above_bottom 8,absolute 180)	173	159	0.5017669
+uniform_height(above_bottom 8,absolute 180)	174	-50	0.69467026
+uniform_height(above_bottom 8,absolute 180)	175	20	0.9637025
+uniform_height(above_bottom 8,absolute 180)	176	38	0.6998326
+uniform_height(above_bottom 8,absolute 180)	177	107	0.9688648
+uniform_height(above_bottom 8,absolute 180)	178	136	0.16176814
+uniform_height(above_bottom 8,absolute 180)	179	-32	0.43080038
+uniform_height(above_bottom 8,absolute 180)	180	79	0.77596146
+uniform_height(above_bottom 8,absolute 180)	181	149	0.0449937
+uniform_height(above_bottom 8,absolute 180)	182	177	0.23789704
+uniform_height(above_bottom 8,absolute 180)	183	10	0.5069293
+uniform_height(above_bottom 8,absolute 180)	184	120	0.85209036
+uniform_height(above_bottom 8,absolute 180)	185	-47	0.12112254
+uniform_height(above_bottom 8,absolute 180)	186	-19	0.31402588
+uniform_height(above_bottom 8,absolute 180)	187	51	0.5830581
+uniform_height(above_bottom 8,absolute 180)	188	162	0.9282192
+uniform_height(above_bottom 8,absolute 180)	189	-6	0.19725144
+uniform_height(above_bottom 8,absolute 180)	190	22	0.39015478
+uniform_height(above_bottom 8,absolute 180)	191	92	0.659187
+uniform_height(above_bottom 8,absolute 180)	192	58	0.61337906
+uniform_height(above_bottom 8,absolute 180)	193	128	0.88241124
+uniform_height(above_bottom 8,absolute 180)	194	156	0.07531458
+uniform_height(above_bottom 8,absolute 180)	195	-11	0.34434682
+uniform_height(above_bottom 8,absolute 180)	196	100	0.6895079
+uniform_height(above_bottom 8,absolute 180)	197	169	0.95854014
+uniform_height(above_bottom 8,absolute 180)	198	-40	0.15144348
+uniform_height(above_bottom 8,absolute 180)	199	30	0.42047572
+uniform_height(absolute 10,absolute 67)	0	22	0.831441
+uniform_height(absolute 10,absolute 67)	1	33	0.100473166
+uniform_height(absolute 10,absolute 67)	2	56	0.2933765
+uniform_height(absolute 10,absolute 67)	3	10	0.56240875
+uniform_height(absolute 10,absolute 67)	4	10	0.9075698
+uniform_height(absolute 10,absolute 67)	5	21	0.17660207
+uniform_height(absolute 10,absolute 67)	6	45	0.3695054
+uniform_height(absolute 10,absolute 67)	7	56	0.63853765
+uniform_height(absolute 10,absolute 67)	8	56	0.9836987
+uniform_height(absolute 10,absolute 67)	9	67	0.2527309
+uniform_height(absolute 10,absolute 67)	10	33	0.44563425
+uniform_height(absolute 10,absolute 67)	11	44	0.7146665
+uniform_height(absolute 10,absolute 67)	12	44	0.059827566
+uniform_height(absolute 10,absolute 67)	13	56	0.3288598
+uniform_height(absolute 10,absolute 67)	14	21	0.52176315
+uniform_height(absolute 10,absolute 67)	15	33	0.7907954
+uniform_height(absolute 10,absolute 67)	16	11	0.5269255
+uniform_height(absolute 10,absolute 67)	17	22	0.7959577
+uniform_height(absolute 10,absolute 67)	18	46	0.988861
+uniform_height(absolute 10,absolute 67)	19	57	0.25789326
+uniform_height(absolute 10,absolute 67)	20	57	0.60305434
+uniform_height(absolute 10,absolute 67)	21	10	0.8720866
+uniform_height(absolute 10,absolute 67)	22	34	0.064989924
+uniform_height(absolute 10,absolute 67)	23	45	0.33402216
+uniform_height(absolute 10,absolute 67)	24	45	0.67918324
+uniform_height(absolute 10,absolute 67)	25	57	0.9482154
+uniform_height(absolute 10,absolute 67)	26	22	0.14111876
+uniform_height(absolute 10,absolute 67)	27	34	0.410151
+uniform_height(absolute 10,absolute 67)	28	33	0.7553121
+uniform_height(absolute 10,absolute 67)	29	45	0.024344325
+uniform_height(absolute 10,absolute 67)	30	10	0.21724766
+uniform_height(absolute 10,absolute 67)	31	22	0.4862799
+uniform_height(absolute 10,absolute 67)	32	43	0.44047195
+uniform_height(absolute 10,absolute 67)	33	55	0.7095041
+uniform_height(absolute 10,absolute 67)	34	20	0.90240747
+uniform_height(absolute 10,absolute 67)	35	32	0.1714397
+uniform_height(absolute 10,absolute 67)	36	31	0.5166008
+uniform_height(absolute 10,absolute 67)	37	43	0.785633
+uniform_height(absolute 10,absolute 67)	38	66	0.97853637
+uniform_height(absolute 10,absolute 67)	39	20	0.2475686
+uniform_height(absolute 10,absolute 67)	40	20	0.5927297
+uniform_height(absolute 10,absolute 67)	41	31	0.86176187
+uniform_height(absolute 10,absolute 67)	42	54	0.054665208
+uniform_height(absolute 10,absolute 67)	43	66	0.32369745
+uniform_height(absolute 10,absolute 67)	44	66	0.6688585
+uniform_height(absolute 10,absolute 67)	45	19	0.93789077
+uniform_height(absolute 10,absolute 67)	46	43	0.13079411
+uniform_height(absolute 10,absolute 67)	47	54	0.39982635
+uniform_height(absolute 10,absolute 67)	48	32	0.13595647
+uniform_height(absolute 10,absolute 67)	49	44	0.40498865
+uniform_height(absolute 10,absolute 67)	50	67	0.597892
+uniform_height(absolute 10,absolute 67)	51	21	0.8669242
+uniform_height(absolute 10,absolute 67)	52	21	0.2120853
+uniform_height(absolute 10,absolute 67)	53	32	0.48111755
+uniform_height(absolute 10,absolute 67)	54	55	0.6740209
+uniform_height(absolute 10,absolute 67)	55	67	0.9430531
+uniform_height(absolute 10,absolute 67)	56	67	0.2882142
+uniform_height(absolute 10,absolute 67)	57	20	0.5572464
+uniform_height(absolute 10,absolute 67)	58	44	0.7501497
+uniform_height(absolute 10,absolute 67)	59	55	0.019181967
+uniform_height(absolute 10,absolute 67)	60	55	0.36434305
+uniform_height(absolute 10,absolute 67)	61	66	0.6333753
+uniform_height(absolute 10,absolute 67)	62	32	0.8262786
+uniform_height(absolute 10,absolute 67)	63	43	0.09531087
+uniform_height(absolute 10,absolute 67)	64	65	0.04950291
+uniform_height(absolute 10,absolute 67)	65	18	0.3185351
+uniform_height(absolute 10,absolute 67)	66	42	0.5114384
+uniform_height(absolute 10,absolute 67)	67	53	0.78047067
+uniform_height(absolute 10,absolute 67)	68	53	0.12563175
+uniform_height(absolute 10,absolute 67)	69	64	0.394664
+uniform_height(absolute 10,absolute 67)	70	30	0.5875673
+uniform_height(absolute 10,absolute 67)	71	41	0.85659957
+uniform_height(absolute 10,absolute 67)	72	41	0.20176065
+uniform_height(absolute 10,absolute 67)	73	53	0.47079283
+uniform_height(absolute 10,absolute 67)	74	18	0.66369617
+uniform_height(absolute 10,absolute 67)	75	30	0.9327284
+uniform_height(absolute 10,absolute 67)	76	29	0.2778895
+uniform_height(absolute 10,absolute 67)	77	41	0.54692173
+uniform_height(absolute 10,absolute 67)	78	64	0.73982507
+uniform_height(absolute 10,absolute 67)	79	18	0.00885731
+uniform_height(absolute 10,absolute 67)	80	54	0.7449874
+uniform_height(absolute 10,absolute 67)	81	65	0.0140196085
+uniform_height(absolute 10,absolute 67)	82	31	0.20692295
+uniform_height(absolute 10,absolute 67)	83	42	0.4759552
+uniform_height(absolute 10,absolute 67)	84	42	0.82111627
+uniform_height(absolute 10,absolute 67)	85	54	0.09014851
+uniform_height(absolute 10,absolute 67)	86	19	0.28305185
+uniform_height(absolute 10,absolute 67)	87	31	0.5520841
+uniform_height(absolute 10,absolute 67)	88	30	0.89724517
+uniform_height(absolute 10,absolute 67)	89	42	0.16627735
+uniform_height(absolute 10,absolute 67)	90	65	0.3591807
+uniform_height(absolute 10,absolute 67)	91	19	0.6282129
+uniform_height(absolute 10,absolute 67)	92	19	0.973374
+uniform_height(absolute 10,absolute 67)	93	30	0.24240625
+uniform_height(absolute 10,absolute 67)	94	53	0.4353096
+uniform_height(absolute 10,absolute 67)	95	65	0.7043418
+uniform_height(absolute 10,absolute 67)	96	28	0.6585339
+uniform_height(absolute 10,absolute 67)	97	40	0.92756605
+uniform_height(absolute 10,absolute 67)	98	63	0.12046939
+uniform_height(absolute 10,absolute 67)	99	17	0.38950163
+uniform_height(absolute 10,absolute 67)	100	17	0.7346627
+uniform_height(absolute 10,absolute 67)	101	28	0.0036949515
+uniform_height(absolute 10,absolute 67)	102	51	0.19659829
+uniform_height(absolute 10,absolute 67)	103	63	0.46563053
+uniform_height(absolute 10,absolute 67)	104	63	0.8107916
+uniform_height(absolute 10,absolute 67)	105	16	0.07982379
+uniform_height(absolute 10,absolute 67)	106	40	0.27272713
+uniform_height(absolute 10,absolute 67)	107	51	0.5417594
+uniform_height(absolute 10,absolute 67)	108	51	0.88692045
+uniform_height(absolute 10,absolute 67)	109	62	0.15595269
+uniform_height(absolute 10,absolute 67)	110	28	0.34885603
+uniform_height(absolute 10,absolute 67)	111	39	0.6178883
+uniform_height(absolute 10,absolute 67)	112	18	0.3540184
+uniform_height(absolute 10,absolute 67)	113	29	0.6230506
+uniform_height(absolute 10,absolute 67)	114	52	0.8159539
+uniform_height(absolute 10,absolute 67)	115	64	0.08498615
+uniform_height(absolute 10,absolute 67)	116	64	0.43014723
+uniform_height(absolute 10,absolute 67)	117	17	0.6991795
+uniform_height(absolute 10,absolute 67)	118	41	0.8920828
+uniform_height(absolute 10,absolute 67)	119	52	0.16111505
+uniform_height(absolute 10,absolute 67)	120	52	0.50627613
+uniform_height(absolute 10,absolute 67)	121	63	0.7753083
+uniform_height(absolute 10,absolute 67)	122	29	0.96821165
+uniform_height(absolute 10,absolute 67)	123	40	0.23724389
+uniform_height(absolute 10,absolute 67)	124	40	0.582405
+uniform_height(absolute 10,absolute 67)	125	52	0.8514372
+uniform_height(absolute 10,absolute 67)	126	17	0.04434055
+uniform_height(absolute 10,absolute 67)	127	29	0.3133728
+uniform_height(absolute 10,absolute 67)	128	51	0.39531714
+uniform_height(absolute 10,absolute 67)	129	63	0.6643493
+uniform_height(absolute 10,absolute 67)	130	28	0.85725266
+uniform_height(absolute 10,absolute 67)	131	40	0.1262849
+uniform_height(absolute 10,absolute 67)	132	39	0.47144598
+uniform_height(absolute 10,absolute 67)	133	51	0.7404782
+uniform_height(absolute 10,absolute 67)	134	16	0.93338156
+uniform_height(absolute 10,absolute 67)	135	28	0.2024138
+uniform_height(absolute 10,absolute 67)	136	28	0.5475749
+uniform_height(absolute 10,absolute 67)	137	39	0.81660706
+uniform_height(absolute 10,absolute 67)	138	62	0.009510398
+uniform_height(absolute 10,absolute 67)	139	16	0.27854264
+uniform_height(absolute 10,absolute 67)	140	16	0.6237037
+uniform_height(absolute 10,absolute 67)	141	27	0.89273596
+uniform_height(absolute 10,absolute 67)	142	51	0.0856393
+uniform_height(absolute 10,absolute 67)	143	62	0.35467154
+uniform_height(absolute 10,absolute 67)	144	40	0.090801656
+uniform_height(absolute 10,absolute 67)	145	52	0.35983384
+uniform_height(absolute 10,absolute 67)	146	17	0.5527372
+uniform_height(absolute 10,absolute 67)	147	29	0.8217694
+uniform_height(absolute 10,absolute 67)	148	29	0.1669305
+uniform_height(absolute 10,absolute 67)	149	40	0.43596274
+uniform_height(absolute 10,absolute 67)	150	63	0.6288661
+uniform_height(absolute 10,absolute 67)	151	17	0.8978983
+uniform_height(absolute 10,absolute 67)	152	17	0.2430594
+uniform_height(absolute 10,absolute 67)	153	28	0.5120916
+uniform_height(absolute 10,absolute 67)	154	52	0.7049949
+uniform_height(absolute 10,absolute 67)	155	63	0.97402716
+uniform_height(absolute 10,absolute 67)	156	63	0.31918824
+uniform_height(absolute 10,absolute 67)	157	16	0.5882205
+uniform_height(absolute 10,absolute 67)	158	40	0.7811238
+uniform_height(absolute 10,absolute 67)	159	51	0.050156057
+uniform_height(absolute 10,absolute 67)	160	15	0.004348099
+uniform_height(absolute 10,absolute 67)	161	26	0.27338028
+uniform_height(absolute 10,absolute 67)	162	50	0.46628362
+uniform_height(absolute 10,absolute 67)	163	61	0.73531586
+uniform_height(absolute 10,absolute 67)	164	61	0.08047694
+uniform_height(absolute 10,absolute 67)	165	14	0.34950918
+uniform_height(absolute 10,absolute 67)	166	38	0.5424125
+uniform_height(absolute 10,absolute 67)	167	49	0.81144476
+uniform_height(absolute 10,absolute 67)	168	49	0.15660584
+uniform_height(absolute 10,absolute 67)	169	61	0.42563802
+uniform_height(absolute 10,absolute 67)	170	26	0.61854136
+uniform_height(absolute 10,absolute 67)	171	38	0.8875736
+uniform_height(absolute 10,absolute 67)	172	37	0.23273468
+uniform_height(absolute 10,absolute 67)	173	49	0.5017669
+uniform_height(absolute 10,absolute 67)	174	14	0.69467026
+uniform_height(absolute 10,absolute 67)	175	26	0.9637025
+uniform_height(absolute 10,absolute 67)	176	62	0.6998326
+uniform_height(absolute 10,absolute 67)	177	15	0.9688648
+uniform_height(absolute 10,absolute 67)	178	39	0.16176814
+uniform_height(absolute 10,absolute 67)	179	50	0.43080038
+uniform_height(absolute 10,absolute 67)	180	50	0.77596146
+uniform_height(absolute 10,absolute 67)	181	62	0.0449937
+uniform_height(absolute 10,absolute 67)	182	27	0.23789704
+uniform_height(absolute 10,absolute 67)	183	39	0.5069293
+uniform_height(absolute 10,absolute 67)	184	38	0.85209036
+uniform_height(absolute 10,absolute 67)	185	50	0.12112254
+uniform_height(absolute 10,absolute 67)	186	15	0.31402588
+uniform_height(absolute 10,absolute 67)	187	27	0.5830581
+uniform_height(absolute 10,absolute 67)	188	27	0.9282192
+uniform_height(absolute 10,absolute 67)	189	38	0.19725144
+uniform_height(absolute 10,absolute 67)	190	61	0.39015478
+uniform_height(absolute 10,absolute 67)	191	15	0.659187
+uniform_height(absolute 10,absolute 67)	192	36	0.61337906
+uniform_height(absolute 10,absolute 67)	193	48	0.88241124
+uniform_height(absolute 10,absolute 67)	194	13	0.07531458
+uniform_height(absolute 10,absolute 67)	195	25	0.34434682
+uniform_height(absolute 10,absolute 67)	196	25	0.6895079
+uniform_height(absolute 10,absolute 67)	197	36	0.95854014
+uniform_height(absolute 10,absolute 67)	198	59	0.15144348
+uniform_height(absolute 10,absolute 67)	199	13	0.42047572
+random_between(0.5,4)	0	3.0583873	0.831441
+random_between(0.5,4)	1	3.0580735	0.100473166
+random_between(0.5,4)	2	3.0590143	0.2933765
+random_between(0.5,4)	3	3.0587008	0.56240875
+random_between(0.5,4)	4	3.057133	0.9075698
+random_between(0.5,4)	5	3.0568194	0.17660207
+random_between(0.5,4)	6	3.05776	0.3695054
+random_between(0.5,4)	7	3.0574465	0.63853765
+random_between(0.5,4)	8	3.0558786	0.9836987
+random_between(0.5,4)	9	3.0555654	0.2527309
+random_between(0.5,4)	10	3.056506	0.44563425
+random_between(0.5,4)	11	3.0561924	0.7146665
+random_between(0.5,4)	12	3.0546248	0.059827566
+random_between(0.5,4)	13	3.0543113	0.3288598
+random_between(0.5,4)	14	3.0552518	0.52176315
+random_between(0.5,4)	15	3.0549383	0.7907954
+random_between(0.5,4)	16	3.0634038	0.5269255
+random_between(0.5,4)	17	3.0630903	0.7959577
+random_between(0.5,4)	18	3.064031	0.988861
+random_between(0.5,4)	19	3.0637174	0.25789326
+random_between(0.5,4)	20	3.0621495	0.60305434
+random_between(0.5,4)	21	3.061836	0.8720866
+random_between(0.5,4)	22	3.0627766	0.064989924
+random_between(0.5,4)	23	3.062463	0.33402216
+random_between(0.5,4)	24	3.0608954	0.67918324
+random_between(0.5,4)	25	3.0605817	0.9482154
+random_between(0.5,4)	26	3.0615225	0.14111876
+random_between(0.5,4)	27	3.061209	0.410151
+random_between(0.5,4)	28	3.0596414	0.7553121
+random_between(0.5,4)	29	3.0593278	0.024344325
+random_between(0.5,4)	30	3.0602682	0.21724766
+random_between(0.5,4)	31	3.059955	0.4862799
+random_between(0.5,4)	32	3.048354	0.44047195
+random_between(0.5,4)	33	3.0480404	0.7095041
+random_between(0.5,4)	34	3.0489812	0.90240747
+random_between(0.5,4)	35	3.0486674	0.1714397
+random_between(0.5,4)	36	3.0471	0.5166008
+random_between(0.5,4)	37	3.0467863	0.785633
+random_between(0.5,4)	38	3.0477269	0.97853637
+random_between(0.5,4)	39	3.0474133	0.2475686
+random_between(0.5,4)	40	3.0458457	0.5927297
+random_between(0.5,4)	41	3.0455322	0.86176187
+random_between(0.5,4)	42	3.0464728	0.054665208
+random_between(0.5,4)	43	3.0461593	0.32369745
+random_between(0.5,4)	44	3.0445917	0.6688585
+random_between(0.5,4)	45	3.0442781	0.93789077
+random_between(0.5,4)	46	3.0452187	0.13079411
+random_between(0.5,4)	47	3.0449052	0.39982635
+random_between(0.5,4)	48	3.0533705	0.13595647
+random_between(0.5,4)	49	3.053057	0.40498865
+random_between(0.5,4)	50	3.0539978	0.597892
+random_between(0.5,4)	51	3.0536842	0.8669242
+random_between(0.5,4)	52	3.0521164	0.2120853
+random_between(0.5,4)	53	3.0518029	0.48111755
+random_between(0.5,4)	54	3.0527434	0.6740209
+random_between(0.5,4)	55	3.05243	0.9430531
+random_between(0.5,4)	56	3.0508623	0.2882142
+random_between(0.5,4)	57	3.0505488	0.5572464
+random_between(0.5,4)	58	3.0514894	0.7501497
+random_between(0.5,4)	59	3.0511758	0.019181967
+random_between(0.5,4)	60	3.0496082	0.36434305
+random_between(0.5,4)	61	3.0492947	0.6333753
+random_between(0.5,4)	62	3.0502353	0.8262786
+random_between(0.5,4)	63	3.0499218	0.09531087
+random_between(0.5,4)	64	3.038321	0.04950291
+random_between(0.5,4)	65	3.0380075	0.3185351
+random_between(0.5,4)	66	3.038948	0.5114384
+random_between(0.5,4)	67	3.0386345	0.78047067
+random_between(0.5,4)	68	3.0370667	0.12563175
+random_between(0.5,4)	69	3.0367532	0.394664
+random_between(0.5,4)	70	3.037694	0.5875673
+random_between(0.5,4)	71	3.0373802	0.85659957
+random_between(0.5,4)	72	3.0358126	0.20176065
+random_between(0.5,4)	73	3.035499	0.47079283
+random_between(0.5,4)	74	3.0364397	0.66369617
+random_between(0.5,4)	75	3.0361261	0.9327284
+random_between(0.5,4)	76	3.0345585	0.2778895
+random_between(0.5,4)	77	3.034245	0.54692173
+random_between(0.5,4)	78	3.0351856	0.73982507
+random_between(0.5,4)	79	3.034872	0.00885731
+random_between(0.5,4)	80	3.0433373	0.7449874
+random_between(0.5,4)	81	3.043024	0.0140196085
+random_between(0.5,4)	82	3.0439644	0.20692295
+random_between(0.5,4)	83	3.0436509	0.4759552
+random_between(0.5,4)	84	3.0420833	0.82111627
+random_between(0.5,4)	85	3.0417697	0.09014851
+random_between(0.5,4)	86	3.0427105	0.28305185
+random_between(0.5,4)	87	3.042397	0.5520841
+random_between(0.5,4)	88	3.0408292	0.89724517
+random_between(0.5,4)	89	3.0405157	0.16627735
+random_between(0.5,4)	90	3.0414562	0.3591807
+random_between(0.5,4)	91	3.0411427	0.6282129
+random_between(0.5,4)	92	3.039575	0.973374
+random_between(0.5,4)	93	3.0392613	0.24240625
+random_between(0.5,4)	94	3.0402021	0.4353096
+random_between(0.5,4)	95	3.0398886	0.7043418
+random_between(0.5,4)	96	3.028288	0.6585339
+random_between(0.5,4)	97	3.0279741	0.92756605
+random_between(0.5,4)	98	3.028915	0.12046939
+random_between(0.5,4)	99	3.0286014	0.38950163
+random_between(0.5,4)	100	3.0270336	0.7346627
+random_between(0.5,4)	101	3.02672	0.0036949515
+random_between(0.5,4)	102	3.0276606	0.19659829
+random_between(0.5,4)	103	3.027347	0.46563053
+random_between(0.5,4)	104	3.0257797	0.8107916
+random_between(0.5,4)	105	3.025466	0.07982379
+random_between(0.5,4)	106	3.0264065	0.27272713
+random_between(0.5,4)	107	3.0260932	0.5417594
+random_between(0.5,4)	108	3.0245254	0.88692045
+random_between(0.5,4)	109	3.024212	0.15595269
+random_between(0.5,4)	110	3.0251524	0.34885603
+random_between(0.5,4)	111	3.024839	0.6178883
+random_between(0.5,4)	112	3.0333045	0.3540184
+random_between(0.5,4)	113	3.032991	0.6230506
+random_between(0.5,4)	114	3.0339315	0.8159539
+random_between(0.5,4)	115	3.033618	0.08498615
+random_between(0.5,4)	116	3.0320501	0.43014723
+random_between(0.5,4)	117	3.0317366	0.6991795
+random_between(0.5,4)	118	3.0326772	0.8920828
+random_between(0.5,4)	119	3.0323637	0.16111505
+random_between(0.5,4)	120	3.030796	0.50627613
+random_between(0.5,4)	121	3.0304828	0.7753083
+random_between(0.5,4)	122	3.031423	0.96821165
+random_between(0.5,4)	123	3.0311096	0.23724389
+random_between(0.5,4)	124	3.029542	0.582405
+random_between(0.5,4)	125	3.0292284	0.8514372
+random_between(0.5,4)	126	3.030169	0.04434055
+random_between(0.5,4)	127	3.0298555	0.3133728
+random_between(0.5,4)	128	3.0985196	0.39531714
+random_between(0.5,4)	129	3.098206	0.6643493
+random_between(0.5,4)	130	3.0991466	0.85725266
+random_between(0.5,4)	131	3.098833	0.1262849
+random_between(0.5,4)	132	3.0972655	0.47144598
+random_between(0.5,4)	133	3.096952	0.7404782
+random_between(0.5,4)	134	3.0978923	0.93338156
+random_between(0.5,4)	135	3.097579	0.2024138
+random_between(0.5,4)	136	3.0960114	0.5475749
+random_between(0.5,4)	137	3.0956979	0.81660706
+random_between(0.5,4)	138	3.0966384	0.009510398
+random_between(0.5,4)	139	3.096325	0.27854264
+random_between(0.5,4)	140	3.094757	0.6237037
+random_between(0.5,4)	141	3.0944436	0.89273596
+random_between(0.5,4)	142	3.0953841	0.0856393
+random_between(0.5,4)	143	3.0950706	0.35467154
+random_between(0.5,4)	144	3.1035361	0.090801656
+random_between(0.5,4)	145	3.1032226	0.35983384
+random_between(0.5,4)	146	3.1041632	0.5527372
+random_between(0.5,4)	147	3.1038496	0.8217694
+random_between(0.5,4)	148	3.1022818	0.1669305
+random_between(0.5,4)	149	3.1019685	0.43596274
+random_between(0.5,4)	150	3.102909	0.6288661
+random_between(0.5,4)	151	3.1025953	0.8978983
+random_between(0.5,4)	152	3.101028	0.2430594
+random_between(0.5,4)	153	3.1007144	0.5120916
+random_between(0.5,4)	154	3.101655	0.7049949
+random_between(0.5,4)	155	3.1013415	0.97402716
+random_between(0.5,4)	156	3.0997736	0.31918824
+random_between(0.5,4)	157	3.0994601	0.5882205
+random_between(0.5,4)	158	3.100401	0.7811238
+random_between(0.5,4)	159	3.1000872	0.050156057
+random_between(0.5,4)	160	3.0884864	0.004348099
+random_between(0.5,4)	161	3.088173	0.27338028
+random_between(0.5,4)	162	3.0891137	0.46628362
+random_between(0.5,4)	163	3.0888	0.73531586
+random_between(0.5,4)	164	3.0872324	0.08047694
+random_between(0.5,4)	165	3.0869188	0.34950918
+random_between(0.5,4)	166	3.0878594	0.5424125
+random_between(0.5,4)	167	3.0875459	0.81144476
+random_between(0.5,4)	168	3.085978	0.15660584
+random_between(0.5,4)	169	3.0856645	0.42563802
+random_between(0.5,4)	170	3.0866053	0.61854136
+random_between(0.5,4)	171	3.0862918	0.8875736
+random_between(0.5,4)	172	3.0847242	0.23273468
+random_between(0.5,4)	173	3.0844107	0.5017669
+random_between(0.5,4)	174	3.085351	0.69467026
+random_between(0.5,4)	175	3.0850377	0.9637025
+random_between(0.5,4)	176	3.093503	0.6998326
+random_between(0.5,4)	177	3.0931895	0.9688648
+random_between(0.5,4)	178	3.09413	0.16176814
+random_between(0.5,4)	179	3.0938165	0.43080038
+random_between(0.5,4)	180	3.092249	0.77596146
+random_between(0.5,4)	181	3.0919354	0.0449937
+random_between(0.5,4)	182	3.092876	0.23789704
+random_between(0.5,4)	183	3.0925624	0.5069293
+random_between(0.5,4)	184	3.0909948	0.85209036
+random_between(0.5,4)	185	3.090681	0.12112254
+random_between(0.5,4)	186	3.0916219	0.31402588
+random_between(0.5,4)	187	3.0913084	0.5830581
+random_between(0.5,4)	188	3.0897405	0.9282192
+random_between(0.5,4)	189	3.089427	0.19725144
+random_between(0.5,4)	190	3.0903676	0.39015478
+random_between(0.5,4)	191	3.090054	0.659187
+random_between(0.5,4)	192	3.0784533	0.61337906
+random_between(0.5,4)	193	3.0781398	0.88241124
+random_between(0.5,4)	194	3.0790803	0.07531458
+random_between(0.5,4)	195	3.0787668	0.34434682
+random_between(0.5,4)	196	3.0771992	0.6895079
+random_between(0.5,4)	197	3.0768857	0.95854014
+random_between(0.5,4)	198	3.0778263	0.15144348
+random_between(0.5,4)	199	3.0775127	0.42047572
