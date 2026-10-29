@@ -61,6 +61,13 @@ public final class LegacyBlockFacts implements FtBlockFacts {
         return material(state).blocksMovement();
     }
 
+    /// Blocks without a 1.7 counterpart are not.
+    @Override
+    public boolean isSolidRender(@NotNull FtBlockState state) {
+        ImmutableBlockMeta block = states.toLegacy(state);
+        return block != null && block.getBlock().isOpaqueCube();
+    }
+
     /// Air's for blocks without a 1.7 counterpart.
     private Material material(FtBlockState state) {
         ImmutableBlockMeta block = states.toLegacy(state);

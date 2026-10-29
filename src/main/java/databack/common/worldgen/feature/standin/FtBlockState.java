@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import databack.common.worldgen.vanilla.standin.VnBlockPos;
 import databack.common.worldgen.vanilla.standin.VnDirection;
@@ -86,6 +87,11 @@ public final class FtBlockState {
         return FtBlockFacts.get().isSolid(this);
     }
 
+    /// Whether the state is a full, opaque block.
+    public boolean isSolidRender() {
+        return FtBlockFacts.get().isSolidRender(this);
+    }
+
     public boolean canSurvive(@NotNull FtLevel level, @NotNull VnBlockPos pos) {
         return level.canSurvive(this, pos);
     }
@@ -112,6 +118,15 @@ public final class FtBlockState {
 
     public boolean hasProperty(@NotNull FtProperty property) {
         return properties.containsKey(property.getName());
+    }
+
+    /// The value of `property` as vanilla's value type, or `fallback` if the state does not have it (or its value is
+    /// not one of the property's).
+    @Nullable
+    public Comparable<?> getValueOrElse(@NotNull FtProperty property, @Nullable Comparable<?> fallback) {
+        String value = properties.get(property.getName());
+        Comparable<?> parsed = value == null ? null : property.parse(value);
+        return parsed != null ? parsed : fallback;
     }
 
     /// The state with `property` set to `value`. Unlike vanilla, never refuses a property the state lacks: states

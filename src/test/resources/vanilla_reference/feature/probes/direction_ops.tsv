@@ -1,0 +1,7 @@
+name	clockwise	opposite	axis	axisDirection
+down	throws	up	y	NEGATIVE
+up	throws	down	y	POSITIVE
+north	east	south	z	NEGATIVE
+south	west	north	z	POSITIVE
+west	north	east	x	NEGATIVE
+east	south	west	x	POSITIVE

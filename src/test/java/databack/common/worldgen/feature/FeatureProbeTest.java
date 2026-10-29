@@ -14,6 +14,8 @@ import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Assertions;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.junit.jupiter.api.Test;
 
 import databack.common.worldgen.feature.standin.FtBiome;
@@ -28,6 +30,7 @@ import databack.common.worldgen.vanilla.standin.VnAxis;
 import databack.common.worldgen.vanilla.standin.VnBlockPos;
 import databack.common.worldgen.vanilla.standin.VnDirection;
 import databack.common.worldgen.vanilla.standin.VnMath;
+import databack.common.worldgen.vanilla.standin.VnPlane;
 
 /// The shared and feature stand-ins against vanilla's helpers, probed black-box (`run.sh feature`,
 /// `feature/probes/*.tsv`).
@@ -139,6 +142,74 @@ class FeatureProbeTest {
             RandomSource r = randoms.computeIfAbsent(row[0] + " " + row[1], k -> new StandardRandom(Long.parseLong(row[1])));
             FtIntProvider provider = FtIntProvider.triangle(i(row[0]));
             assertEquals(i(row[3]), provider.sample(r), String.join(" ", row));
+        }
+    }
+
+    @Test
+    void directionOperationsMatch() throws IOException {
+        for (String[] row : rows("direction_ops.tsv")) {
+            VnDirection d = direction(row[0]);
+            String clockwise;
+            try {
+                clockwise = d.getClockWise().getSerializedName();
+            } catch (IllegalStateException e) {
+                clockwise = "throws";
+            }
+            assertEquals(row[1], clockwise, row[0]);
+            assertEquals(row[2], d.getOpposite().getSerializedName(), row[0]);
+            assertEquals(row[3], d.getAxis().getName(), row[0]);
+            assertEquals(row[4], d.getAxisDirection().toString(), row[0]);
+        }
+    }
+
+    private static VnDirection direction(String name) {
+        for (VnDirection d : VnDirection.values()) {
+            if (d.getSerializedName().equals(name)) return d;
+        }
+        throw new IllegalArgumentException(name);
+    }
+
+    @Test
+    void horizontalPlaneMatches() throws IOException {
+        List<String> order = new ArrayList<>();
+        for (VnDirection d : VnPlane.HORIZONTAL) order.add(d.getSerializedName());
+        Map<String, RandomSource> randoms = new HashMap<>();
+        int index = 0;
+        for (String[] row : rows("plane.tsv")) {
+            if (row[0].equals("order")) {
+                assertEquals(row[3], order.get(index++));
+                continue;
+            }
+            RandomSource r = randoms.computeIfAbsent(row[1], seed -> new StandardRandom(Long.parseLong(seed)));
+            assertEquals(row[3], VnPlane.HORIZONTAL.getRandomDirection(r).getSerializedName(), String.join(" ", row));
+        }
+        assertEquals(4, index);
+    }
+
+    @Test
+    void shufflesMatch() throws IOException {
+        for (String[] row : rows("shuffle.tsv")) {
+            ObjectArrayList<Integer> list = new ObjectArrayList<>();
+            for (int n = 0; n < i(row[2]); n++) list.add(n);
+            RandomSource random = new StandardRandom(Long.parseLong(row[1]));
+            List<Integer> result;
+            if (row[0].equals("shuffle")) {
+                VnMath.shuffle(list, random);
+                result = list;
+            } else {
+                result = VnMath.shuffledCopy(list, random);
+            }
+            assertEquals(row[3], result.toString(), String.join(" ", row));
+        }
+    }
+
+    @Test
+    void uniformIntsMatch() throws IOException {
+        Map<String, RandomSource> randoms = new HashMap<>();
+        for (String[] row : rows("uniform_int.tsv")) {
+            RandomSource r = randoms.computeIfAbsent(row[0] + " " + row[1] + " " + row[2],
+                k -> new StandardRandom(Long.parseLong(row[2])));
+            assertEquals(i(row[4]), FtIntProvider.of(i(row[0]), i(row[1])).sample(r), String.join(" ", row));
         }
     }
 

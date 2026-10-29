@@ -65,10 +65,45 @@ public final class VnBlockPos {
         return set(pos.x + direction.getStepX(), pos.y + direction.getStepY(), pos.z + direction.getStepZ());
     }
 
+    /// This becomes `pos` offset by `(dx, dy, dz)`.
+    @NotNull
+    @Contract("_, _, _, _ -> this")
+    public VnBlockPos setWithOffset(@NotNull VnBlockPos pos, int dx, int dy, int dz) {
+        return set(pos.x + dx, pos.y + dy, pos.z + dz);
+    }
+
     @NotNull
     @Contract("_ -> this")
     public VnBlockPos move(@NotNull VnDirection direction) {
         return setWithOffset(this, direction);
+    }
+
+    /// Moves `distance` blocks towards `direction`.
+    @NotNull
+    @Contract("_, _ -> this")
+    public VnBlockPos move(@NotNull VnDirection direction, int distance) {
+        return set(x + direction.getStepX() * distance, y + direction.getStepY() * distance,
+            z + direction.getStepZ() * distance);
+    }
+
+    /// The position `distance` blocks towards `direction`.
+    @NotNull
+    @Contract(value = "_, _ -> new", pure = true)
+    public VnBlockPos relative(@NotNull VnDirection direction, int distance) {
+        return offset(direction.getStepX() * distance, direction.getStepY() * distance,
+            direction.getStepZ() * distance);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos relative(@NotNull VnDirection direction) {
+        return relative(direction, 1);
+    }
+
+    /// The taxicab distance to `other`.
+    @Contract(pure = true)
+    public int distManhattan(@NotNull VnBlockPos other) {
+        return Math.abs(x - other.x) + Math.abs(y - other.y) + Math.abs(z - other.z);
     }
 
     @NotNull
@@ -93,6 +128,66 @@ public final class VnBlockPos {
     @Contract(value = "-> new", pure = true)
     public VnBlockPos below() {
         return offset(0, -1, 0);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos above(int distance) {
+        return offset(0, distance, 0);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos below(int distance) {
+        return offset(0, -distance, 0);
+    }
+
+    @NotNull
+    @Contract(value = "-> new", pure = true)
+    public VnBlockPos north() {
+        return offset(0, 0, -1);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos north(int distance) {
+        return offset(0, 0, -distance);
+    }
+
+    @NotNull
+    @Contract(value = "-> new", pure = true)
+    public VnBlockPos south() {
+        return offset(0, 0, 1);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos south(int distance) {
+        return offset(0, 0, distance);
+    }
+
+    @NotNull
+    @Contract(value = "-> new", pure = true)
+    public VnBlockPos west() {
+        return offset(-1, 0, 0);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos west(int distance) {
+        return offset(-distance, 0, 0);
+    }
+
+    @NotNull
+    @Contract(value = "-> new", pure = true)
+    public VnBlockPos east() {
+        return offset(1, 0, 0);
+    }
+
+    @NotNull
+    @Contract(value = "_ -> new", pure = true)
+    public VnBlockPos east(int distance) {
+        return offset(distance, 0, 0);
     }
 
     @NotNull

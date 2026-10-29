@@ -24,6 +24,16 @@ public final class FtFluidState {
         return fluid != null && fluids.contains(fluid);
     }
 
+    /// Fluid tags are only water's and lava's, each holding its fluid.
+    public boolean is(@NotNull FtTag tag) {
+        return fluid != null && fluid.equals(tag.id);
+    }
+
+    /// Whether this is a source of `fluid`: features only see sources.
+    public boolean isSourceOfType(@NotNull FtFluid fluid) {
+        return fluid.id.equals(this.fluid);
+    }
+
     public boolean isEmpty() {
         return fluid == null;
     }

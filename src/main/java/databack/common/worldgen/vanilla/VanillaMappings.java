@@ -32,6 +32,7 @@ public final class VanillaMappings {
     private final Set<String> interfaceReplacements;
     private final Set<String> passthrough;
     private final Map<String, String> staticRedirects;
+    private final Map<String, String> instanceRedirects;
     private final Map<String, Function<String, Object>> constantFields;
     private final Map<String, List<String>> addedInterfaces;
     private final Set<String> nullLambdaTargets;
@@ -43,6 +44,7 @@ public final class VanillaMappings {
         this.interfaceReplacements = new HashSet<>(b.interfaceReplacements);
         this.passthrough = new HashSet<>(b.passthrough);
         this.staticRedirects = new HashMap<>(b.staticRedirects);
+        this.instanceRedirects = new HashMap<>(b.instanceRedirects);
         this.constantFields = new HashMap<>(b.constantFields);
         this.addedInterfaces = new HashMap<>(b.addedInterfaces);
         this.nullLambdaTargets = new HashSet<>(b.nullLambdaTargets);
@@ -169,6 +171,14 @@ public final class VanillaMappings {
         return staticRedirects.get(owner + "." + name);
     }
 
+    /// The owner an instance method call is redirected to as a static call taking the receiver first, or null if it
+    /// is not redirected.
+    @Nullable
+    @Contract(pure = true)
+    String instanceRedirect(@NotNull String owner, @NotNull String name) {
+        return instanceRedirects.get(owner + "." + name);
+    }
+
     /// How an `invokedynamic` instruction is rewritten.
     enum Lambda {
         /// Kept, with its types and method handles mapped.
@@ -267,6 +277,7 @@ public final class VanillaMappings {
         private final Set<String> interfaceReplacements = new HashSet<>();
         private final Set<String> passthrough = new HashSet<>();
         private final Map<String, String> staticRedirects = new HashMap<>();
+        private final Map<String, String> instanceRedirects = new HashMap<>();
         private final Map<String, Function<String, Object>> constantFields = new HashMap<>();
         private final Map<String, List<String>> addedInterfaces = new HashMap<>();
         private final Set<String> nullLambdaTargets = new HashSet<>();
@@ -302,6 +313,15 @@ public final class VanillaMappings {
         @Contract("_, _, _ -> this")
         public Builder redirectStatic(@NotNull String owner, @NotNull String name, @NotNull Class<?> target) {
             staticRedirects.put(owner + "." + name, Type.getInternalName(target));
+            return this;
+        }
+
+        /// Calls to the instance methods `owner.name` (every descriptor) go to the static method of the same name on
+        /// `target`, which takes the receiver (as `owner`, mapped) first. For JDK methods newer than the runtime.
+        @NotNull
+        @Contract("_, _, _ -> this")
+        public Builder redirectInstance(@NotNull String owner, @NotNull String name, @NotNull Class<?> target) {
+            instanceRedirects.put(owner + "." + name, Type.getInternalName(target));
             return this;
         }
 

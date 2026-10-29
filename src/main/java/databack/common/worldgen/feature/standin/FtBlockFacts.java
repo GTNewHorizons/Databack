@@ -17,6 +17,9 @@ public interface FtBlockFacts {
     /// Whether the state is solid: entities cannot move through it.
     boolean isSolid(@NotNull FtBlockState state);
 
+    /// Whether the state is a full, opaque block.
+    boolean isSolidRender(@NotNull FtBlockState state);
+
     /// The installed facts. Throws when none are.
     @NotNull
     static FtBlockFacts get() {

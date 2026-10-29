@@ -58,6 +58,22 @@ public final class VanillaFeatures {
             "HeightRangePlacement", "InSquarePlacement", "NoiseBasedCountPlacement", "NoiseThresholdCountPlacement",
             "PlacedFeature", "PlacementContext", "PlacementFilter", "PlacementModifier", "RandomOffsetPlacement",
             "RarityFilter", "RepeatingPlacement", "SurfaceRelativeThresholdFilter", "SurfaceWaterDepthFilter");
+        add(entries, "feature/", "TreeFeature", "TreeFeature$1", "configurations/TreeConfiguration",
+            "configurations/TreeConfiguration$TreeConfigurationBuilder");
+        add(entries, "feature/trunkplacers/", "TrunkPlacer", "StraightTrunkPlacer", "FancyTrunkPlacer",
+            "FancyTrunkPlacer$FoliageCoords", "DarkOakTrunkPlacer", "UpwardsBranchingTrunkPlacer", "GiantTrunkPlacer",
+            "CherryTrunkPlacer", "MegaJungleTrunkPlacer", "ForkingTrunkPlacer", "BendingTrunkPlacer");
+        add(entries, "feature/foliageplacers/", "FoliagePlacer", "FoliagePlacer$FoliageAttachment",
+            "FoliagePlacer$FoliageSetter", "BlobFoliagePlacer", "FancyFoliagePlacer", "DarkOakFoliagePlacer",
+            "RandomSpreadFoliagePlacer", "MegaPineFoliagePlacer", "CherryFoliagePlacer", "SpruceFoliagePlacer",
+            "PineFoliagePlacer", "MegaJungleFoliagePlacer", "BushFoliagePlacer", "AcaciaFoliagePlacer");
+        add(entries, "feature/featuresize/", "FeatureSize", "TwoLayersFeatureSize", "ThreeLayersFeatureSize");
+        add(entries, "feature/rootplacers/", "RootPlacer", "MangroveRootPlacer", "MangroveRootPlacement",
+            "AboveRootPlacement");
+        add(entries, "feature/treedecorators/", "TreeDecorator", "TreeDecorator$Context", "AlterGroundDecorator",
+            "AttachedToLeavesDecorator", "AttachedToLogsDecorator", "BeehiveDecorator", "CocoaDecorator",
+            "CreakingHeartDecorator", "LeaveVineDecorator", "PaleMossDecorator", "PlaceOnGroundDecorator",
+            "TrunkVineDecorator");
         add(entries, "structure/templatesystem/", "AlwaysTrueTest", "BlockMatchTest", "BlockStateMatchTest",
             "RandomBlockMatchTest", "RandomBlockStateMatchTest", "RuleTest", "TagMatchTest");
         return entries;
@@ -102,12 +118,13 @@ public final class VanillaFeatures {
         return Class.forName(VanillaClassLoader.binaryName(LEVELGEN + name + ".class"), true, loader);
     }
 
-    /// A new instance of the vanilla class `name` (as for [#vanillaClass]), through the public constructor whose
-    /// parameters accept `args`. Throws [IllegalArgumentException] when none does, or it throws.
+    /// A new instance of the vanilla class `name` (as for [#vanillaClass]), through a constructor whose parameters
+    /// accept `args`. Throws [IllegalArgumentException] when none does, or it throws.
     @NotNull
     public Object construct(@NotNull String name, Object @NotNull ... args) {
         try {
-            for (Constructor<?> c : vanillaClass(name).getConstructors()) {
+            // Declared, not public: some datapack-built classes have protected constructors.
+            for (Constructor<?> c : vanillaClass(name).getDeclaredConstructors()) {
                 if (!accepts(c.getParameterTypes(), args)) continue;
                 // Some vanilla classes are package-private, constructors and all.
                 c.setAccessible(true);

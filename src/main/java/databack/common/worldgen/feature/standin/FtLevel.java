@@ -1,5 +1,8 @@
 package databack.common.worldgen.feature.standin;
 
+import java.util.Optional;
+import java.util.function.Predicate;
+
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -27,6 +30,11 @@ public interface FtLevel {
         return !isOutsideBuildHeight(pos.getY());
     }
 
+    /// The highest layer.
+    default int getMaxY() {
+        return getMinY() + getHeight() - 1;
+    }
+
     /// Whether a feature may change `pos`.
     boolean ensureCanWrite(@NotNull VnBlockPos pos);
 
@@ -37,11 +45,31 @@ public interface FtLevel {
         return getBlockState(pos).isAir();
     }
 
+    default boolean isStateAtPosition(@NotNull VnBlockPos pos, @NotNull Predicate<FtBlockState> test) {
+        return test.test(getBlockState(pos));
+    }
+
+    default boolean isFluidAtPosition(@NotNull VnBlockPos pos, @NotNull Predicate<FtFluidState> test) {
+        return test.test(getBlockState(pos).getFluidState());
+    }
+
+    /// Features see no block entities: worldgen does not fill them in (bee nests get no bees). `type` is always null.
+    @NotNull
+    default Optional<?> getBlockEntity(@NotNull VnBlockPos pos, @Nullable Object type) {
+        return Optional.empty();
+    }
+
     /// Sets `pos` to `state`; `flags` are vanilla's update flags. Whether the block changed.
     boolean setBlock(@NotNull VnBlockPos pos, @NotNull FtBlockState state, int flags);
 
     /// The first Y above the surface `heightmap` tracks in column `(x, z)`.
     int getHeight(@NotNull HeightmapType heightmap, int x, int z);
+
+    /// The position in `pos`'s column just above the surface `heightmap` tracks.
+    @NotNull
+    default VnBlockPos getHeightmapPos(@NotNull HeightmapType heightmap, @NotNull VnBlockPos pos) {
+        return new VnBlockPos(pos.getX(), getHeight(heightmap, pos.getX(), pos.getZ()), pos.getZ());
+    }
 
     /// The biome at `pos`, as its id.
     @NotNull

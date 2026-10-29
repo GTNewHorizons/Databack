@@ -31,6 +31,11 @@ import net.minecraft.util.valueproviders.TrapezoidInt;
  * - `trapezoid_int.tsv`: `size seed draw value` for `TrapezoidInt.triangle(size)`.
  * - `decoration_seed.tsv`: `base worldSeed minX minZ index step draw value`: `setDecorationSeed`'s result
  *   (`draw` -1), then the longs after `setFeatureSeed(decorationSeed, index, step)`.
+ * - `direction_ops.tsv`: `name clockwise opposite axis axisDirection`, `throws` where vanilla throws.
+ * - `plane.tsv`: `order index name` for the horizontal plane's iteration, and `random seed draw name` for its
+ *   `getRandomDirection` on a legacy random.
+ * - `shuffle.tsv`: `fn seed size result` for `Util.shuffle` and `Util.shuffledCopy` of `0..size-1` on a legacy random.
+ * - `uniform_int.tsv`: `min max seed draw value` for `UniformInt.of(min, max).sample`.
  * - `info_noise.tsv`: `source offsets x z value`: `getValue(x, z, offsets)` of `Biome.BIOME_INFO_NOISE` (source
  *   `biome`), and of a `PerlinSimplexNoise` with octave 0 built from a legacy random of seed `s` (source `seed:s`).
  */
@@ -51,6 +56,7 @@ final class FeatureReference {
         writeDraws(dir);
         writeDecorationSeeds(dir);
         writeInfoNoise(dir);
+        writeTreeHelpers(dir);
         System.out.println("feature probes");
     }
 
@@ -207,6 +213,66 @@ final class FeatureReference {
         for (boolean offsets : new boolean[] { false, true }) {
             for (double[] p : points) {
                 w.println(source + "\t" + offsets + "\t" + p[0] + "\t" + p[1] + "\t" + noise.getValue(p[0], p[1], offsets));
+            }
+        }
+    }
+
+    private static void writeTreeHelpers(Path dir) throws Exception {
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("direction_ops.tsv")))) {
+            w.println("name\tclockwise\topposite\taxis\taxisDirection");
+            for (Direction d : Direction.values()) {
+                String clockwise;
+                try {
+                    clockwise = d.getClockWise().getSerializedName();
+                } catch (RuntimeException e) {
+                    clockwise = "throws";
+                }
+                w.println(d.getSerializedName() + "\t" + clockwise + "\t" + d.getOpposite().getSerializedName() + "\t"
+                    + d.getAxis().getName() + "\t" + d.getAxisDirection().name());
+            }
+        }
+
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("plane.tsv")))) {
+            w.println("kind\tseed\tdraw\tname");
+            int index = 0;
+            for (Direction d : Direction.Plane.HORIZONTAL) w.println("order\t-\t" + index++ + "\t" + d.getSerializedName());
+            for (long seed : SEEDS) {
+                RandomSource random = new LegacyRandomSource(seed);
+                for (int draw = 0; draw < 32; draw++) {
+                    w.println("random\t" + seed + "\t" + draw + "\t"
+                        + Direction.Plane.HORIZONTAL.getRandomDirection(random).getSerializedName());
+                }
+            }
+        }
+
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("shuffle.tsv")))) {
+            w.println("fn\tseed\tsize\tresult");
+            for (long seed : SEEDS) {
+                for (int size : new int[] { 1, 2, 4, 7, 16 }) {
+                    java.util.List<Integer> list = new java.util.ArrayList<>();
+                    for (int i = 0; i < size; i++) list.add(i);
+                    Util.shuffle(list, new LegacyRandomSource(seed));
+                    w.println("shuffle\t" + seed + "\t" + size + "\t" + list);
+
+                    it.unimi.dsi.fastutil.objects.ObjectArrayList<Integer> source = new it.unimi.dsi.fastutil.objects.ObjectArrayList<>();
+                    for (int i = 0; i < size; i++) source.add(i);
+                    w.println("shuffledCopy\t" + seed + "\t" + size + "\t"
+                        + Util.shuffledCopy(source, new LegacyRandomSource(seed)));
+                }
+            }
+        }
+
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("uniform_int.tsv")))) {
+            w.println("min\tmax\tseed\tdraw\tvalue");
+            int[][] ranges = { { 0, 0 }, { 0, 1 }, { 2, 5 }, { -3, 3 }, { 10, 40 } };
+            for (int[] r : ranges) {
+                net.minecraft.util.valueproviders.UniformInt provider = net.minecraft.util.valueproviders.UniformInt.of(r[0], r[1]);
+                for (long seed : SEEDS) {
+                    RandomSource random = new LegacyRandomSource(seed);
+                    for (int draw = 0; draw < 16; draw++) {
+                        w.println(r[0] + "\t" + r[1] + "\t" + seed + "\t" + draw + "\t" + provider.sample(random));
+                    }
+                }
             }
         }
     }

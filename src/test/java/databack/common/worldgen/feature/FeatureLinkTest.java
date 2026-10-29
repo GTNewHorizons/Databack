@@ -36,11 +36,17 @@ import databack.common.worldgen.vanilla.VanillaJar;
 class FeatureLinkTest {
 
     /// The methods expected to be unsupported: Java-side factories and codec helpers that name classes the bundle
-    /// lacks, and the carving mask, which no placement in 26.1 reads.
+    /// lacks, the carving mask, which no placement in 26.1 reads, and the pale garden's tree decorators (the pale oak,
+    /// its moss and the creaking have no 1.7 blocks).
     private static final List<String> UNSUPPORTED = Arrays.asList("blockpredicates/BlockPredicate.matchesFluids",
         "blockpredicates/BlockPredicate.noFluid", "placement/CaveSurface.valueOf",
         "placement/HeightRangePlacement.triangle", "placement/HeightRangePlacement.uniform",
-        "placement/PlacementContext.getCarvingMask");
+        "placement/PlacementContext.getCarvingMask", "feature/treedecorators/CreakingHeartDecorator.place",
+        "feature/treedecorators/PaleMossDecorator.place", "feature/treedecorators/PaleMossDecorator.addMossHanger",
+        "feature/treedecorators/PaleMossDecorator.lambda$place$0",
+        "feature/treedecorators/PaleMossDecorator.lambda$place$1",
+        "feature/treedecorators/PaleMossDecorator.lambda$place$2",
+        "feature/treedecorators/PaleMossDecorator.lambda$place$3");
 
     private static final Map<String, byte[]> files = new HashMap<>();
     private static final Set<String> bundle = new HashSet<>();

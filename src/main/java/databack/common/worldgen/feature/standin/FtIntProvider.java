@@ -49,6 +49,19 @@ public abstract class FtIntProvider {
         };
     }
 
+    /// `min..max`, inclusive, all equally likely: one bounded draw (`feature/probes/uniform_int.tsv`).
+    @NotNull
+    @Contract("_, _ -> new")
+    public static FtIntProvider of(int min, int max) {
+        return new Bounded(min, max) {
+
+            @Override
+            public int sample(@NotNull RandomSource random) {
+                return random.nextIntBetweenInclusive(min, max);
+            }
+        };
+    }
+
     /// `-size..size`, peaked at 0: the difference of two bounded draws (`feature/probes/trapezoid_int.tsv`).
     @NotNull
     @Contract("_ -> new")

@@ -32,7 +32,7 @@ import org.objectweb.asm.TypePath;
 ///
 /// - the class file version becomes Java 8's;
 /// - uses of vanilla classes, static fields and static methods are mapped as its [VanillaMappings] say, and the
-///   interfaces they add are added;
+///   interfaces they add are added; redirected instance calls become static calls taking the receiver first;
 /// - lambdas are kept with their types mapped, or become null where the mappings say so;
 /// - methods that use anything else ([ForeignMethodScanner]) throw [UnsupportedOperationException] instead, or are
 ///   removed when their descriptor names anything else;
@@ -420,8 +420,13 @@ public final class VanillaClassRewriter {
         @Override
         public void visitMethodInsn(int opcode, String owner, String name, String desc, boolean itf) {
             String redirect = opcode == Opcodes.INVOKESTATIC ? mappings.staticRedirect(owner, name) : null;
+            String instanceRedirect = opcode == Opcodes.INVOKESTATIC ? null : mappings.instanceRedirect(owner, name);
 
-            if (redirect == null && isInertCall(owner, name, desc)) {
+            if (instanceRedirect != null) {
+                String receiver = "L" + mappings.mapName(owner) + ";";
+                super.visitMethodInsn(Opcodes.INVOKESTATIC, instanceRedirect, name,
+                    "(" + receiver + mappings.mapDesc(desc).substring(1), false);
+            } else if (redirect == null && isInertCall(owner, name, desc)) {
                 Type[] arguments = Type.getArgumentTypes(desc);
                 for (int i = arguments.length - 1; i >= 0; i--) pop(arguments[i]);
                 if (opcode != Opcodes.INVOKESTATIC) super.visitInsn(Opcodes.POP);

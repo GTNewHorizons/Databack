@@ -19,6 +19,7 @@ import databack.common.dto.BlockStateDTO;
 import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 import databack.common.dto.worldgen.height_provider.IHeightProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
+import databack.common.dto.worldgen.placed_feature.IPlacedFeatureRef;
 import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 import databack.common.worldgen.feature.standin.FtBlock;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
@@ -52,6 +53,9 @@ public final class FeatureBuildContext {
     /// Ids being built, to catch features that contain themselves.
     private final Set<String> building = new HashSet<>();
     private final Set<String> warned = new HashSet<>();
+    /// See [#nothing].
+    @Nullable
+    private FtHolder nothing;
 
     /// `configuredFeatures` and `placedFeatures` give the datapack's definitions by id, or null for unknown ids.
     public FeatureBuildContext(
@@ -69,6 +73,26 @@ public final class FeatureBuildContext {
     public <T> T unsupported(@NotNull String what) {
         if (warned.add(what)) LOGGER.warn("{} is not supported yet; features that use it are skipped", what);
         return null;
+    }
+
+    /// A placed feature that places nothing. Selectors use it for options that cannot be built, so the others keep
+    /// their chances.
+    @NotNull
+    public FtHolder nothing() {
+        if (nothing == null) {
+            Object configured = vanilla.construct("feature/ConfiguredFeature", vanilla.featureType("NO_OP"),
+                vanilla.construct("feature/configurations/NoneFeatureConfiguration"));
+            nothing = new FtHolder(null, vanilla.construct("placement/PlacedFeature", new FtHolder(null, configured),
+                Collections.emptyList()));
+        }
+        return nothing;
+    }
+
+    /// `ref` built, or [#nothing] if it cannot be (already logged).
+    @NotNull
+    public FtHolder placedOrNothing(@NotNull IPlacedFeatureRef ref) {
+        FtHolder feature = ref.instantiate(this);
+        return feature != null ? feature : nothing();
     }
 
     /// The configured feature `id` as a holder of vanilla's configured feature, or null.

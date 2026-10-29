@@ -7,6 +7,10 @@ import org.jetbrains.annotations.ApiStatus;
 public final class FtBlockTags {
 
     public static final FtTag AIR = new FtTag("minecraft:air");
+    public static final FtTag LEAVES = new FtTag("minecraft:leaves");
+    public static final FtTag LOGS = new FtTag("minecraft:logs");
+    public static final FtTag REPLACEABLE_BY_TREES = new FtTag("minecraft:replaceable_by_trees");
+    public static final FtTag CANNOT_REPLACE_BELOW_TREE_TRUNK = new FtTag("minecraft:cannot_replace_below_tree_trunk");
 
     private FtBlockTags() {}
 }

@@ -1,9 +1,12 @@
 package databack.common.worldgen.vanilla.standin;
 
+import java.util.Collections;
 import java.util.List;
 
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
+
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 
 import databack.common.worldgen.carver.standin.CvMath;
 import databack.common.worldgen.rng.RandomSource;
@@ -75,5 +78,35 @@ public final class VnMath {
     /// One bounded draw over the list's indices.
     public static <T> T getRandom(@NotNull List<T> list, @NotNull RandomSource random) {
         return list.get(random.nextInt(list.size()));
+    }
+
+    public static int abs(int value) {
+        return Math.abs(value);
+    }
+
+    public static int floor(float value) {
+        return (int) Math.floor(value);
+    }
+
+    public static float sqrt(float value) {
+        return (float) Math.sqrt(value);
+    }
+
+    public static float square(float value) {
+        return value * value;
+    }
+
+    /// Shuffles `list` in place: from the last position down, each swaps with a position drawn at or before it
+    /// (`feature/probes/shuffle.tsv`).
+    public static <T> void shuffle(@NotNull List<T> list, @NotNull RandomSource random) {
+        for (int i = list.size(); i > 1; i--) Collections.swap(list, i - 1, random.nextInt(i));
+    }
+
+    /// A shuffled copy of `list` ([#shuffle]); `list` is unchanged.
+    @NotNull
+    public static <T> List<T> shuffledCopy(@NotNull ObjectArrayList<T> list, @NotNull RandomSource random) {
+        List<T> copy = new ObjectArrayList<>(list);
+        shuffle(copy, random);
+        return copy;
     }
 }

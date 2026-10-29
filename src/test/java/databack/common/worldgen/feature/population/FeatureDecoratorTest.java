@@ -37,7 +37,7 @@ import databack.common.worldgen.vanilla.VanillaJar;
 class FeatureDecoratorTest {
 
     private static VanillaFeatures vanilla;
-    private static BiomeFeatures plains;
+    private static BiomeFeatures plains, forest;
     private static final LegacyStates states = new LegacyStates();
 
     @BeforeAll
@@ -57,6 +57,8 @@ class FeatureDecoratorTest {
             id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
         plains = new BiomeFeatures(ctx, Collections.singleton("minecraft:plains"),
             id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
+        forest = new BiomeFeatures(ctx, Collections.singleton("minecraft:forest"),
+            id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
     }
 
     /// Solid to the top: ores only form below the surface.
@@ -65,10 +67,15 @@ class FeatureDecoratorTest {
     }
 
     private static FakeLegacyWorld decorate(FakeLegacyWorld world, int chunkX, int chunkZ) {
+        return decorate(world, plains, "minecraft:plains", chunkX, chunkZ);
+    }
+
+    private static FakeLegacyWorld decorate(FakeLegacyWorld world, BiomeFeatures features, String biome, int chunkX,
+        int chunkZ) {
         List<long[]> loaded = new ArrayList<>();
         FeatureDecorator decorator = new FeatureDecorator((x, z) -> loaded.add(new long[] { x, z }),
-            area -> new PopulationLevel(world, states, area, (x, y, z) -> "minecraft:plains", new StandardRandom(0)),
-            vanilla, plains, 1234L);
+            area -> new PopulationLevel(world, states, area, (x, y, z) -> biome, new StandardRandom(0)),
+            vanilla, features, 1234L);
 
         decorator.decorate(chunkX, chunkZ);
         assertEquals(9, loaded.size());
@@ -107,6 +114,13 @@ class FeatureDecoratorTest {
         }
         assertTrue(grass > 0, "grass placed");
         assertTrue(flowers > 0, "flowers placed");
+    }
+
+    @Test
+    void forestsGetTrees() {
+        FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.air, 64), forest, "minecraft:forest", 0, 0);
+        assertTrue(world.count(Blocks.log) > 0, "oak and birch logs placed");
+        assertTrue(world.count(Blocks.leaves) > 0, "oak and birch leaves placed");
     }
 
     @Test

@@ -2,6 +2,7 @@ package databack.common.dto.worldgen.configured_feature;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import javax.annotation.Nonnegative;
 
@@ -542,12 +543,12 @@ public class BuiltinConfiguredFeatures {
     private static class RandomBooleanSelectorFeature implements IConfiguredFeature {
         public RandomBooleanSelectorConfig config;
 
-        /// Argument order checked by `FeatureConstructionTest`.
+        /// Argument order checked by `FeatureConstructionTest`. Options that cannot be built place nothing.
         @Nullable
         @Override
         public Object instantiate(@NotNull FeatureBuildContext ctx) {
-            FtHolder whenTrue = config.feature_true.instantiate(ctx), whenFalse = config.feature_false.instantiate(ctx);
-            if (whenTrue == null || whenFalse == null) return null;
+            FtHolder whenTrue = ctx.placedOrNothing(config.feature_true);
+            FtHolder whenFalse = ctx.placedOrNothing(config.feature_false);
             return configured(ctx, "RANDOM_BOOLEAN_SELECTOR",
                 ctx.vanilla.construct(CONFIGS + "RandomBooleanFeatureConfiguration", whenTrue, whenFalse));
         }
@@ -561,17 +562,16 @@ public class BuiltinConfiguredFeatures {
     private static class RandomSelectorFeature implements IConfiguredFeature {
         public RandomSelectorConfig config;
 
+        /// Options that cannot be built place nothing, keeping their chances.
         @Nullable
         @Override
         public Object instantiate(@NotNull FeatureBuildContext ctx) {
             List<Object> weighted = new ArrayList<>(config.features.length);
             for (WeightedPlacedFeature entry : config.features) {
-                FtHolder feature = entry.feature.instantiate(ctx);
-                if (feature == null) return null;
-                weighted.add(ctx.vanilla.construct("feature/WeightedPlacedFeature", feature, entry.chance));
+                weighted.add(ctx.vanilla.construct("feature/WeightedPlacedFeature", ctx.placedOrNothing(entry.feature),
+                    entry.chance));
             }
-            FtHolder fallback = config.defaultFeature.instantiate(ctx);
-            if (fallback == null) return null;
+            FtHolder fallback = ctx.placedOrNothing(config.defaultFeature);
             return configured(ctx, "RANDOM_SELECTOR",
                 ctx.vanilla.construct(CONFIGS + "RandomFeatureConfiguration", weighted, fallback));
         }
@@ -661,15 +661,12 @@ public class BuiltinConfiguredFeatures {
     private static class SimpleRandomSelectorFeature implements IConfiguredFeature {
         public SimpleRandomSelectorConfig config;
 
+        /// Options that cannot be built place nothing, keeping their share.
         @Nullable
         @Override
         public Object instantiate(@NotNull FeatureBuildContext ctx) {
             List<FtHolder> features = new ArrayList<>(config.features.length);
-            for (IPlacedFeatureRef ref : config.features) {
-                FtHolder feature = ref.instantiate(ctx);
-                if (feature == null) return null;
-                features.add(feature);
-            }
+            for (IPlacedFeatureRef ref : config.features) features.add(ctx.placedOrNothing(ref));
             return configured(ctx, "SIMPLE_RANDOM_SELECTOR",
                 ctx.vanilla.construct(CONFIGS + "SimpleRandomFeatureConfiguration", FtHolderSet.of(features)));
         }
@@ -741,19 +738,48 @@ public class BuiltinConfiguredFeatures {
 
     private static class TreeFeature implements IConfiguredFeature {
         public TreeConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "TREE", config.instantiate(ctx));
+        }
     }
 
     private static class TreeConfig {
         public IBlockStateProvider trunk_provider;
         public IBlockStateProvider foliage_provider;
-        @Nullable public IBlockStateProvider dirt_provider;
+        /// Vanilla's default when absent: dirt below overworld trunks.
         @Nullable public IBlockStateProvider below_trunk_provider;
         public ITreeTrunkPlacer trunk_placer;
         public ITreeFoliagePlacer foliage_placer;
         @Nullable public IRootPlacer root_placer;
-        public List<ITreeDecorator> decorators;
+        public List<ITreeDecorator> decorators = new ArrayList<>();
         public IFeatureSize minimum_size;
-        @Nullable public Boolean ignore_vines;
-        @Nullable public Boolean force_dirt;
+        public boolean ignore_vines;
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            Object trunkProvider = trunk_provider.instantiate(ctx), foliageProvider = foliage_provider.instantiate(ctx);
+            Object trunkPlacer = trunk_placer.instantiate(ctx), foliagePlacer = foliage_placer.instantiate(ctx);
+            Object size = minimum_size.instantiate(ctx);
+            Object belowTrunk = below_trunk_provider == null
+                ? ctx.vanilla.constant(CONFIGS + "TreeConfiguration", "PLACE_BELOW_OVERWORLD_TRUNKS")
+                : below_trunk_provider.instantiate(ctx);
+            Object roots = root_placer == null ? null : root_placer.instantiate(ctx);
+            if (trunkProvider == null || foliageProvider == null || trunkPlacer == null || foliagePlacer == null
+                || size == null || belowTrunk == null || root_placer != null && roots == null) {
+                return null;
+            }
+
+            List<Object> builtDecorators = new ArrayList<>(decorators.size());
+            for (ITreeDecorator decorator : decorators) {
+                Object built = decorator.instantiate(ctx);
+                if (built == null) return null;
+                builtDecorators.add(built);
+            }
+            return ctx.vanilla.construct(CONFIGS + "TreeConfiguration", trunkProvider, trunkPlacer, foliageProvider,
+                foliagePlacer, Optional.ofNullable(roots), size, builtDecorators, ignore_vines, belowTrunk);
+        }
     }
 }

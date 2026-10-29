@@ -27,7 +27,7 @@ import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.standin.FtHolderSet;
 import databack.common.worldgen.feature.standin.FtLevel;
 import databack.common.worldgen.feature.standin.FtProperty;
-import databack.common.worldgen.feature.standin.FtRotatedPillarBlock;
+import databack.common.worldgen.feature.standin.FtBlockProperties;
 import databack.common.worldgen.feature.standin.FtSection;
 import databack.common.worldgen.feature.standin.FtSectionAccess;
 import databack.common.worldgen.rng.RandomSource;
@@ -56,20 +56,20 @@ class FeatureStandInTest {
     void settingValuesGivesTheMatchingState() {
         FtBlockState log = state("minecraft:oak_log", "axis", "y");
 
-        assertSame(state("minecraft:oak_log", "axis", "x"), log.setValue(FtRotatedPillarBlock.AXIS, VnAxis.X));
-        assertSame(state("minecraft:oak_log", "axis", "z"), log.trySetValue(FtRotatedPillarBlock.AXIS, VnAxis.Z));
+        assertSame(state("minecraft:oak_log", "axis", "x"), log.setValue(FtBlockProperties.AXIS, VnAxis.X));
+        assertSame(state("minecraft:oak_log", "axis", "z"), log.trySetValue(FtBlockProperties.AXIS, VnAxis.Z));
         assertSame(state("minecraft:wheat", "age", "3"), state("minecraft:wheat").setValue(FtProperty.of("age"), 3));
-        assertSame(state("minecraft:stone"), state("minecraft:stone").trySetValue(FtRotatedPillarBlock.AXIS, VnAxis.X));
+        assertSame(state("minecraft:stone"), state("minecraft:stone").trySetValue(FtBlockProperties.AXIS, VnAxis.X));
     }
 
     @Test
     void propertiesAreTheGivenOnes() {
         FtBlockState log = state("minecraft:oak_log", "axis", "y");
 
-        assertTrue(log.hasProperty(FtRotatedPillarBlock.AXIS));
-        assertFalse(state("minecraft:stone").hasProperty(FtRotatedPillarBlock.AXIS));
-        assertEquals(Collections.singletonList(FtRotatedPillarBlock.AXIS), log.getProperties());
-        assertThrows(UnsupportedOperationException.class, () -> FtRotatedPillarBlock.AXIS.getPossibleValues());
+        assertTrue(log.hasProperty(FtBlockProperties.AXIS));
+        assertFalse(state("minecraft:stone").hasProperty(FtBlockProperties.AXIS));
+        assertEquals(Collections.singletonList(FtBlockProperties.AXIS), log.getProperties());
+        assertThrows(UnsupportedOperationException.class, () -> FtBlockProperties.AXIS.getPossibleValues());
     }
 
     @Test
