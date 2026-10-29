@@ -38,7 +38,6 @@ public class BuiltinPlacementModifiers {
             .createTaggedUnionLoader("builtin/placement_modifiers", IPlacementModifier.class);
 
         placementModifiers.addVariant("minecraft:block_predicate_filter", BlockPredicateFilterMod.class);
-        placementModifiers.addVariant("minecraft:carving_mask", CarvingMaskMod.class);
         placementModifiers.addVariant("minecraft:rarity_filter", RarityFilterMod.class);
         placementModifiers.addVariant("minecraft:count", CountMod.class);
         placementModifiers.addVariant("minecraft:count_on_every_layer", CountOnEveryLayerMod.class);
@@ -71,15 +70,6 @@ public class BuiltinPlacementModifiers {
         }
     }
 
-    private static class CarvingMaskMod implements IPlacementModifier {
-
-        public CarveStep step;
-
-        @Override
-        public Pos3DArrayList apply(World world, Pos3DArrayList positions, String featureId) {
-            return positions; // TODO
-        }
-    }
 
     private static class RarityFilterMod implements IPlacementModifier {
 

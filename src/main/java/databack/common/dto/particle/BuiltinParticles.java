@@ -106,7 +106,6 @@ public class BuiltinParticles {
         particles.addVariant("minecraft:splash", EmptyParticle.class);
         particles.addVariant("minecraft:spore_blossom_air", EmptyParticle.class);
         particles.addVariant("minecraft:squid_ink", EmptyParticle.class);
-        particles.addVariant("minecraft:suspended", EmptyParticle.class);
         particles.addVariant("minecraft:sweep_attack", EmptyParticle.class);
         particles.addVariant("minecraft:tinted_leaves", EmptyParticle.class);
         particles.addVariant("minecraft:totem_of_undying", EmptyParticle.class);

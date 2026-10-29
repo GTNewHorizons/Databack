@@ -57,7 +57,6 @@ public class BuiltinDensityFunctions {
         densityFunctions.addVariant("minecraft:clamp", ClampFunc.class);
         densityFunctions.addVariant("minecraft:constant", ConstantFunc.class);
         densityFunctions.addVariant("minecraft:find_top_surface", FindTopSurfaceFunc.class);
-        densityFunctions.addVariant("minecraft:interval_select", IntervalSelectFunc.class);
         densityFunctions.addVariant("minecraft:range_choice", RangeChoiceFunc.class);
         densityFunctions.addVariant("minecraft:shifted_noise", ShiftedNoiseFunc.class);
         densityFunctions.addVariant("minecraft:shift", ShiftFunc.class);
@@ -376,27 +375,6 @@ public class BuiltinDensityFunctions {
         @Override
         public DensityNode instantiate(DensityBuildContext ctx) {
             return Density.findTopSurface(ctx.build(density), ctx.build(upper_bound), lower_bound, cell_height);
-        }
-    }
-
-    /// Not part of 26.1 (added in 26.2). Parsed so that packs using it still load; it evaluates to 0 with a warning.
-    @Desugar
-    public record IntervalSelectFunc(
-        IDensityFunctionFactory input, double[] thresholds, IDensityFunctionFactory[] functions
-    ) implements IDensityFunctionFactory {
-
-        @Override
-        public List<IDensityFunctionFactory> children() {
-            List<IDensityFunctionFactory> result = new ArrayList<>(1 + (functions == null ? 0 : functions.length));
-            result.add(input);
-            if (functions != null) Collections.addAll(result, functions);
-            return result;
-        }
-
-        @Override
-        public DensityNode instantiate(DensityBuildContext ctx) {
-            DensityBuildContext.LOGGER.warn("minecraft:interval_select is not a 26.1 density function type; using 0");
-            return Density.ZERO;
         }
     }
 

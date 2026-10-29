@@ -24,7 +24,6 @@ public class BuiltinBlockStateProviders {
         loader.addVariant("minecraft:noise_threshold_provider", NoiseThresholdProvider.class);
         loader.addVariant("minecraft:dual_noise_provider", DualNoiseProvider.class);
         loader.addVariant("minecraft:rotated_block_provider", RotatedBlockProvider.class);
-        loader.addVariant("minecraft:unstable_block_provider", UnstableBlockProvider.class);
         loader.addVariant("minecraft:rule_based_state_provider", RuleBasedStateProvider.class);
         loader.addVariant("minecraft:randomized_int_state_provider", RandomizedIntStateProvider.class);
     }
@@ -81,9 +80,6 @@ public class BuiltinBlockStateProviders {
     }
 
     // unstable_block_provider
-    private static class UnstableBlockProvider implements IBlockStateProvider {
-        public BlockState state;
-    }
 
     // rule_based_state_provider
     private static class Rule {

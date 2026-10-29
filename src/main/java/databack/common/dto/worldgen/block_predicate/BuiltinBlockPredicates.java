@@ -41,7 +41,6 @@ public class BuiltinBlockPredicates {
         predicates.addVariant("minecraft:has_sturdy_face", HasSturdyFacePredicate.class);
         predicates.addVariant("minecraft:inside_world_bounds", InsideWorldBoundsPredicate.class);
         predicates.addVariant("minecraft:matching_block_tag", MatchingBlockTagPredicate.class);
-        predicates.addVariant("minecraft:matching_biomes", MatchingBiomesPredicate.class);
         predicates.addVariant("minecraft:matching_blocks", MatchingBlocksPredicate.class);
         predicates.addVariant("minecraft:matching_fluids", MatchingFluidsPredicate.class);
         predicates.addVariant("minecraft:not", NotPredicate.class);
@@ -261,15 +260,6 @@ public class BuiltinBlockPredicates {
         }
     }
 
-    private static class MatchingBiomesPredicate implements IBlockPredicate {
-
-        public BiomeList biomes;
-
-        @Override
-        public boolean test(World world, int x, int y, int z) {
-            return biomes.matches(world.getBiomeGenForCoords(x, z));
-        }
-    }
 
     private static class MatchingBlocksPredicate implements IBlockPredicate {
 

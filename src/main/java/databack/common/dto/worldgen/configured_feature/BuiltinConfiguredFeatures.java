@@ -43,29 +43,18 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:basalt_columns", BasaltColumnsFeature.class);
         loader.addVariant("minecraft:block_column", BlockColumnFeature.class);
         loader.addVariant("minecraft:block_pile", BlockPileFeature.class);
-        loader.addVariant("minecraft:decorated", DecoratedFeature.class);
         loader.addVariant("minecraft:desert_well", DesertWellFeature.class);
         loader.addVariant("minecraft:delta_feature", DeltaFeatureFeature.class);
         loader.addVariant("minecraft:disk", DiskFeature.class);
-        loader.addVariant("minecraft:ice_patch", DiskFeature.class);
-        loader.addVariant("minecraft:emerald_ore", EmeraldOreFeature.class);
         loader.addVariant("minecraft:end_gateway", EndGatewayFeature.class);
-        loader.addVariant("minecraft:end_podium", EndPodiumFeature.class);
         loader.addVariant("minecraft:end_spike", EndSpikeFeature.class);
         loader.addVariant("minecraft:dripstone_cluster", SpeleothemClusterFeature.class);
-        loader.addVariant("minecraft:speleothem_cluster", SpeleothemClusterFeature.class);
         loader.addVariant("minecraft:fallen_tree", FallenTreeFeature.class);
         loader.addVariant("minecraft:fill_layer", FillLayerFeature.class);
-        loader.addVariant("minecraft:flower", RandomPatchFeature.class);
-        loader.addVariant("minecraft:no_bonemeal_flower", RandomPatchFeature.class);
-        loader.addVariant("minecraft:random_patch", RandomPatchFeature.class);
         loader.addVariant("minecraft:block_blob", BlockBlobFeature.class);
-        loader.addVariant("minecraft:forest_rock", ForestRockFeature.class);
         loader.addVariant("minecraft:fossil", FossilFeature.class);
         loader.addVariant("minecraft:geode", GeodeFeature.class);
-        loader.addVariant("minecraft:glow_lichen", MultifaceGrowthFeature.class);
         loader.addVariant("minecraft:multiface_growth", MultifaceGrowthFeature.class);
-        loader.addVariant("minecraft:growing_plant", GrowingPlantFeature.class);
         loader.addVariant("minecraft:huge_brown_mushroom", HugeMushroomFeature.class);
         loader.addVariant("minecraft:huge_red_mushroom", HugeMushroomFeature.class);
         loader.addVariant("minecraft:huge_fungus", HugeFungusFeature.class);
@@ -74,29 +63,23 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:large_dripstone", LargeDripstoneFeature.class);
         loader.addVariant("minecraft:nether_forest_vegetation", NetherForestVegetationFeature.class);
         loader.addVariant("minecraft:netherrack_replace_blobs", NetherrackReplaceBlobsFeature.class);
-        loader.addVariant("minecraft:no_surface_ore", OreFeature.class);
         loader.addVariant("minecraft:ore", OreFeature.class);
         loader.addVariant("minecraft:scattered_ore", OreFeature.class);
         loader.addVariant("minecraft:pointed_dripstone", SpeleothemFeature.class);
-        loader.addVariant("minecraft:speleothem", SpeleothemFeature.class);
         loader.addVariant("minecraft:random_boolean_selector", RandomBooleanSelectorFeature.class);
         loader.addVariant("minecraft:random_selector", RandomSelectorFeature.class);
         loader.addVariant("minecraft:replace_single_block", ReplaceSingleBlockFeature.class);
         loader.addVariant("minecraft:root_system", RootSystemFeature.class);
         loader.addVariant("minecraft:sculk_patch", SculkPatchFeature.class);
         loader.addVariant("minecraft:sea_pickle", SeaPickleFeature.class);
-        loader.addVariant("minecraft:sequence", SequenceFeature.class);
         loader.addVariant("minecraft:simple_block", SimpleBlockFeature.class);
         loader.addVariant("minecraft:simple_random_selector", SimpleRandomSelectorFeature.class);
-        loader.addVariant("minecraft:small_dripstone", SmallDripstoneFeature.class);
         loader.addVariant("minecraft:spike", SpikeFeature.class);
         loader.addVariant("minecraft:spring_feature", SpringFeature.class);
-        loader.addVariant("minecraft:template", TemplateFeature.class);
         loader.addVariant("minecraft:twisting_vines", TwistingVinesFeature.class);
         loader.addVariant("minecraft:underwater_magma", UnderwaterMagmaFeature.class);
         loader.addVariant("minecraft:vegetation_patch", VegetationPatchFeature.class);
         loader.addVariant("minecraft:waterlogged_vegetation_patch", VegetationPatchFeature.class);
-        loader.addVariant("minecraft:weighted_random_selector", WeightedRandomSelectorFeature.class);
         loader.addVariant("minecraft:tree", TreeFeature.class);
         loader.addVariant("minecraft:basalt_pillar", BasaltPillarFeature.class);
         loader.addVariant("minecraft:blue_ice", BlueIceFeature.class);
@@ -164,13 +147,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // decorated (until 1.18)
-    private static class DecoratedFeature implements IConfiguredFeature {
-        public DecoratedConfig config;
-    }
-    private static class DecoratedConfig {
-        public JsonElement decorator;
-        public JsonElement feature;
-    }
 
     // basalt_pillar
     private static class BasaltPillarFeature implements IConfiguredFeature {}
@@ -244,13 +220,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // emerald_ore
-    private static class EmeraldOreFeature implements IConfiguredFeature {
-        public EmeraldOreConfig config;
-    }
-    private static class EmeraldOreConfig {
-        public BlockState state;
-        public BlockState target;
-    }
 
     // end_gateway
     private static class EndGatewayFeature implements IConfiguredFeature {
@@ -262,12 +231,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // end_podium (since 26.3)
-    private static class EndPodiumFeature implements IConfiguredFeature {
-        public EndPodiumConfig config;
-    }
-    private static class EndPodiumConfig {
-        @Nullable public Boolean active;
-    }
 
     // end_spike
     private static class EndSpikeFeature implements IConfiguredFeature {
@@ -287,27 +250,21 @@ public class BuiltinConfiguredFeatures {
         @Nullable public Boolean guarded;
     }
 
-    // dripstone_cluster (until 26.2), speleothem_cluster (since 26.2)
+    // dripstone_cluster
     private static class SpeleothemClusterFeature implements IConfiguredFeature {
         public SpeleothemClusterConfig config;
     }
     private static class SpeleothemClusterConfig {
-        @Nullable public BlockState base_block;
-        @Nullable public BlockState pointed_block;
-        @Nullable public BlockWhitelist replaceable_blocks;
         @Nonnegative public int floor_to_ceiling_search_range;
         public IIntProvider height;
         public IIntProvider radius;
         @Nonnegative public int max_stalagmite_stalactite_height_diff;
         @Nonnegative public int height_deviation;
         @Nullable public IIntProvider dripstone_block_layer_thickness;
-        @Nullable public IIntProvider speleothem_block_layer_thickness;
         public IFloatProvider density;
         public IFloatProvider wetness;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_dripstone_column_at_max_distance_from_center;
-        @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_speleothem_at_max_distance_from_center;
         @Nullable public Integer max_distance_from_edge_affecting_chance_of_dripstone_column;
-        @Nullable public Integer max_distance_from_edge_affecting_chance_of_speleothem;
         @Nonnegative public int max_distance_from_center_affecting_height_bias;
     }
 
@@ -332,27 +289,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // flower, no_bonemeal_flower, random_patch
-    private static class RandomPatchFeature implements IConfiguredFeature {
-        public RandomPatchConfig config;
-    }
-    private static class RandomPatchConfig {
-        @Nullable public Integer tries;
-        // Until 1.18
-        @Nullable public Boolean can_replace;
-        @Nullable public Boolean project;
-        @Nullable public Boolean need_water;
-        @Nullable public Integer xspread;
-        @Nullable public Integer yspread;
-        @Nullable public Integer zspread;
-        @Nullable public JsonElement state_provider;
-        @Nullable public JsonElement block_placer;
-        @Nullable public JsonElement whitelist;
-        @Nullable public JsonElement blacklist;
-        // Since 1.18
-        @Nullable public Integer xz_spread;
-        @Nullable public Integer y_spread;
-        @Nullable public IPlacedFeatureRef feature;
-    }
 
     // block_blob (since 26.1)
     private static class BlockBlobFeature implements IConfiguredFeature {
@@ -364,12 +300,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // forest_rock (until 26.1)
-    private static class ForestRockFeature implements IConfiguredFeature {
-        public ForestRockConfig config;
-    }
-    private static class ForestRockConfig {
-        public BlockState state;
-    }
 
     // fossil (since 1.17)
     private static class FossilFeature implements IConfiguredFeature {
@@ -418,16 +348,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // growing_plant (1.17–1.18)
-    private static class GrowingPlantFeature implements IConfiguredFeature {
-        public GrowingPlantConfig config;
-    }
-    private static class GrowingPlantConfig {
-        public String direction;
-        public boolean allow_water;
-        public JsonElement height_distribution;
-        public JsonElement body_provider;
-        public JsonElement head_provider;
-    }
 
     // huge_brown_mushroom, huge_red_mushroom
     private static class HugeMushroomFeature implements IConfiguredFeature {
@@ -523,16 +443,12 @@ public class BuiltinConfiguredFeatures {
         @Nullable @RangeFloat(min = 0, max = 1) public Float discard_chance_on_air_exposure;
     }
 
-    // pointed_dripstone (until 26.2), speleothem (since 26.2)
+    // pointed_dripstone
     private static class SpeleothemFeature implements IConfiguredFeature {
         public SpeleothemConfig config;
     }
     private static class SpeleothemConfig {
-        @Nullable public BlockState base_block;
-        @Nullable public BlockState pointed_block;
-        @Nullable public BlockWhitelist replaceable_blocks;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_taller_dripstone;
-        @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_taller_generation;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_directional_spread;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_spread_radius2;
         @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_spread_radius3;
@@ -614,14 +530,6 @@ public class BuiltinConfiguredFeatures {
         public IIntProvider count;
     }
 
-    // sequence (since 26.2)
-    private static class SequenceFeature implements IConfiguredFeature {
-        public SequenceConfig config;
-    }
-    private static class SequenceConfig {
-        public IPlacedFeatureRef[] features;
-    }
-
     // simple_block
     private static class SimpleBlockFeature implements IConfiguredFeature {
         public SimpleBlockConfig config;
@@ -643,15 +551,6 @@ public class BuiltinConfiguredFeatures {
     }
 
     // small_dripstone (1.17–1.18)
-    private static class SmallDripstoneFeature implements IConfiguredFeature {
-        public SmallDripstoneConfig config;
-    }
-    private static class SmallDripstoneConfig {
-        @Nullable public Integer max_placements;
-        @Nullable public Integer empty_space_search_radius;
-        @Nullable public Integer max_offset_from_origin;
-        @Nullable @RangeFloat(min = 0, max = 1) public Float chance_of_taller_dripstone;
-    }
 
     // spike (since 26.1)
     private static class SpikeFeature implements IConfiguredFeature {
@@ -673,14 +572,6 @@ public class BuiltinConfiguredFeatures {
         public int hole_count;
         public boolean requires_block_below;
         public BlockWhitelist valid_blocks;
-    }
-
-    // template (since 26.2)
-    private static class TemplateFeature implements IConfiguredFeature {
-        public TemplateConfig config;
-    }
-    private static class TemplateConfig {
-        public JsonElement templates;
     }
 
     // twisting_vines (since 1.18)
@@ -718,20 +609,6 @@ public class BuiltinConfiguredFeatures {
         public JsonElement replaceable;
         public IBlockStateProvider ground_state;
         public IPlacedFeatureRef vegetation_feature;
-    }
-
-    // weighted_random_selector (since 26.2)
-    private static class WeightedRandomSelectorFeature implements IConfiguredFeature {
-        public WeightedRandomSelectorConfig config;
-    }
-    private static class WeightedRandomSelectorConfig {
-        public WeightedListEntry[] features;
-    }
-
-    /** A {@code WeightedList} entry wrapping a placed feature reference. */
-    private static class WeightedListEntry {
-        public int weight;
-        public IPlacedFeatureRef data;
     }
 
     private static class TreeFeature implements IConfiguredFeature {

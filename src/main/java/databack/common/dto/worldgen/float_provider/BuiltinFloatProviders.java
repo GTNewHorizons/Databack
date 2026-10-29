@@ -13,7 +13,6 @@ public class BuiltinFloatProviders {
 
         loader.addVariant("minecraft:constant", ConstantFloat.class);
         loader.addVariant("minecraft:uniform", UniformFloat.class);
-        loader.addVariant("minecraft:clamped", ClampedFloat.class);
         loader.addVariant("minecraft:clamped_normal", ClampedNormalFloat.class);
         loader.addVariant("minecraft:trapezoid", TrapezoidFloat.class);
 
@@ -45,17 +44,6 @@ public class BuiltinFloatProviders {
         }
     }
 
-    private static class ClampedFloat implements IFloatProvider {
-
-        public float min_inclusive;
-        public float max_exclusive;
-        public IFloatProvider source;
-
-        @Override
-        public float get(Random random) {
-            return Math.max(min_inclusive, Math.min(max_exclusive, source.get(random)));
-        }
-    }
 
     private static class ClampedNormalFloat implements IFloatProvider {
 

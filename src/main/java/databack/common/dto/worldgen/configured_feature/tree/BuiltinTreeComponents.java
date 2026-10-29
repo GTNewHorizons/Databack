@@ -28,8 +28,6 @@ public class BuiltinTreeComponents {
         trunkPlacer.addVariant("minecraft:bending_trunk_placer", BendingTrunkPlacer.class);
         trunkPlacer.addVariant("minecraft:cherry_trunk_placer", CherryTrunkPlacer.class);
         trunkPlacer.addVariant("minecraft:upwards_branching_trunk_placer", UpwardsBranchingTrunkPlacer.class);
-        trunkPlacer.addVariant("minecraft:palm_trunk_placer", PalmTrunkPlacer.class);
-        trunkPlacer.addVariant("minecraft:mangrove_trunk_placer", EmptyTrunkPlacer.class);
 
         TaggedUnionLoader<ITreeFoliagePlacer> foliagePlacer = DatapackSerialization
             .createTaggedUnionLoader("worldgen/foliage_placer", ITreeFoliagePlacer.class);
@@ -44,7 +42,6 @@ public class BuiltinTreeComponents {
         foliagePlacer.addVariant("minecraft:mega_pine_foliage_placer", MegaPineFoliagePlacer.class);
         foliagePlacer.addVariant("minecraft:dark_oak_foliage_placer", EmptyFoliagePlacer.class);
         foliagePlacer.addVariant("minecraft:cherry_foliage_placer", CherryFoliagePlacer.class);
-        foliagePlacer.addVariant("minecraft:pale_oak_foliage_placer", PaleOakFoliagePlacer.class);
         foliagePlacer.addVariant("minecraft:random_spread_foliage_placer", RandomSpreadFoliagePlacer.class);
 
         TaggedUnionLoader<ITreeDecorator> treeDecorator = DatapackSerialization
@@ -116,12 +113,6 @@ public class BuiltinTreeComponents {
         public IBlockPredicate can_grow_through;
     }
 
-    public static class PalmTrunkPlacer extends TrunkPlacerBase {
-        public UniformInt leaf_overflow;
-        public UniformInt leaf_overflow_offset;
-        public IIntProvider height;
-        public IIntProvider trunk_height;
-    }
 
     // -------------------------------------------------------------------------
     // Foliage placer base + variants
@@ -159,12 +150,6 @@ public class BuiltinTreeComponents {
         @RangeFloat(min = 0, max = 1) public float hanging_leaves_extension_chance;
     }
 
-    public static class PaleOakFoliagePlacer extends FoliagePlacerBase {
-        public IIntProvider height;
-        public IIntProvider inner_fill_radius;
-        public IIntProvider outer_fill_radius;
-        @RangeFloat(min = 0, max = 1) public float fill_corner_probability;
-    }
 
     public static class RandomSpreadFoliagePlacer extends FoliagePlacerBase {
         public IIntProvider foliage_height;
