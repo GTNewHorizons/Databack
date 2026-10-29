@@ -10,6 +10,8 @@ import net.minecraft.item.Item;
 import cpw.mods.fml.common.Loader;
 import sun.misc.Unsafe;
 
+import com.gtnewhorizon.gtnhlib.blockstate.init.BlockPropertyInit;
+
 import databack.common.interop.VanillaBlockIdentities;
 import databack.common.interop.registry.BlockIdentityRegistry;
 
@@ -35,6 +37,8 @@ public final class MinecraftBootstrap {
         installEmptyLoader();
         Block.registerBlocks();
         Item.registerItems();
+        // GTNHLib registers the vanilla blocks' properties in its own init, which tests do not run.
+        BlockPropertyInit.init();
 
         VanillaBlockIdentities.init();
         BlockIdentityRegistry.INSTANCE.claimUnrenamedVanilla();

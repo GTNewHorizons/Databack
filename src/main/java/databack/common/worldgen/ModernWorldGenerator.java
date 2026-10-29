@@ -54,6 +54,9 @@ import databack.common.worldgen.biome.zoom.VanillaBiomeZoom;
 import databack.common.worldgen.carver.VanillaCarvers;
 import databack.common.worldgen.carver.VanillaCarversCache;
 import databack.common.worldgen.carver.WorldCarvers;
+import databack.common.worldgen.feature.population.DeferredPopulation;
+import databack.common.worldgen.feature.population.FeatureDecorator;
+import databack.common.worldgen.feature.population.PendingPopulationData;
 import databack.common.worldgen.orevein.OreVeinSystem;
 import databack.common.worldgen.orevein.VeinBlock;
 import databack.common.worldgen.orevein.VeinFieldSampler;
@@ -97,6 +100,9 @@ public class ModernWorldGenerator implements IChunkProvider {
     /// Null when carvers are unavailable (no vanilla classes).
     @Nullable
     private final WorldCarvers carvers;
+    private final FeatureDecorator decorator = new FeatureDecorator();
+    /// See [#population()].
+    private DeferredPopulation population;
     private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
 
     private final DensityRouter router;
@@ -245,6 +251,7 @@ public class ModernWorldGenerator implements IChunkProvider {
         writeSections(chunk, blocks, minY, layers);
         chunk.generateSkylightMap();
 
+        population().markGenerated(chunkX, chunkZ);
         return chunk;
     }
 
@@ -332,9 +339,20 @@ public class ModernWorldGenerator implements IChunkProvider {
         return !(server.currentChunkLoader instanceof AnvilChunkLoader loader) || !loader.chunkExists(world, chunkX, chunkZ);
     }
 
+    /// 1.7 calls this once chunks `chunkX..chunkX + 1` by `chunkZ..chunkZ + 1` are loaded; features need the 3×3
+    /// around their chunk instead, so decoration is deferred until it exists.
     @Override
-    public void populate(IChunkProvider p_73153_1_, int chunkX, int chunkZ) {
+    public void populate(IChunkProvider provider, int chunkX, int chunkZ) {
+        population().onWindowComplete(chunkX, chunkZ, (x, z) -> !needsGeneration(x, z), decorator);
+    }
 
+    /// Created on first use: the world's per-dimension storage is set up after its generator.
+    private DeferredPopulation population() {
+        if (population == null) {
+            PendingPopulationData pending = PendingPopulationData.get(world);
+            population = new DeferredPopulation(pending.chunks(), pending::markDirty);
+        }
+        return population;
     }
 
     @Override

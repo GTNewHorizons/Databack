@@ -159,6 +159,12 @@ public class BlockIdentityRegistry implements IProxyRegistry<BlockIdentity> {
         return stateForms.select(modernId, properties);
     }
 
+    /// The state form `identity` is (`lit_furnace`'s is `lit=true`), or null if it is the block that claims its id.
+    @Nullable
+    public StateForms.Form stateFormOf(BlockIdentity identity) {
+        return stateForms.formOf(identity);
+    }
+
     /// Claims the name of every vanilla block that was never renamed: [VanillaBlockIdentities] renames every 1.7 name
     /// that isn't also the same block in modern, so the rest are already modern. Call after all identities are set up.
     public void claimUnrenamedVanilla() {

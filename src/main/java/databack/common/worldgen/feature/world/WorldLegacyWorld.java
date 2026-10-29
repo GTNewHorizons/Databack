@@ -1,0 +1,76 @@
+package databack.common.worldgen.feature.world;
+
+import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
+import net.minecraft.world.World;
+import net.minecraftforge.common.util.ForgeDirection;
+
+import org.jetbrains.annotations.NotNull;
+
+import databack.common.interop.heightmap.HeightmapType;
+import databack.common.interop.heightmap.WorldHeightmapExt;
+
+/// [LegacyWorld] over a 1.7 world, whose layers are `minY..minY + height`.
+public final class WorldLegacyWorld implements LegacyWorld {
+
+    /// 1.7's update flag for "send to clients", without neighbour updates.
+    private static final int SEND_TO_CLIENTS = 2;
+
+    @NotNull
+    private final World world;
+    private final int minY, height;
+
+    public WorldLegacyWorld(@NotNull World world, int minY, int height) {
+        this.world = world;
+        this.minY = minY;
+        this.height = height;
+    }
+
+    @Override
+    public int minY() {
+        return minY;
+    }
+
+    @Override
+    public int height() {
+        return height;
+    }
+
+    @NotNull
+    @Override
+    public Block getBlock(int x, int y, int z) {
+        return world.blockExists(x, y, z) ? world.getBlock(x, y, z) : Blocks.air;
+    }
+
+    @Override
+    public int getMeta(int x, int y, int z) {
+        return world.blockExists(x, y, z) ? world.getBlockMetadata(x, y, z) : 0;
+    }
+
+    @Override
+    public void setBlock(int x, int y, int z, @NotNull Block block, int meta) {
+        world.setBlock(x, y, z, block, meta, SEND_TO_CLIENTS);
+    }
+
+    @Override
+    public boolean isSideSolid(int x, int y, int z, @NotNull ForgeDirection side) {
+        return world.isSideSolid(x, y, z, side, false);
+    }
+
+    @Override
+    public boolean canBlockStay(@NotNull Block block, int x, int y, int z) {
+        return block.canBlockStay(world, x, y, z);
+    }
+
+    /// The heightmap gives the top block, or 0 when the column has none.
+    @Override
+    public int surface(@NotNull HeightmapType heightmap, int x, int z) {
+        int top = WorldHeightmapExt.getHeightmap(world, heightmap).getTop(x, minY + height - 1, z);
+        return Math.max(top + 1, minY);
+    }
+
+    @Override
+    public void scheduleUpdate(int x, int y, int z, @NotNull Block block, int delay) {
+        world.scheduleBlockUpdate(x, y, z, block, delay);
+    }
+}

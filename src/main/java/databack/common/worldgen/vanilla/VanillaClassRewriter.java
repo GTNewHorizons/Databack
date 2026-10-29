@@ -45,6 +45,7 @@ import org.objectweb.asm.TypePath;
 ///   initialize;
 /// - records stay subclasses of `Record` with working generated methods where the JVM has records, and become plain
 ///   classes elsewhere ([VanillaMappings.Builder#modernRuntime]);
+/// - members of nested classes lose `private`, since the nest attributes that grant nestmates access are dropped;
 /// - generic signatures, debug info, annotations and nest/inner-class/record attributes are dropped.
 ///
 /// Nothing here depends on what the class's methods do, only on which names they use.
@@ -132,6 +133,10 @@ public final class VanillaClassRewriter {
         private final ForeignMethodScanner scan;
         private final Set<String> bundle;
         private final Set<String> foreign;
+        private String className;
+        private boolean isInterface;
+        /// Whether the class is in a nest: it is an inner class, or has one.
+        private boolean nested;
 
         ClassRewriter(
             ClassVisitor next, VanillaMappings mappings, ForeignMethodScanner scan, Set<String> bundle,
@@ -154,6 +159,8 @@ public final class VanillaClassRewriter {
             }
             mapped.addAll(mappings.addedInterfaces(name));
 
+            className = name;
+            isInterface = (access & Opcodes.ACC_INTERFACE) != 0;
             super.visit(JAVA_8, access, name, null, mappings.mapName(superName), mapped.toArray(new String[0]));
         }
 
@@ -179,11 +186,24 @@ public final class VanillaClassRewriter {
         public void visitAttribute(Attribute attr) {}
 
         @Override
-        public void visitInnerClass(String name, String outerName, String innerName, int access) {}
+        public void visitInnerClass(String name, String outerName, String innerName, int access) {
+            if (name.equals(className) || className.equals(outerName) || name.startsWith(className + "$")) {
+                nested = true;
+            }
+        }
+
+        /// Nestmates may use each other's private members through nest attributes, which Java 8 lacks and which are
+        /// dropped; their members lose `private` instead (interface members become public, the only alternative they
+        /// allow). Inner classes are visited before members, so [#nested] is known here.
+        private int widen(int access) {
+            if (!nested || (access & Opcodes.ACC_PRIVATE) == 0) return access;
+            access &= ~Opcodes.ACC_PRIVATE;
+            return isInterface ? access | Opcodes.ACC_PUBLIC : access;
+        }
 
         @Override
         public FieldVisitor visitField(int access, String name, String desc, String signature, Object value) {
-            super.visitField(access, name, mappings.mapFieldDesc(bundle, desc), null, value);
+            super.visitField(widen(access), name, mappings.mapFieldDesc(bundle, desc), null, value);
             return null;
         }
 
@@ -193,7 +213,7 @@ public final class VanillaClassRewriter {
         ) {
             if (scan.unloadableMethods().contains(name + desc)) return null;
 
-            MethodVisitor next = super.visitMethod(access, name, mappings.mapDesc(desc), null, exceptions);
+            MethodVisitor next = super.visitMethod(widen(access), name, mappings.mapDesc(desc), null, exceptions);
 
             if (scan.foreignMethods().contains(name + desc)) {
                 writeUnsupportedBody(next, name);

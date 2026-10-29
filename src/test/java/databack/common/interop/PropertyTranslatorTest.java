@@ -50,6 +50,16 @@ class PropertyTranslatorTest {
     }
 
     @Test
+    void legacyPropertiesTranslateBack() {
+        assertArrayEquals(new String[] { "type", "top" }, PropertyTranslator.untranslate(SLAB, "top", "true"));
+        assertArrayEquals(new String[] { "type", "bottom" }, PropertyTranslator.untranslate(SLAB, "top", "false"));
+        assertArrayEquals(new String[] { "half", "top" }, PropertyTranslator.untranslate(STAIRS, "up", "down"));
+        assertArrayEquals(new String[] { "facing", "east" }, PropertyTranslator.untranslate(STAIRS, "facing", "east"));
+        assertArrayEquals(new String[] { "top", "true" }, PropertyTranslator.untranslate(PLAIN, "top", "true"));
+        assertNull(PropertyTranslator.untranslate(SLAB, "top", "sideways"));
+    }
+
+    @Test
     void modernOnlyProperties() {
         assertTrue(PropertyTranslator.isModernOnly("waterlogged"));
         assertTrue(PropertyTranslator.isModernOnly("north"));

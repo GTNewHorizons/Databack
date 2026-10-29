@@ -39,6 +39,18 @@ public final class StateForms {
             .add(new Form(property, value, identity));
     }
 
+    /// The form `identity` is, or null if it is no form (it is the block that claims its id).
+    @Nullable
+    public Form formOf(@NotNull BlockIdentity identity) {
+        List<Form> candidates = forms.get(identity.identityId);
+        if (candidates == null) return null;
+
+        for (Form form : candidates) {
+            if (form.identity == identity) return form;
+        }
+        return null;
+    }
+
     /// The form of `modernId` selected by `properties`, or null if the claimed block should be used. The first form
     /// registered wins if several match.
     @Nullable
