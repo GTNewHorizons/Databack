@@ -42,3 +42,19 @@ tasks.named<Jar>("jmhJar") {
     isZip64 = true
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
+
+// Runs the benchmarks on the source sets' classpaths instead of the fat jar. The jar misses Minecraft (RetroFuturaGradle
+// adds it as loose files), and in it JMH's ASM 9 shadows the ASM 5 the vanilla class rewriter is built against. JMH's
+// own libraries come first (Minecraft ships an older jopt-simple), less its ASM.
+// e.g. ./gradlew jmhClasspath -Pjmh.args='CarverBenchmark -prof gc'
+tasks.register<JavaExec>("jmhClasspath") {
+    dependsOn("jmhCompileGeneratedClasses")
+    mainClass.set("org.openjdk.jmh.Main")
+    classpath = configurations.getByName("jmh").filter { !it.name.startsWith("asm-") } +
+        files(layout.buildDirectory.dir("jmh-generated-classes"), layout.buildDirectory.dir("jmh-generated-resources")) +
+        sourceSets.main.get().runtimeClasspath + sourceSets.test.get().runtimeClasspath +
+        sourceSets.named("jmh").get().runtimeClasspath
+    providers.gradleProperty("jmh.jvm").orNull?.let { setExecutable(it) }
+    systemProperty("databack.projectDir", project.projectDir.absolutePath)
+    args((providers.gradleProperty("jmh.args").orNull ?: "").split(' ').filter { it.isNotEmpty() })
+}

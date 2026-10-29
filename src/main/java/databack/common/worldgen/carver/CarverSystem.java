@@ -42,7 +42,7 @@ public final class CarverSystem {
     /// Carves `chunk` in place.
     public void carve(@NotNull CvChunk chunk, @NotNull CvContext context, @NotNull CvAquifer aquifer) {
         CvChunkPos pos = chunk.getPos();
-        CvCarvingMask mask = new CvCarvingMask();
+        CvCarvingMask mask = new CvCarvingMask(chunk.minY(), chunk.layers());
         CvRandom random = new CvRandom(new SourceBits(new StandardRandom(0)));
 
         for (int dx = -RANGE; dx <= RANGE; dx++) {

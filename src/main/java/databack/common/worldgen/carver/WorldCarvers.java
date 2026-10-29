@@ -106,7 +106,12 @@ public final class WorldCarvers {
     ) {
         CvStatePool pool = new CvStatePool(PAYLOADS);
         CvBlockState[] states = new CvBlockState[blocks.length];
-        for (int i = 0; i < blocks.length; i++) states[i] = pool.state(key(blocks[i]));
+        // Runs of one block instance (stone, mostly) skip the pool lookup.
+        ImmutableBlockMeta previous = null;
+        for (int i = 0; i < blocks.length; i++) {
+            states[i] = blocks[i] == previous ? states[i - 1] : pool.state(key(blocks[i]));
+            previous = blocks[i];
+        }
 
         CvChunk chunk = new CvChunk(new CvChunkPos(chunkX, chunkZ), bottomY, layers, states);
         CvContext context = new CvContext(minGenY, genDepth, (c, pos, underFluid) -> {

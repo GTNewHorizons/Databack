@@ -69,6 +69,7 @@ public final class OreVeinSystem {
         int chunkX, int chunkZ, byte @NotNull [] kinds, int bottomY, int layers, @NotNull VeinFields fields
     ) {
         VeinBlock[] result = new VeinBlock[kinds.length];
+        VeinFields.GapField gap = fields::gap;
 
         for (int layer = 0; layer < layers; layer++) {
             int y = bottomY + layer;
@@ -81,7 +82,7 @@ public final class OreVeinSystem {
 
                     int field = fields.index(x, y, z);
                     result[index] = at(chunkX * 16 + x, y, chunkZ * 16 + z, fields.toggle[field],
-                        fields.ridged[field], fields.gap[field]);
+                        fields.ridged[field], gap);
                 }
             }
         }
@@ -92,13 +93,20 @@ public final class OreVeinSystem {
     /// The vein block at a default block with the given field values, or null if it stays (section 3).
     @Nullable
     public VeinBlock at(int x, int y, int z, double toggle, double ridged, double gap) {
+        return at(x, y, z, toggle, ridged, (localX, localY, localZ) -> gap);
+    }
+
+    /// As [#at(int, int, int, double, double, double)], reading `gap` (at chunk-local coordinates) only for blocks
+    /// that may become ore.
+    @Nullable
+    private VeinBlock at(int x, int y, int z, double toggle, double ridged, @NotNull VeinFields.GapField gap) {
         Kind kind = Kind.of(toggle);
         if (!inVein(kind, y, toggle, ridged)) return null;
 
         RandomSource rolls = random.at(x, y, z);
         if (rolls.nextFloat() >= VEIN_MATERIAL_CHANCE) return null;
 
-        if (rolls.nextFloat() < oreChance(toggle) && gap >= GAP_THRESHOLD) {
+        if (rolls.nextFloat() < oreChance(toggle) && gap.at(x & 15, y, z & 15) >= GAP_THRESHOLD) {
             return rolls.nextFloat() < RAW_CHANCE ? kind.raw : kind.ore;
         }
 

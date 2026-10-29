@@ -37,13 +37,13 @@ public final class AquiferSystem {
     @Nullable
     private final AqRouter router;
     @Nullable
-    private final DensityNode preliminarySurface;
+    private final PreliminarySurfaceCache preliminarySurface;
     @Nullable
     private final AqRandomFactory random;
 
     private AquiferSystem(
         int seaLevel, @Nullable VanillaAquifer aquifer, @Nullable AqRouter router,
-        @Nullable DensityNode preliminarySurface, @Nullable AqRandomFactory random
+        @Nullable PreliminarySurfaceCache preliminarySurface, @Nullable AqRandomFactory random
     ) {
         this.seaLevel = seaLevel;
         this.aquifer = aquifer;
@@ -69,7 +69,7 @@ public final class AquiferSystem {
         RandomFactory forked = random.fromHashOf("minecraft:aquifer").forkFactory();
         AqRouter fields = new AqRouter(field(router.barrierNoise), field(router.fluidLevelFloodednessNoise),
             field(router.fluidLevelSpreadNoise), field(router.lavaNoise), field(router.erosion), field(router.depth));
-        return new AquiferSystem(seaLevel, aquifer, fields, router.preliminarySurfaceLevel,
+        return new AquiferSystem(seaLevel, aquifer, fields, new PreliminarySurfaceCache(router.preliminarySurfaceLevel),
             (x, y, z) -> forked.at(x, y, z)::nextInt);
     }
 
@@ -105,7 +105,7 @@ public final class AquiferSystem {
     public AqAquifer chunkAquifer(int chunkX, int chunkZ, int bottomY, int layers) {
         AqFluidPicker global = this::globalFluid;
         if (aquifer != null) {
-            return aquifer.create(this::preliminarySurface, new AqChunkPos(chunkX, chunkZ), router, random, bottomY,
+            return aquifer.create(preliminarySurface::at, new AqChunkPos(chunkX, chunkZ), router, random, bottomY,
                 layers, global);
         }
 
@@ -128,12 +128,6 @@ public final class AquiferSystem {
     private AqFluidStatus globalFluid(int x, int y, int z) {
         return y < LAVA_BELOW ? new AqFluidStatus(LAVA_BELOW, AqBlocks.LAVA.defaultBlockState())
             : new AqFluidStatus(seaLevel, AqBlocks.WATER.defaultBlockState());
-    }
-
-    /// The preliminary surface level of the 4x4-column cell containing the column (as the surface system samples
-    /// it).
-    private int preliminarySurface(int x, int z) {
-        return (int) Math.floor(preliminarySurface.sample(x & ~3, 0, z & ~3));
     }
 
     private static byte kind(@Nullable AqBlockState state) {

@@ -131,7 +131,7 @@ class OreVeinParityTest {
                     String at = " at " + x + " " + y + " " + z;
                     assertEquals(expected.toggle[e], actual.toggle[a], 1e-9, "vein_toggle" + at);
                     assertEquals(expected.ridged[e], actual.ridged[a], 1e-9, "vein_ridged" + at);
-                    assertEquals(expected.gap[e], actual.gap[a], 1e-9, "vein_gap" + at);
+                    assertEquals(expected.gap(x, y, z), actual.gap(x, y, z), 1e-9, "vein_gap" + at);
                     compared++;
                 }
             }

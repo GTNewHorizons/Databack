@@ -27,6 +27,15 @@ public final class CvChunk {
         return pos;
     }
 
+    /// The lowest layer's height.
+    public int minY() {
+        return minY;
+    }
+
+    public int layers() {
+        return layers;
+    }
+
     @NotNull
     public CvBlockState getBlockState(@NotNull CvBlockPos at) {
         int index = index(at);
