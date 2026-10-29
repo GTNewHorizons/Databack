@@ -102,13 +102,30 @@ Reference files are in `build/modernData/data/minecraft/worldgen/`.
 
 ## EFR block identities — modern → EFR block map
 
-`src/main/java/databack/common/interop/EFRBlockIdentities.java` maps only stone variants, prismarine and deepslate so
-far. Every modern block EFR adds needs an identity (rename, or a variant property for meta-packed blocks), so
-datapacks naming modern blocks resolve to EFR's. Needed soon: worldgen places modern-only blocks (ore veins: copper
-ore, deepslate iron ore, raw copper/iron blocks, granite, tuff; deepslate and its ores below y 0).
+Surveyed 2026-10-29 with EFR's default config (as tests register it, see
+`src/test/java/databack/test/support/EFRBootstrap.java`):
 
-The full 26.1 block list (ids and state properties) comes from vanilla's data generator, run on the harness jar:
-`java -cp <harness classpath> net.minecraft.data.Main --reports --output <dir>` → `reports/blocks.json`
+- **EFR → modern:** 319 of EFR's 322 enabled blocks resolve to modern ids (462 ids). The rest have no 26.1 counterpart:
+  `netherite_stairs`, and the modded-ore compat blocks `modded_raw_ore_block` and `modded_deepslate_ore`.
+- **Modern → 1.7:** 419 of 26.1's 1170 block ids have no identity (`BlockIdentityRegistry.getObject` is null), so
+  features skip them (`LegacyStates`) and other code turns them into air (`MiscAdapters.resolveBlockState`). By cause:
+  - **Air variants:** `cave_air` and `void_air` should resolve to 1.7's air.
+  - **EFR has them, behind experiments that are off by default** (`ConfigExperiments`): crimson and warped wood,
+    plants, nylium, vines and shroomlight; mangrove; moss and azalea; dripstone; sculk; lightning rod. Not yet checked
+    whether `EFRBlockIdentities` maps them when enabled: rerun the survey with the experiments on (EFR enables them all
+    when `etfuturum.testing` is set).
+  - **Not in EFR (or no 1.7 block), and placed by worldgen:** ocean (seagrass, tall seagrass, kelp, sea pickle, corals),
+    lush caves (big and small dripleaf, spore blossom, hanging roots, rooted dirt, flowering azalea), deep dark (sculk
+    vein, sensor, shrieker), pale garden (pale oak, pale moss, hanging moss, eyeblossoms, resin), powder snow, pitcher
+    plants, torchflower, bush, wildflowers, leaf litter, firefly bush, dry grass, suspicious sand and gravel.
+  - **Not in EFR, not worldgen:** candles, campfires, bells, lecterns, grindstones, copper bars, chests, lanterns and golem
+    statues, shelves, hanging signs, and the tile-entity forms 1.7 stores differently (mob heads, potted plants, item
+    frames, banners by colour).
+
+Survey: a test listing `assets/minecraft/blockstates/*.json` from the 26.1 jar (`VanillaJar.JAR`) and checking each id
+with `BlockIdentityRegistry.INSTANCE.getObject`, and the reverse with `getBlockIdentity` over `ModBlocks.VALUES` and
+metas 0..15. The full 26.1 block list with state properties also comes from vanilla's data generator, run on the harness
+jar: `java -cp <harness classpath> net.minecraft.data.Main --reports --output <dir>` → `reports/blocks.json`
 (`jq -r 'keys[]' blocks.json` for ids).
 
 ---
