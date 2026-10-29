@@ -16,6 +16,8 @@ import java.util.Map;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import databack.common.worldgen.feature.standin.FtBiome;
+import databack.common.worldgen.feature.standin.FtInfoNoise;
 import databack.common.worldgen.feature.standin.FtIntProvider;
 import databack.common.worldgen.feature.standin.FtWeightedList;
 import databack.common.worldgen.rng.RandomSource;
@@ -137,6 +139,17 @@ class FeatureProbeTest {
             RandomSource r = randoms.computeIfAbsent(row[0] + " " + row[1], k -> new StandardRandom(Long.parseLong(row[1])));
             FtIntProvider provider = FtIntProvider.triangle(i(row[0]));
             assertEquals(i(row[3]), provider.sample(r), String.join(" ", row));
+        }
+    }
+
+    @Test
+    void infoNoiseMatches() throws IOException {
+        Map<String, FtInfoNoise> noises = new HashMap<>();
+        for (String[] row : rows("info_noise.tsv")) {
+            FtInfoNoise noise = row[0].equals("biome") ? FtBiome.BIOME_INFO_NOISE
+                : noises.computeIfAbsent(row[0], s -> new FtInfoNoise(Long.parseLong(s.substring("seed:".length()))));
+            double value = noise.getValue(d(row[2]), d(row[3]), Boolean.parseBoolean(row[1]));
+            assertEquals(d(row[4]), value, String.join(" ", row));
         }
     }
 

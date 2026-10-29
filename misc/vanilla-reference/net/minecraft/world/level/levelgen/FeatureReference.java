@@ -31,6 +31,8 @@ import net.minecraft.util.valueproviders.TrapezoidInt;
  * - `trapezoid_int.tsv`: `size seed draw value` for `TrapezoidInt.triangle(size)`.
  * - `decoration_seed.tsv`: `base worldSeed minX minZ index step draw value`: `setDecorationSeed`'s result
  *   (`draw` -1), then the longs after `setFeatureSeed(decorationSeed, index, step)`.
+ * - `info_noise.tsv`: `source offsets x z value`: `getValue(x, z, offsets)` of `Biome.BIOME_INFO_NOISE` (source
+ *   `biome`), and of a `PerlinSimplexNoise` with octave 0 built from a legacy random of seed `s` (source `seed:s`).
  */
 final class FeatureReference {
 
@@ -48,6 +50,7 @@ final class FeatureReference {
         writeSections(dir);
         writeDraws(dir);
         writeDecorationSeeds(dir);
+        writeInfoNoise(dir);
         System.out.println("feature probes");
     }
 
@@ -176,6 +179,34 @@ final class FeatureReference {
                         }
                     }
                 }
+            }
+        }
+    }
+
+    private static void writeInfoNoise(Path dir) throws Exception {
+        java.util.Random rng = new java.util.Random(11);
+        double[][] points = new double[400][];
+        for (int i = 0; i < points.length; i++) {
+            double scale = i < 100 ? 1 : i < 200 ? 0.005 : i < 300 ? 0.0125 : 100;
+            points[i] = new double[] { Math.floor((rng.nextDouble() - 0.5) * 60000) * scale,
+                Math.floor((rng.nextDouble() - 0.5) * 60000) * scale };
+        }
+
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("info_noise.tsv")))) {
+            w.println("source\toffsets\tx\tz\tvalue");
+            write(w, "biome", net.minecraft.world.level.biome.Biome.BIOME_INFO_NOISE, points);
+            for (long seed : new long[] { 0L, 1L, 2345L, -77L }) {
+                write(w, "seed:" + seed, new net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise(
+                    new WorldgenRandom(new LegacyRandomSource(seed)), List.of(0)), points);
+            }
+        }
+    }
+
+    private static void write(PrintWriter w, String source,
+        net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise noise, double[][] points) {
+        for (boolean offsets : new boolean[] { false, true }) {
+            for (double[] p : points) {
+                w.println(source + "\t" + offsets + "\t" + p[0] + "\t" + p[1] + "\t" + noise.getValue(p[0], p[1], offsets));
             }
         }
     }

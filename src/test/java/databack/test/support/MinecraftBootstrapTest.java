@@ -35,6 +35,14 @@ class MinecraftBootstrapTest {
     }
 
     @Test
+    void modernAirsAreAir() {
+        assertSame(Blocks.air, BlockIdentityRegistry.INSTANCE.getObject(new ResourceLocation("minecraft:cave_air")).block);
+        assertSame(Blocks.air, BlockIdentityRegistry.INSTANCE.getObject(new ResourceLocation("minecraft:void_air")).block);
+        assertEquals(new ResourceLocation("minecraft:air"),
+            BlockIdentityRegistry.INSTANCE.getBlockIdentity(Blocks.air, 0).identityId);
+    }
+
+    @Test
     void efrBlocksAreRegisteredWithIdentities() {
         Block deepslate = Block.getBlockFromName("etfuturum:deepslate");
         assertNotNull(deepslate);

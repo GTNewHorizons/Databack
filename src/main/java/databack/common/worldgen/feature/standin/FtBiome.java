@@ -6,8 +6,8 @@ import org.jetbrains.annotations.ApiStatus;
 @ApiStatus.Internal
 public final class FtBiome {
 
-    /// The noise flower and grass counts follow.
-    public static final FtInfoNoise BIOME_INFO_NOISE = new FtInfoNoise();
+    /// The noise flower and grass counts follow: seeded 2345 (`feature/probes/info_noise.tsv`).
+    public static final FtInfoNoise BIOME_INFO_NOISE = new FtInfoNoise(2345L);
 
     private FtBiome() {}
 }

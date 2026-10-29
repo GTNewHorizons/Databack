@@ -59,9 +59,12 @@ class FeatureDecoratorTest {
             id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
     }
 
+    /// Solid to the top: ores only form below the surface.
     private static FakeLegacyWorld decorate(int chunkX, int chunkZ) {
-        // Solid to the top: ores only form below the surface.
-        FakeLegacyWorld world = new FakeLegacyWorld(Blocks.stone, 256);
+        return decorate(new FakeLegacyWorld(Blocks.stone, 256), chunkX, chunkZ);
+    }
+
+    private static FakeLegacyWorld decorate(FakeLegacyWorld world, int chunkX, int chunkZ) {
         List<long[]> loaded = new ArrayList<>();
         FeatureDecorator decorator = new FeatureDecorator((x, z) -> loaded.add(new long[] { x, z }),
             area -> new PopulationLevel(world, states, area, (x, y, z) -> "minecraft:plains", new StandardRandom(0)),
@@ -91,6 +94,19 @@ class FeatureDecoratorTest {
     @Test
     void noBlobLeavesAir() {
         assertEquals(0, decorate(0, 0).count(Blocks.air));
+    }
+
+    /// Grass and flower counts follow the biome info noise. Plains flowers come in one chunk in 32.
+    @Test
+    void plainsGetTheirVegetation() {
+        int grass = 0, flowers = 0;
+        for (int chunk = 0; chunk < 64; chunk++) {
+            FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.air, 64), chunk % 8, chunk / 8);
+            grass += world.count(Blocks.tallgrass) + world.count(Blocks.double_plant);
+            flowers += world.count(Blocks.red_flower) + world.count(Blocks.yellow_flower);
+        }
+        assertTrue(grass > 0, "grass placed");
+        assertTrue(flowers > 0, "flowers placed");
     }
 
     @Test

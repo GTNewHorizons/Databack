@@ -213,6 +213,10 @@ public class VanillaBlockIdentities {
         blocks.rename(Blocks.unpowered_repeater, "minecraft:repeater");
         blocks.rename(Blocks.unpowered_comparator, "minecraft:comparator");
 
+        // Modern's other airs: cave air only marks carved space, void air lies outside the world
+        blocks.redirect("minecraft:cave_air", Blocks.air);
+        blocks.redirect("minecraft:void_air", Blocks.air);
+
         // States of another block in modern
         blocks.alias(Blocks.flowing_water, "minecraft:water");
         blocks.alias(Blocks.flowing_lava, "minecraft:lava");

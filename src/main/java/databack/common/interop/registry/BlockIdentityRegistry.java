@@ -141,6 +141,14 @@ public class BlockIdentityRegistry implements IProxyRegistry<BlockIdentity> {
         if (claim) identities.put(modernId, identity);
     }
 
+    /// Makes the modern block `modernId` resolve to `block`, without changing what `block` reads back as, e.g.
+    /// `redirect("minecraft:cave_air", Blocks.air)` while air stays `minecraft:air`. For modern blocks 1.7 has no
+    /// separate block for, but whose stand-in is exact.
+    public void redirect(String modernId, Block block) {
+        ResourceLocation id = new ResourceLocation(modernId);
+        identities.put(id, new BlockIdentity(id, block, null));
+    }
+
     /// Makes `block` the 1.7 form of its modern block(s) when the modern state has `property` = `value`, e.g.
     /// `stateForm(Blocks.lit_furnace, "lit", "true")`. Only ids `block` reports but doesn't claim become forms, so this
     /// goes after [#alias] / [#aliasVariants] (or after a later block claimed the ids).
