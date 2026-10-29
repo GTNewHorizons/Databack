@@ -27,8 +27,8 @@ import net.minecraft.world.level.biome.MultiNoiseBiomeSourceParameterList;
  *   Format (gzip, big-endian): int minY, int layers, then layers*16*16 triples of doubles at index
  *   `((y - minY) * 16 + z) * 16 + x`.
  * - `case_<name>_<cx>_<cz>_blocks.bin.gz`: chunks of `cases/<name>.json` (`seed`, `router` as in the aquifer
- *   harness's cases, `chunks`, optional `fields: true` for a `case_..._fields.bin.gz` beside each), on otherwise
- *   overworld settings with ore veins on and aquifers off.
+ *   harness's cases, `chunks`, optional `fields: true` for a `case_..._fields.bin.gz` beside each, optional
+ *   `aquifers: true`), on otherwise overworld settings with ore veins on and aquifers off unless asked.
  * - `index.tsv`: every real chunk written, and whether it has a fields file.
  */
 final class OreVeinReference {
@@ -87,7 +87,9 @@ final class OreVeinReference {
         for (Path file : files) {
             String name = file.getFileName().toString().replace(".json", "");
             JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-            NoiseGeneratorSettings settings = AquiferReference.caseSettings(name, json, lookup, template, false, true);
+            boolean aquifers = json.has("aquifers") && json.get("aquifers").getAsBoolean();
+            NoiseGeneratorSettings settings = AquiferReference.caseSettings(name, json, lookup, template, aquifers,
+                true);
             long seed = json.get("seed").getAsLong();
             boolean fields = json.has("fields") && json.get("fields").getAsBoolean();
 

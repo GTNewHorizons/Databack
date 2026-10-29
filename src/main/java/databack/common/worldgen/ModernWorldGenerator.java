@@ -5,6 +5,7 @@ import java.util.List;
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.init.Blocks;
 import net.minecraft.util.IProgressUpdate;
+import net.minecraft.util.ResourceLocation;
 import net.minecraft.world.ChunkPosition;
 import net.minecraft.world.World;
 import net.minecraft.world.biome.BiomeGenBase;
@@ -15,6 +16,8 @@ import net.minecraft.world.chunk.storage.AnvilChunkLoader;
 import net.minecraft.world.chunk.storage.ExtendedBlockStorage;
 import net.minecraft.world.gen.ChunkProviderServer;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
@@ -22,6 +25,7 @@ import com.gtnewhorizon.gtnhlib.util.data.BlockMeta;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 import databack.common.context.WorldContext;
 import databack.common.context.WorldContextImpl;
+import databack.common.dto.BlockStateDTO;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.MultiNoiseBiomes;
 import databack.common.dto.dimension.BuiltinDimensionGenerators.NoiseDimensionGenerator;
 import databack.common.dto.dimension.Dimension;
@@ -35,6 +39,7 @@ import databack.common.handlers.WorldPresetList;
 import databack.common.dto.worldgen.biome.DatapackBiome;
 import databack.common.serde.MiscAdapters;
 import databack.common.interop.ChunkBiomes;
+import databack.common.interop.registry.BlockIdentityRegistry;
 import databack.common.worldgen.aquifer.AquiferSystem;
 import databack.common.worldgen.aquifer.VanillaAquifer;
 import databack.common.worldgen.aquifer.VanillaAquifers;
@@ -46,6 +51,9 @@ import databack.common.worldgen.biome.SurfaceBiomes;
 import databack.common.worldgen.biome.SurfaceHeights;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.VanillaBiomeZoom;
+import databack.common.worldgen.orevein.OreVeinSystem;
+import databack.common.worldgen.orevein.VeinBlock;
+import databack.common.worldgen.orevein.VeinFieldSampler;
 import databack.common.worldgen.surface.BlockBiomes;
 import databack.common.worldgen.surface.SurfaceBuildContext;
 import databack.common.worldgen.surface.SurfaceSystem;
@@ -62,6 +70,8 @@ import databack.common.worldgen.rng.XoroshiroRandomFactory;
 
 public class ModernWorldGenerator implements IChunkProvider {
 
+    private static final Logger LOGGER = LogManager.getLogger("databack-worldgen");
+
     @org.jetbrains.annotations.NotNull
     public final World world;
 
@@ -72,6 +82,13 @@ public class ModernWorldGenerator implements IChunkProvider {
     @Nullable
     private final SurfaceSystem surfaceSystem;
     private final AquiferSystem aquiferSystem;
+    /// Both null when ore veins are off or the generated range holds no vein heights.
+    @Nullable
+    private final OreVeinSystem oreVeins;
+    @Nullable
+    private final VeinFieldSampler veinFields;
+    /// By [VeinBlock] ordinal; null where the block has no 1.7 counterpart.
+    private final ImmutableBlockMeta[] veinBlocks = resolveVeinBlocks();
     private static final ImmutableBlockMeta LAVA = new BlockMeta(Blocks.lava, 0);
     private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
 
@@ -140,6 +157,26 @@ public class ModernWorldGenerator implements IChunkProvider {
         VanillaAquifer aquifer = generatorSettings.aquifers_enabled ? VanillaAquifers.get() : null;
         this.aquiferSystem = aquifer == null ? AquiferSystem.disabled(generatorSettings.sea_level)
             : AquiferSystem.enabled(generatorSettings.sea_level, aquifer, this.router, rng);
+
+        this.veinFields = !generatorSettings.ore_veins_enabled ? null
+            : VeinFieldSampler.create(this.router, ns.size_horizontal * 4, ns.size_vertical * 4, minY, maxY, ns.min_y,
+                ns.min_y + ns.height);
+        this.oreVeins = veinFields == null ? null : OreVeinSystem.create(rng);
+    }
+
+    /// Each vein block's 1.7 counterpart; blocks without one are logged and left as the default block.
+    private static ImmutableBlockMeta[] resolveVeinBlocks() {
+        ImmutableBlockMeta[] blocks = new ImmutableBlockMeta[VeinBlock.values().length];
+        for (VeinBlock block : VeinBlock.values()) {
+            BlockStateDTO state = new BlockStateDTO();
+            state.Name = new ResourceLocation(block.id);
+            if (BlockIdentityRegistry.INSTANCE.getObject(state.Name) == null) {
+                LOGGER.warn("Ore vein block {} has no 1.7 counterpart; veins keep the default block there", block.id);
+                continue;
+            }
+            blocks[block.ordinal()] = toBlockMeta(MiscAdapters.resolveBlockState(state));
+        }
+        return blocks;
     }
 
     /// Null when the noise settings have no surface rule.
@@ -190,6 +227,8 @@ public class ModernWorldGenerator implements IChunkProvider {
         fillBiomes(chunk, biomes, density, minY);
 
         byte[] kinds = aquiferSystem.kinds(chunkX, chunkZ, density, minY, layers);
+        VeinBlock[] veins = oreVeins == null ? new VeinBlock[kinds.length]
+            : oreVeins.place(chunkX, chunkZ, kinds, minY, layers, veinFields.sample(chunkX, chunkZ));
         ImmutableBlockMeta[] surface = surfaceSystem == null ? new ImmutableBlockMeta[kinds.length]
             : surfaceSystem.apply(chunkX, chunkZ, kinds, minY, layers, biomes);
 
@@ -206,7 +245,7 @@ public class ModernWorldGenerator implements IChunkProvider {
                         int index = (layer * 16 + z) * 16 + x;
                         byte kind = kinds[index];
                         if (kind == SurfaceSystem.SOLID) {
-                            setBlock(ebs, x, y, z, surface[index] != null ? surface[index] : solid);
+                            setBlock(ebs, x, y, z, solidBlock(veins[index], surface[index], solid));
                         } else if (kind == SurfaceSystem.FLUID) {
                             setBlock(ebs, x, y, z, fluid);
                         } else if (kind == SurfaceSystem.LAVA) {
@@ -220,6 +259,14 @@ public class ModernWorldGenerator implements IChunkProvider {
         chunk.generateSkylightMap();
 
         return chunk;
+    }
+
+    /// Veins take precedence: surface rules only replace the default block (docs/worldgen/ore-veins.md, section 4).
+    private ImmutableBlockMeta solidBlock(
+        @Nullable VeinBlock vein, @Nullable ImmutableBlockMeta surface, ImmutableBlockMeta solid
+    ) {
+        if (vein != null && veinBlocks[vein.ordinal()] != null) return veinBlocks[vein.ordinal()];
+        return surface != null ? surface : solid;
     }
 
     private static void setBlock(ExtendedBlockStorage ebs, int x, int y, int z, ImmutableBlockMeta block) {

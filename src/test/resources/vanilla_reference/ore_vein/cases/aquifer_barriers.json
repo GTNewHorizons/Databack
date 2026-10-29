@@ -1,0 +1,25 @@
+{
+  "seed": 12345,
+  "router": {
+    "final_density": -0.1,
+    "preliminary_surface_level": 100.0,
+    "barrier": 1.0,
+    "fluid_level_floodedness": 0.5,
+    "fluid_level_spread": 0.0,
+    "lava": 0.0,
+    "vein_toggle": 0.8,
+    "vein_ridged": -1,
+    "vein_gap": 1
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ]
+  ],
+  "aquifers": true
+}
