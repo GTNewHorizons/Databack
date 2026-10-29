@@ -19,6 +19,7 @@ public enum Mixins implements IMixins {
     REGISTRY_ACCESSOR(Side.COMMON, "AccessorRegistrySimple"),
     BLOCK_VARIANT(Side.COMMON, "MixinBlock_Identity"),
     ITEM_VARIANT(Side.COMMON, "MixinItem_Identity"),
+    MOD_WORLD_GEN_TOGGLE(Side.COMMON, "MixinGameRegistry_ModWorldGen"),
     DEBUG_OVERLAY_TOGGLE(Side.CLIENT, "MixinASMEventHandler_DebugToggle", "MixinStaticASMEventHandler_DebugToggle"),
     DEBUG_OVERLAY_ORDER(Side.CLIENT, "MixinEventBus_OverlayOrder"),
     //

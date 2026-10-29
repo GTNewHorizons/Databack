@@ -19,6 +19,11 @@ public class DatabackConfig {
     @Config.DefaultBoolean(false)
     public static boolean modernBiomesOnly;
 
+    @Config.Comment({ "Skip other mods' world generators (IWorldGenerator) in Databack worlds, so every generated block",
+        "comes from Databack. Meant for development." })
+    @Config.DefaultBoolean(false)
+    public static boolean disableModWorldGeneration;
+
     @Config.Comment("Enable block/item/biome/entity tag debug mode")
     @Config.DefaultBoolean(true)
     public static boolean enableTagDebugMode;
