@@ -36,16 +36,6 @@ public class DatapackBiome {
     /** Placed feature references indexed by decoration step, then feature index within that step. */
     public IPlacedFeatureRef[][] features;
 
-    public boolean hasFeature(String featureId) {
-        if (features == null) return false;
-        for (IPlacedFeatureRef[] step : features) {
-            for (IPlacedFeatureRef ref : step) {
-                if (ref.containsFeature(featureId)) return true;
-            }
-        }
-        return false;
-    }
-
     public enum TemperatureModifier {
         none,
         frozen

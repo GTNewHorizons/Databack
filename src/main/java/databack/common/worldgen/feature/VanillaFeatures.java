@@ -1,6 +1,11 @@
 package databack.common.worldgen.feature;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -12,7 +17,11 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import databack.common.annotation.ThreadSafe;
+import databack.common.worldgen.feature.standin.FtChunkGenerator;
+import databack.common.worldgen.feature.standin.FtLevel;
+import databack.common.worldgen.rng.RandomSource;
 import databack.common.worldgen.vanilla.VanillaClassLoader;
+import databack.common.worldgen.vanilla.standin.VnBlockPos;
 
 /// Vanilla 26.1's features and placement modifiers, obtained by running the vanilla classes that implement them
 /// (downloaded from Mojang at runtime, see `VanillaDatapackDownloader`) against stand-ins. Nothing of vanilla's is
@@ -89,18 +98,102 @@ public final class VanillaFeatures {
 
     /// The rewritten vanilla class `name`, relative to the levelgen package (`feature/Feature`). Initialized.
     @NotNull
-    Class<?> vanillaClass(@NotNull String name) throws ClassNotFoundException {
+    public Class<?> vanillaClass(@NotNull String name) throws ClassNotFoundException {
         return Class.forName(VanillaClassLoader.binaryName(LEVELGEN + name + ".class"), true, loader);
     }
+
+    /// A new instance of the vanilla class `name` (as for [#vanillaClass]), through the public constructor whose
+    /// parameters accept `args`. Throws [IllegalArgumentException] when none does, or it throws.
+    @NotNull
+    public Object construct(@NotNull String name, Object @NotNull ... args) {
+        try {
+            for (Constructor<?> c : vanillaClass(name).getConstructors()) {
+                if (!accepts(c.getParameterTypes(), args)) continue;
+                // Some vanilla classes are package-private, constructors and all.
+                c.setAccessible(true);
+                return c.newInstance(args);
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalArgumentException("Could not construct " + name, e);
+        }
+        throw new IllegalArgumentException("No constructor of " + name + " takes " + Arrays.toString(args));
+    }
+
+    /// The result of the public static method `method` of the vanilla class `name` whose parameters accept `args`.
+    /// Throws [IllegalArgumentException] when none does, or it throws.
+    @Nullable
+    public Object call(@NotNull String name, @NotNull String method, Object @NotNull ... args) {
+        try {
+            for (Method m : vanillaClass(name).getMethods()) {
+                if (m.getName().equals(method) && Modifier.isStatic(m.getModifiers())
+                    && accepts(m.getParameterTypes(), args)) {
+                    m.setAccessible(true);
+                    return m.invoke(null, args);
+                }
+            }
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalArgumentException("Could not call " + name + "." + method, e);
+        }
+        throw new IllegalArgumentException("No method " + name + "." + method + " takes " + Arrays.toString(args));
+    }
+
+    /// The public static field `field` of the vanilla class `name`.
+    @Nullable
+    public Object constant(@NotNull String name, @NotNull String field) {
+        try {
+            return vanillaClass(name).getField(field).get(null);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalArgumentException("No constant " + name + "." + field, e);
+        }
+    }
+
+    /// Whether `args` can be passed as `types`: no varargs, null for any reference type.
+    private static boolean accepts(Class<?>[] types, Object[] args) {
+        if (types.length != args.length) return false;
+        for (int i = 0; i < types.length; i++) {
+            Class<?> type = types[i].isPrimitive() ? BOXES.get(types[i]) : types[i];
+            if (args[i] == null ? types[i].isPrimitive() : !type.isInstance(args[i])) return false;
+        }
+        return true;
+    }
+
+    private static final Map<Class<?>, Class<?>> BOXES = new HashMap<>();
+
+    static {
+        BOXES.put(boolean.class, Boolean.class);
+        BOXES.put(int.class, Integer.class);
+        BOXES.put(long.class, Long.class);
+        BOXES.put(float.class, Float.class);
+        BOXES.put(double.class, Double.class);
+    }
+
+    /// Places `feature` (a vanilla placed feature) at `origin` if the biome there has it, as vanilla decorates
+    /// chunks. Whether anything was placed. Rethrows what the feature throws.
+    public boolean placeWithBiomeCheck(
+        @NotNull Object feature, @NotNull FtLevel level, @NotNull FtChunkGenerator generator,
+        @NotNull RandomSource random, @NotNull VnBlockPos origin
+    ) {
+        try {
+            if (placeWithBiomeCheck == null) {
+                placeWithBiomeCheck = vanillaClass("placement/PlacedFeature").getMethod("placeWithBiomeCheck",
+                    FtLevel.class, FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+            }
+            return (boolean) placeWithBiomeCheck.invoke(feature, level, generator, random, origin);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() instanceof RuntimeException) throw (RuntimeException) e.getCause();
+            throw new IllegalStateException(e.getCause());
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Could not place a feature", e);
+        }
+    }
+
+    /// See [#placeWithBiomeCheck]; looked up on first use.
+    private volatile Method placeWithBiomeCheck;
 
     /// The feature type constant `name` of vanilla's feature class (`ORE`), or null when it could not be built
     /// (its feature is not run).
     @Nullable
     public Object featureType(@NotNull String name) {
-        try {
-            return vanillaClass("feature/Feature").getField(name).get(null);
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalArgumentException("No feature type " + name, e);
-        }
+        return constant("feature/Feature", name);
     }
 }

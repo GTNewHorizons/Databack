@@ -1,9 +1,11 @@
 package databack.common.dto.worldgen.configured_feature;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nonnegative;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.gson.JsonElement;
@@ -11,6 +13,7 @@ import com.google.gson.JsonParseException;
 import com.google.gson.annotations.SerializedName;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import databack.common.annotation.RangeFloat;
+import databack.common.dto.BlockStateDTO;
 import databack.common.dto.worldgen.BlockWhitelist;
 import databack.common.dto.worldgen.FluidState;
 import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
@@ -26,8 +29,12 @@ import databack.common.dto.worldgen.float_provider.IFloatProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
 import databack.common.dto.worldgen.placed_feature.IPlacedFeatureRef;
 import databack.common.dto.worldgen.processor_list.IProcessorListRef;
+import databack.common.dto.worldgen.processor_list.IRuleTest;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
+import databack.common.worldgen.feature.FeatureBuildContext;
+import databack.common.worldgen.feature.standin.FtHolder;
+import databack.common.worldgen.feature.standin.FtHolderSet;
 
 @SuppressWarnings("unused")
 public class BuiltinConfiguredFeatures {
@@ -64,7 +71,7 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:nether_forest_vegetation", NetherForestVegetationFeature.class);
         loader.addVariant("minecraft:netherrack_replace_blobs", NetherrackReplaceBlobsFeature.class);
         loader.addVariant("minecraft:ore", OreFeature.class);
-        loader.addVariant("minecraft:scattered_ore", OreFeature.class);
+        loader.addVariant("minecraft:scattered_ore", ScatteredOreFeature.class);
         loader.addVariant("minecraft:pointed_dripstone", SpeleothemFeature.class);
         loader.addVariant("minecraft:random_boolean_selector", RandomBooleanSelectorFeature.class);
         loader.addVariant("minecraft:random_selector", RandomSelectorFeature.class);
@@ -107,7 +114,32 @@ public class BuiltinConfiguredFeatures {
     private static class ConfiguredFeatureRef implements IConfiguredFeature {
         public String id;
         ConfiguredFeatureRef(String id) { this.id = id; }
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            FtHolder holder = holder(ctx);
+            return holder == null ? null : holder.value();
+        }
+
+        @Nullable
+        @Override
+        public FtHolder holder(@NotNull FeatureBuildContext ctx) {
+            return ctx.configuredFeature(id);
+        }
     }
+
+    /// Vanilla's configured feature of the feature type constant `type` (`ORE`) with `config`, or null when the
+    /// type is not run.
+    @Nullable
+    private static Object configured(FeatureBuildContext ctx, String type, @Nullable Object config) {
+        if (config == null) return null;
+        Object feature = ctx.vanilla.featureType(type);
+        if (feature == null) return ctx.unsupported("Feature type " + type.toLowerCase());
+        return ctx.vanilla.construct("feature/ConfiguredFeature", feature, config);
+    }
+
+    private static final String CONFIGS = "feature/configurations/";
 
     // bamboo, seagrass
     private static class ProbabilityFeature implements IConfiguredFeature {
@@ -209,14 +241,21 @@ public class BuiltinConfiguredFeatures {
     // disk, ice_patch
     private static class DiskFeature implements IConfiguredFeature {
         public DiskConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            Object provider = config.state_provider.instantiate(ctx), target = config.target.instantiate(ctx);
+            if (provider == null || target == null) return null;
+            return configured(ctx, "DISK", ctx.vanilla.construct(CONFIGS + "DiskConfiguration", provider, target,
+                ctx.intProvider(config.radius), config.half_height));
+        }
     }
     private static class DiskConfig {
-        @Nullable public BlockState state;
-        @Nullable public IBlockStateProvider state_provider;
+        public IBlockStateProvider state_provider;
+        public IBlockPredicate target;
         public IIntProvider radius;
         public int half_height;
-        @Nullable public JsonElement targets;
-        @Nullable public IBlockPredicate target;
     }
 
     // emerald_ore
@@ -434,13 +473,39 @@ public class BuiltinConfiguredFeatures {
     // no_surface_ore, ore, scattered_ore
     private static class OreFeature implements IConfiguredFeature {
         public OreConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "ORE", config.instantiate(ctx));
+        }
+    }
+    private static class ScatteredOreFeature extends OreFeature {
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "SCATTERED_ORE", config.instantiate(ctx));
+        }
     }
     private static class OreConfig {
-        @Nullable public JsonElement target;
-        @Nullable public JsonElement state;
-        @Nullable public JsonElement targets;
+        public List<OreTarget> targets;
         @Nonnegative public int size;
-        @Nullable @RangeFloat(min = 0, max = 1) public Float discard_chance_on_air_exposure;
+        @RangeFloat(min = 0, max = 1) public float discard_chance_on_air_exposure;
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            List<Object> built = new ArrayList<>(targets.size());
+            for (OreTarget target : targets) {
+                Object test = target.target.instantiate(ctx);
+                if (test == null) return null;
+                built.add(ctx.vanilla.call(CONFIGS + "OreConfiguration", "target", test, ctx.state(target.state)));
+            }
+            return ctx.vanilla.construct(CONFIGS + "OreConfiguration", built, size, discard_chance_on_air_exposure);
+        }
+    }
+    private static class OreTarget {
+        public IRuleTest target;
+        public BlockStateDTO state;
     }
 
     // pointed_dripstone
@@ -457,6 +522,16 @@ public class BuiltinConfiguredFeatures {
     // random_boolean_selector
     private static class RandomBooleanSelectorFeature implements IConfiguredFeature {
         public RandomBooleanSelectorConfig config;
+
+        /// Argument order checked by `FeatureConstructionTest`.
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            FtHolder whenTrue = config.feature_true.instantiate(ctx), whenFalse = config.feature_false.instantiate(ctx);
+            if (whenTrue == null || whenFalse == null) return null;
+            return configured(ctx, "RANDOM_BOOLEAN_SELECTOR",
+                ctx.vanilla.construct(CONFIGS + "RandomBooleanFeatureConfiguration", whenTrue, whenFalse));
+        }
     }
     private static class RandomBooleanSelectorConfig {
         public IPlacedFeatureRef feature_false;
@@ -466,6 +541,21 @@ public class BuiltinConfiguredFeatures {
     // random_selector
     private static class RandomSelectorFeature implements IConfiguredFeature {
         public RandomSelectorConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            List<Object> weighted = new ArrayList<>(config.features.length);
+            for (WeightedPlacedFeature entry : config.features) {
+                FtHolder feature = entry.feature.instantiate(ctx);
+                if (feature == null) return null;
+                weighted.add(ctx.vanilla.construct("feature/WeightedPlacedFeature", feature, entry.chance));
+            }
+            FtHolder fallback = config.defaultFeature.instantiate(ctx);
+            if (fallback == null) return null;
+            return configured(ctx, "RANDOM_SELECTOR",
+                ctx.vanilla.construct(CONFIGS + "RandomFeatureConfiguration", weighted, fallback));
+        }
     }
     private static class RandomSelectorConfig {
         public WeightedPlacedFeature[] features;
@@ -533,18 +623,37 @@ public class BuiltinConfiguredFeatures {
     // simple_block
     private static class SimpleBlockFeature implements IConfiguredFeature {
         public SimpleBlockConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            Object provider = config.to_place.instantiate(ctx);
+            if (provider == null) return null;
+            return configured(ctx, "SIMPLE_BLOCK", ctx.vanilla.construct(CONFIGS + "SimpleBlockConfiguration",
+                provider, config.schedule_tick));
+        }
     }
     private static class SimpleBlockConfig {
         public IBlockStateProvider to_place;
-        @Nullable public Boolean schedule_tick;
-        @Nullable public JsonElement place_on;
-        @Nullable public JsonElement place_in;
-        @Nullable public JsonElement place_under;
+        public boolean schedule_tick;
     }
 
     // simple_random_selector
     private static class SimpleRandomSelectorFeature implements IConfiguredFeature {
         public SimpleRandomSelectorConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            List<FtHolder> features = new ArrayList<>(config.features.length);
+            for (IPlacedFeatureRef ref : config.features) {
+                FtHolder feature = ref.instantiate(ctx);
+                if (feature == null) return null;
+                features.add(feature);
+            }
+            return configured(ctx, "SIMPLE_RANDOM_SELECTOR",
+                ctx.vanilla.construct(CONFIGS + "SimpleRandomFeatureConfiguration", FtHolderSet.of(features)));
+        }
     }
     private static class SimpleRandomSelectorConfig {
         public IPlacedFeatureRef[] features;

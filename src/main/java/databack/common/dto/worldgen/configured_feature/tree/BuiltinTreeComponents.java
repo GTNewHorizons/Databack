@@ -7,7 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import com.google.gson.JsonElement;
 
 import databack.common.annotation.RangeFloat;
-import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
+import databack.common.dto.worldgen.BlockWhitelist;
 import databack.common.dto.worldgen.block_state_provider.IBlockStateProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
 import databack.common.serde.DatapackSerialization;
@@ -110,7 +110,7 @@ public class BuiltinTreeComponents {
         public IIntProvider extra_branch_steps;
         public float place_branch_per_log_probability;
         public IIntProvider extra_branch_length;
-        public IBlockPredicate can_grow_through;
+        public BlockWhitelist can_grow_through;
     }
 
 

@@ -1,11 +1,13 @@
 package databack.common.dto.worldgen.placed_feature;
 
-import net.minecraft.world.World;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
-import databack.common.collection.Pos3DArrayList;
+import databack.common.worldgen.feature.FeatureBuildContext;
 
 public interface IPlacementModifier {
 
-    Pos3DArrayList apply(World world, Pos3DArrayList positions, String featureId);
-
+    /// Vanilla's placement modifier, or null when it cannot be built ([FeatureBuildContext#unsupported]).
+    @Nullable
+    Object instantiate(@NotNull FeatureBuildContext ctx);
 }

@@ -3,15 +3,18 @@ package databack.common.dto.worldgen.processor_list;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
+import databack.common.dto.BlockStateDTO;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
 import databack.common.serde.DatapackSerialization;
 import databack.common.serde.TaggedUnionLoader;
+import databack.common.worldgen.feature.FeatureBuildContext;
 
 @SuppressWarnings("unused")
 public class BuiltinProcessors {
@@ -124,34 +127,67 @@ public class BuiltinProcessors {
         public IIntProvider limit;
     }
 
-    // ---- Rule tests -----------------------------------------------------------
+    // ---- Rule tests: built as vanilla's own ([IRuleTest#instantiate]) -------------
 
-    private static class AlwaysTrueTest implements IRuleTest {}
+    private static final String TESTS = "structure/templatesystem/";
+
+    private static class AlwaysTrueTest implements IRuleTest {
+
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return ctx.vanilla.constant(TESTS + "AlwaysTrueTest", "INSTANCE");
+        }
+    }
 
     private static class BlockMatchTest implements IRuleTest {
 
         public String block;
+
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return ctx.vanilla.construct(TESTS + "BlockMatchTest", ctx.block(block));
+        }
     }
 
     private static class BlockStateMatchTest implements IRuleTest {
 
-        public BlockState block_state;
+        public BlockStateDTO block_state;
+
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return ctx.vanilla.construct(TESTS + "BlockStateMatchTest", ctx.state(block_state));
+        }
     }
 
     private static class RandomBlockMatchTest implements IRuleTest {
 
         public String block;
         public float probability;
+
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return ctx.vanilla.construct(TESTS + "RandomBlockMatchTest", ctx.block(block), probability);
+        }
     }
 
     private static class RandomBlockStateMatchTest implements IRuleTest {
 
-        public BlockState block_state;
+        public BlockStateDTO block_state;
         public float probability;
+
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return ctx.vanilla.construct(TESTS + "RandomBlockStateMatchTest", ctx.state(block_state), probability);
+        }
     }
 
     private static class TagMatchTest implements IRuleTest {
 
         public String tag;
+
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return ctx.vanilla.construct(TESTS + "TagMatchTest", ctx.tag(tag));
+        }
     }
 }

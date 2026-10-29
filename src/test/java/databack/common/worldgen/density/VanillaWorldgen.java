@@ -6,12 +6,24 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import databack.common.dto.particle.BuiltinParticles;
+import databack.common.dto.worldgen.biome.BuiltinBiomeAttributes;
+import databack.common.dto.worldgen.biome.BuiltinBiomes;
+import databack.common.dto.worldgen.block_predicate.BuiltinBlockPredicates;
+import databack.common.dto.worldgen.block_state_provider.BuiltinBlockStateProviders;
+import databack.common.dto.worldgen.configured_feature.BuiltinConfiguredFeatures;
+import databack.common.dto.worldgen.int_provider.BuiltinIntProviders;
+import databack.common.dto.worldgen.placed_feature.BuiltinPlacementModifiers;
+import databack.common.dto.worldgen.processor_list.BuiltinProcessors;
 import databack.common.dto.worldgen.density_function.BuiltinDensityFunctions;
 import databack.common.dto.worldgen.carver.BuiltinCarvers;
 import databack.common.dto.worldgen.density_function.IDensityFunctionFactory;
@@ -53,6 +65,15 @@ public final class VanillaWorldgen {
             BuiltinFloatProviders.init();
             BuiltinHeightProviders.init();
             BuiltinCarvers.init();
+            BuiltinIntProviders.init();
+            BuiltinBlockPredicates.init();
+            BuiltinBlockStateProviders.init();
+            BuiltinProcessors.init();
+            BuiltinConfiguredFeatures.init();
+            BuiltinPlacementModifiers.init();
+            BuiltinParticles.init();
+            BuiltinBiomeAttributes.init();
+            BuiltinBiomes.init();
             DatapackSerialization.finish();
             gson = DatapackSerialization.getGson();
         }
@@ -78,6 +99,22 @@ public final class VanillaWorldgen {
             FUNCTIONS.put(id, Files.exists(f) ? read(f, IDensityFunctionFactory.class) : null);
         }
         return FUNCTIONS.get(id);
+    }
+
+    /// The definition `id` from the worldgen directory `dir` (`placed_feature`), or null if there is none.
+    public static <T> T definition(String dir, String id, Class<T> type) {
+        Path f = file(dir, id);
+        return Files.exists(f) ? read(f, type) : null;
+    }
+
+    /// The ids of every definition in the worldgen directory `dir`.
+    public static List<String> ids(String dir) {
+        try (Stream<Path> files = Files.list(WORLDGEN.resolve(dir))) {
+            return files.map(f -> "minecraft:" + f.getFileName().toString().replace(".json", "")).sorted()
+                .collect(Collectors.toList());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /// Parses any datapack JSON the way the datapack loader would.

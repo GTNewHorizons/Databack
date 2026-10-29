@@ -3,15 +3,21 @@ package databack.common.interop.heightmap;
 import net.minecraft.world.World;
 
 import cpw.mods.fml.common.Optional;
-import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
 import databack.mixins.DBMods;
 
 public class CustomHeightmap implements Heightmap {
 
-    private final World world;
-    private final IBlockPredicate predicate;
+    /// Whether the block at a position counts towards the heightmap.
+    @FunctionalInterface
+    public interface BlockTest {
 
-    public CustomHeightmap(World world, IBlockPredicate predicate) {
+        boolean test(World world, int x, int y, int z);
+    }
+
+    private final World world;
+    private final BlockTest predicate;
+
+    public CustomHeightmap(World world, BlockTest predicate) {
         this.world = world;
         this.predicate = predicate;
     }

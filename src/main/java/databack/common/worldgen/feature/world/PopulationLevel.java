@@ -4,6 +4,7 @@ import net.minecraft.block.Block;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 
@@ -79,13 +80,15 @@ public final class PopulationLevel implements FtLevel {
         return states.toModern(world.getBlock(x, y, z), world.getMeta(x, y, z));
     }
 
-    /// Refused (false) where [#ensureCanWrite] is false, and false when the block is already there.
+    /// Refused (false) where [#ensureCanWrite] is false and for blocks without a 1.7 counterpart, and false when the
+    /// block is already there.
     @Override
     public boolean setBlock(@NotNull VnBlockPos pos, @NotNull FtBlockState state, int flags) {
         if (!ensureCanWrite(pos)) return false;
 
         int x = pos.getX(), y = pos.getY(), z = pos.getZ();
         ImmutableBlockMeta block = states.toLegacy(state);
+        if (block == null) return false;
         if (world.getBlock(x, y, z) == block.getBlock() && world.getMeta(x, y, z) == block.getBlockMeta()) {
             return false;
         }
@@ -114,13 +117,16 @@ public final class PopulationLevel implements FtLevel {
 
     @Override
     public void scheduleTick(@NotNull VnBlockPos pos, @NotNull FtBlock block, int delay) {
-        if (!ensureCanWrite(pos)) return;
-        world.scheduleUpdate(pos.getX(), pos.getY(), pos.getZ(), legacyBlock(block.defaultBlockState()), delay);
+        Block legacy = legacyBlock(block.defaultBlockState());
+        if (legacy == null || !ensureCanWrite(pos)) return;
+        world.scheduleUpdate(pos.getX(), pos.getY(), pos.getZ(), legacy, delay);
     }
 
+    /// Blocks without a 1.7 counterpart survive nowhere.
     @Override
     public boolean canSurvive(@NotNull FtBlockState state, @NotNull VnBlockPos pos) {
-        return world.canBlockStay(legacyBlock(state), pos.getX(), pos.getY(), pos.getZ());
+        Block legacy = legacyBlock(state);
+        return legacy != null && world.canBlockStay(legacy, pos.getX(), pos.getY(), pos.getZ());
     }
 
     /// Asks about the block in the world at `pos`, which is `state` wherever vanilla asks.
@@ -138,7 +144,9 @@ public final class PopulationLevel implements FtLevel {
         throw new IllegalArgumentException("Not a direction: " + face);
     }
 
+    @Nullable
     private Block legacyBlock(FtBlockState state) {
-        return states.toLegacy(state).getBlock();
+        ImmutableBlockMeta block = states.toLegacy(state);
+        return block == null ? null : block.getBlock();
     }
 }

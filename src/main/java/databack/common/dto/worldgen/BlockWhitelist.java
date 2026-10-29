@@ -1,9 +1,22 @@
 package databack.common.dto.worldgen;
 
-import net.minecraft.block.Block;
+import java.util.Collections;
+import java.util.List;
 
-public interface BlockWhitelist {
+import org.jetbrains.annotations.NotNull;
 
-    boolean contains(Block block, int meta);
+/// A list of blocks or fluids, as datapacks write it: one entry or an array of them, each an id or a `#tag`.
+public final class BlockWhitelist {
 
+    @NotNull
+    public final List<String> entries;
+
+    public BlockWhitelist(@NotNull List<String> entries) {
+        this.entries = Collections.unmodifiableList(entries);
+    }
+
+    @Override
+    public String toString() {
+        return entries.toString();
+    }
 }

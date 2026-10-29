@@ -1,9 +1,13 @@
 package databack.common.dto.worldgen.block_predicate;
 
-import net.minecraft.world.World;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import databack.common.worldgen.feature.FeatureBuildContext;
 
 public interface IBlockPredicate {
 
-    boolean test(World world, int x, int y, int z);
-
+    /// Vanilla's block predicate, or null when it cannot be built ([FeatureBuildContext#unsupported]).
+    @Nullable
+    Object instantiate(@NotNull FeatureBuildContext ctx);
 }

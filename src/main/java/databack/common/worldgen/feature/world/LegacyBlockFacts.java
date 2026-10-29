@@ -11,6 +11,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
+import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
+
 import databack.common.annotation.ThreadSafe;
 import databack.common.interop.modern_block.BlockIdentity;
 import databack.common.interop.registry.BlockIdentityRegistry;
@@ -59,7 +61,9 @@ public final class LegacyBlockFacts implements FtBlockFacts {
         return material(state).blocksMovement();
     }
 
+    /// Air's for blocks without a 1.7 counterpart.
     private Material material(FtBlockState state) {
-        return states.toLegacy(state).getBlock().getMaterial();
+        ImmutableBlockMeta block = states.toLegacy(state);
+        return block == null ? Material.air : block.getBlock().getMaterial();
     }
 }

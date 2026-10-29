@@ -2,6 +2,7 @@ package databack.common.worldgen.feature.world;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -38,7 +39,7 @@ class PopulationLevelTest {
 
         assertSame(state("minecraft:stone"), states.toModern(Blocks.stone, 0));
         assertSame(state("minecraft:air"), states.toModern(Blocks.air, 0));
-        assertSame(Blocks.air, states.toLegacy(state("databack:no_such_block")).getBlock());
+        assertNull(states.toLegacy(state("databack:no_such_block")));
     }
 
     private FtBlockState roundTrip(FtBlockState state) {
@@ -78,6 +79,13 @@ class PopulationLevelTest {
         assertFalse(level.setBlock(new VnBlockPos(-1, 10, 0), state("minecraft:stone"), 3));
         assertFalse(level.setBlock(new VnBlockPos(0, 256, 0), state("minecraft:stone"), 3));
         assertSame(Blocks.air, world.getBlock(32, 10, 0));
+    }
+
+    @Test
+    void blocksWithoutA17CounterpartAreNotWritten() {
+        assertFalse(level.setBlock(new VnBlockPos(1, 1, 1), state("databack:no_such_block"), 3));
+        assertSame(Blocks.air, world.getBlock(1, 1, 1));
+        assertFalse(level.canSurvive(state("databack:no_such_block"), new VnBlockPos(1, 1, 1)));
     }
 
     @Test

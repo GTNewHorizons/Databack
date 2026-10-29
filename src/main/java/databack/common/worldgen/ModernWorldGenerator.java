@@ -1,6 +1,8 @@
 package databack.common.worldgen;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import net.minecraft.entity.EnumCreatureType;
 import net.minecraft.init.Blocks;
@@ -35,6 +37,8 @@ import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.DimensionList;
 import databack.common.handlers.DimensionTypeList;
 import databack.common.handlers.BiomeList;
+import databack.common.handlers.ConfiguredFeatureList;
+import databack.common.handlers.PlacedFeatureList;
 import databack.common.handlers.WorldPresetList;
 import databack.common.dto.worldgen.biome.DatapackBiome;
 import databack.common.serde.MiscAdapters;
@@ -45,6 +49,7 @@ import databack.common.worldgen.aquifer.VanillaAquifer;
 import databack.common.worldgen.aquifer.VanillaAquifers;
 import databack.common.worldgen.biome.ClimateSampler;
 import databack.common.worldgen.biome.MultiNoiseBiomeSource;
+import databack.common.worldgen.biome.ClimateEntry;
 import databack.common.worldgen.biome.MultiNoiseParameters;
 import databack.common.worldgen.biome.ProxyBiomeResolver;
 import databack.common.worldgen.biome.SurfaceBiomes;
@@ -54,9 +59,19 @@ import databack.common.worldgen.biome.zoom.VanillaBiomeZoom;
 import databack.common.worldgen.carver.VanillaCarvers;
 import databack.common.worldgen.carver.VanillaCarversCache;
 import databack.common.worldgen.carver.WorldCarvers;
+import databack.common.worldgen.feature.BiomeFeatures;
+import databack.common.worldgen.feature.FeatureBuildContext;
+import databack.common.worldgen.feature.VanillaFeatures;
+import databack.common.worldgen.feature.VanillaFeaturesCache;
 import databack.common.worldgen.feature.population.DeferredPopulation;
 import databack.common.worldgen.feature.population.FeatureDecorator;
 import databack.common.worldgen.feature.population.PendingPopulationData;
+import databack.common.worldgen.feature.standin.FtBlockFacts;
+import databack.common.worldgen.feature.world.LegacyBlockFacts;
+import databack.common.worldgen.feature.world.LegacyStates;
+import databack.common.worldgen.feature.world.LegacyWorld;
+import databack.common.worldgen.feature.world.PopulationLevel;
+import databack.common.worldgen.feature.world.WorldLegacyWorld;
 import databack.common.worldgen.orevein.OreVeinSystem;
 import databack.common.worldgen.orevein.VeinBlock;
 import databack.common.worldgen.orevein.VeinFieldSampler;
@@ -100,7 +115,7 @@ public class ModernWorldGenerator implements IChunkProvider {
     /// Null when carvers are unavailable (no vanilla classes).
     @Nullable
     private final WorldCarvers carvers;
-    private final FeatureDecorator decorator = new FeatureDecorator();
+    private final DeferredPopulation.Decorator decorator;
     /// See [#population()].
     private DeferredPopulation population;
     private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
@@ -162,11 +177,12 @@ public class ModernWorldGenerator implements IChunkProvider {
         }
 
         String dimensionName = getDimensionName(world.provider.dimensionId);
-        MultiNoiseBiomeSource biomeSource = MultiNoiseBiomeSource.create(
-            MultiNoiseParameters.resolve(noiseBiomes, dimensionName), ClimateSampler.of(this.router));
+        List<ClimateEntry> climate = MultiNoiseParameters.resolve(noiseBiomes, dimensionName);
+        MultiNoiseBiomeSource biomeSource = MultiNoiseBiomeSource.create(climate, ClimateSampler.of(this.router));
         BiomeZoom zoom = VanillaBiomeZoom.get();
         this.surfaceBiomes = new SurfaceBiomes(biomeSource, zoom, zoom == null ? 0 : zoom.zoomSeed(world.getSeed()));
         this.surfaceSystem = createSurfaceSystem(build, ns, world.getSeed());
+        this.decorator = createDecorator(climate, ns);
         VanillaAquifer aquifer = generatorSettings.aquifers_enabled ? VanillaAquifers.get() : null;
         this.aquiferSystem = aquifer == null ? AquiferSystem.disabled(generatorSettings.sea_level)
             : AquiferSystem.enabled(generatorSettings.sea_level, aquifer, this.router, rng);
@@ -194,6 +210,31 @@ public class ModernWorldGenerator implements IChunkProvider {
             blocks[block.ordinal()] = toBlockMeta(MiscAdapters.resolveBlockState(state));
         }
         return blocks;
+    }
+
+    /// Places nothing when vanilla's feature classes are unavailable (already logged).
+    private DeferredPopulation.Decorator createDecorator(
+        List<ClimateEntry> climate, NoiseGeneratorSettings.NoiseSettings ns
+    ) {
+        VanillaFeatures vanilla = VanillaFeaturesCache.get();
+        if (vanilla == null) return (chunkX, chunkZ) -> {};
+
+        LegacyStates states = new LegacyStates();
+        FtBlockFacts.install(new LegacyBlockFacts(states));
+
+        FeatureBuildContext build = new FeatureBuildContext(vanilla,
+            ConfiguredFeatureList.RT.getHandler()::getConfiguredFeature,
+            PlacedFeatureList.RT.getHandler()::getPlacedFeature);
+        Set<String> biomes = new HashSet<>();
+        for (ClimateEntry entry : climate) biomes.add(entry.biome());
+        BiomeFeatures features = new BiomeFeatures(build, biomes, BiomeList.RT.getHandler()::getBiome, ns.min_y,
+            ns.height);
+
+        LegacyWorld legacy = new WorldLegacyWorld(world, densitySampler.minY(), densitySampler.height());
+        RandomSource worldRandom = new StandardRandom(world.getSeed());
+        return new FeatureDecorator(world::getChunkFromChunkCoords,
+            area -> new PopulationLevel(legacy, states, area, surfaceBiomes.forChunk()::biome, worldRandom),
+            vanilla, features, world.getSeed());
     }
 
     /// Null when the noise settings have no surface rule.

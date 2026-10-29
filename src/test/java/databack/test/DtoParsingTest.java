@@ -20,6 +20,8 @@ import databack.common.dto.worldgen.biome.BuiltinBiomeAttributes;
 import databack.common.dto.worldgen.biome.BuiltinBiomes;
 import databack.common.dto.worldgen.biome.DatapackBiome;
 import databack.common.dto.worldgen.block_predicate.BuiltinBlockPredicates;
+import databack.common.dto.worldgen.placed_feature.IPlacedFeatureRef;
+import databack.common.dto.worldgen.placed_feature.PlacedFeatureIdRef;
 import databack.common.dto.worldgen.block_state_provider.BuiltinBlockStateProviders;
 import databack.common.dto.worldgen.carver.BuiltinCarvers;
 import databack.common.dto.worldgen.configured_feature.BuiltinConfiguredFeatures;
@@ -355,14 +357,23 @@ class DtoParsingTest {
     void biome_plains_hasOreDirt() {
         DatapackBiome plains = biomeList.getBiome("minecraft:plains");
         assertNotNull(plains);
-        assertTrue(plains.hasFeature("minecraft:ore_dirt"), "plains must contain minecraft:ore_dirt");
+        assertTrue(hasFeature(plains, "minecraft:ore_dirt"), "plains must contain minecraft:ore_dirt");
     }
 
     @Test
     void biome_plains_doesNotHaveNetherFeature() {
         DatapackBiome plains = biomeList.getBiome("minecraft:plains");
         assertNotNull(plains);
-        assertFalse(plains.hasFeature("minecraft:basalt_blobs"), "plains must not contain nether feature");
+        assertFalse(hasFeature(plains, "minecraft:basalt_blobs"), "plains must not contain nether feature");
+    }
+
+    private static boolean hasFeature(DatapackBiome biome, String id) {
+        for (IPlacedFeatureRef[] step : biome.features) {
+            for (IPlacedFeatureRef ref : step) {
+                if (ref instanceof PlacedFeatureIdRef && ((PlacedFeatureIdRef) ref).id.equals(id)) return true;
+            }
+        }
+        return false;
     }
 
     // ---- ProcessorList -------------------------------------------------------

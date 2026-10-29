@@ -14,17 +14,24 @@ import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 import databack.common.interop.heightmap.HeightmapType;
 
 /// A world of layers 0..256 filled with one block, except where set. Every side is sturdy, every block can stay, and
-/// every surface is at 64.
+/// every heightmap's surface is at one height.
 public final class FakeLegacyWorld implements LegacyWorld {
 
     private final Map<Long, ImmutableBlockMeta> blocks = new HashMap<>();
     @NotNull
     private final ImmutableBlockMeta fill;
+    private final int surface;
     /// The side last asked about.
     ForgeDirection lastSide;
 
+    /// Surfaces at 64.
     public FakeLegacyWorld(@NotNull Block fill) {
+        this(fill, 64);
+    }
+
+    public FakeLegacyWorld(@NotNull Block fill, int surface) {
         this.fill = new BlockMeta(fill, 0);
+        this.surface = surface;
     }
 
     private static long key(int x, int y, int z) {
@@ -83,7 +90,7 @@ public final class FakeLegacyWorld implements LegacyWorld {
 
     @Override
     public int surface(@NotNull HeightmapType heightmap, int x, int z) {
-        return 64;
+        return surface;
     }
 
     @Override

@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.util.ResourceLocation;
 
 import org.apache.logging.log4j.LogManager;
@@ -218,7 +219,8 @@ public class BlockIdentityRegistry implements IProxyRegistry<BlockIdentity> {
 
         Block block = ProxyBlockRegistry.INSTANCE.getObject(identityId);
 
-        if (block == null) return null;
+        // 1.7's block registry gives air for names it lacks
+        if (block == null || block == Blocks.air) return null;
 
         BlockExt_Identity blockExt = (BlockExt_Identity) block;
 

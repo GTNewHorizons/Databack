@@ -5,9 +5,13 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraft.util.ResourceLocation;
 
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
 import com.gtnewhorizon.gtnhlib.blockstate.core.MetaBlockProperty;
@@ -31,19 +35,32 @@ import databack.common.worldgen.feature.standin.FtBlockState;
 @ThreadSafe
 public final class LegacyStates {
 
+    private static final Logger LOGGER = LogManager.getLogger("databack|features");
+
     private final ConcurrentHashMap<FtBlockState, ImmutableBlockMeta> legacy = new ConcurrentHashMap<>();
     /// By `block id << 4 | meta`.
     private final ConcurrentHashMap<Integer, FtBlockState> modern = new ConcurrentHashMap<>();
 
-    /// The 1.7 block and meta for `state`, as [MiscAdapters#resolveBlockState] gives it (air for unknown blocks).
-    @NotNull
+    /// The 1.7 block and meta for `state`, as [MiscAdapters#resolveBlockState] gives it, or null when its block has
+    /// no 1.7 counterpart.
+    @Nullable
     public ImmutableBlockMeta toLegacy(@NotNull FtBlockState state) {
-        return legacy.computeIfAbsent(state, LegacyStates::resolve);
+        ImmutableBlockMeta block = legacy.computeIfAbsent(state, LegacyStates::resolve);
+        return block == UNKNOWN ? null : block;
     }
 
+    /// Cached for blocks without a 1.7 counterpart, as the map takes no nulls.
+    private static final ImmutableBlockMeta UNKNOWN = new BlockMeta(Blocks.air, 0);
+
     private static ImmutableBlockMeta resolve(FtBlockState state) {
+        ResourceLocation id = new ResourceLocation(state.getBlock().id);
+        if (BlockIdentityRegistry.INSTANCE.getObject(id) == null) {
+            LOGGER.warn("Block {} has no 1.7 counterpart; features do not place it", id);
+            return UNKNOWN;
+        }
+
         BlockStateDTO dto = new BlockStateDTO();
-        dto.Name = new ResourceLocation(state.getBlock().id);
+        dto.Name = id;
         dto.Properties = state.properties().isEmpty() ? null : new HashMap<>(state.properties());
 
         BlockState resolved = MiscAdapters.resolveBlockState(dto);
