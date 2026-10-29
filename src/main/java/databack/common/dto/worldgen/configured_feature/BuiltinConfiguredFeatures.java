@@ -44,6 +44,7 @@ public class BuiltinConfiguredFeatures {
 
         TaggedUnionLoader<IConfiguredFeature> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/configured_feature", IConfiguredFeature.class);
+        loader.setUnknown(type -> UNKNOWN_FEATURE);
 
         loader.addVariant("minecraft:bamboo", ProbabilityFeature.class);
         loader.addVariant("minecraft:seagrass", ProbabilityFeature.class);
@@ -70,6 +71,7 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:large_dripstone", LargeDripstoneFeature.class);
         loader.addVariant("minecraft:nether_forest_vegetation", NetherForestVegetationFeature.class);
         loader.addVariant("minecraft:netherrack_replace_blobs", NetherrackReplaceBlobsFeature.class);
+        loader.addVariant("minecraft:no_op", NoOpFeature.class);
         loader.addVariant("minecraft:ore", OreFeature.class);
         loader.addVariant("minecraft:scattered_ore", ScatteredOreFeature.class);
         loader.addVariant("minecraft:pointed_dripstone", SpeleothemFeature.class);
@@ -110,6 +112,16 @@ public class BuiltinConfiguredFeatures {
             return new ConfiguredFeatureRef(json.getAsString());
         });
     }
+
+    /// What a feature of an unknown type becomes: nothing is built (the type is logged when read).
+    private static final IConfiguredFeature UNKNOWN_FEATURE = new IConfiguredFeature() {
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return null;
+        }
+    };
 
     private static class ConfiguredFeatureRef implements IConfiguredFeature {
         public String id;
@@ -471,6 +483,13 @@ public class BuiltinConfiguredFeatures {
     }
 
     // no_surface_ore, ore, scattered_ore
+    private static class NoOpFeature implements IConfiguredFeature {
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "NO_OP", ctx.vanilla.construct(CONFIGS + "NoneFeatureConfiguration"));
+        }
+    }
     private static class OreFeature implements IConfiguredFeature {
         public OreConfig config;
 

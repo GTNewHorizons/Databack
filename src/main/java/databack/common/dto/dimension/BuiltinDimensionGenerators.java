@@ -23,12 +23,14 @@ public class BuiltinDimensionGenerators {
     public static void init() {
         TaggedUnionLoader<DimensionGenerator> gens = DatapackSerialization.createTaggedUnionLoader(
             "builtin/dimension_generator", DimensionGenerator.class);
+        gens.setUnknown(type -> new DimensionGenerator() {});
         gens.addVariant("minecraft:noise", NoiseDimensionGenerator.class);
         gens.addVariant("minecraft:flat", FlatDimensionGenerator.class);
         gens.addVariant("minecraft:debug", DebugDimensionGenerator.class);
 
         TaggedUnionLoader<BiomeGeneration> biomes = DatapackSerialization.createTaggedUnionLoader(
             "builtin/biome_generation", BiomeGeneration.class);
+        biomes.setUnknown(type -> new BiomeGeneration() {});
         biomes.addVariant("minecraft:multi_noise", MultiNoiseBiomes.class);
         biomes.addVariant("minecraft:fixed", FixedBiomes.class);
         biomes.addVariant("minecraft:checkerboard", CheckerboardBiomes.class);

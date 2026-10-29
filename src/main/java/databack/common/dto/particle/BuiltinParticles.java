@@ -9,6 +9,7 @@ public class BuiltinParticles {
 
     public static void init() {
         TaggedUnionLoader<IParticle> particles = DatapackSerialization.createTaggedUnionLoader("particle", IParticle.class);
+        particles.setUnknown(type -> new IParticle() {});
 
         particles.addVariant("minecraft:block", BlockParticle.class);
         particles.addVariant("minecraft:falling_dust", BlockParticle.class);

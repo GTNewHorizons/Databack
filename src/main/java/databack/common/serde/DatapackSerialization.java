@@ -33,6 +33,7 @@ public class DatapackSerialization {
         TaggedUnionLoader<T> loader = new TaggedUnionLoader<>();
         loader.setTagField(tagField);
         loader.setInterfaceType(iface);
+        loader.setName(name);
 
         builder.registerTypeAdapter(iface, loader);
 

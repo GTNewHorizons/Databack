@@ -1,8 +1,15 @@
 package databack.common.serde;
 
 import java.lang.reflect.Type;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
+
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import com.google.common.collect.BiMap;
 import com.google.common.collect.HashBiMap;
@@ -30,6 +37,16 @@ public class TaggedUnionLoader<Union> implements JsonDeserializer<Union> {
 
     private JsonDeserializer<Union> fallback;
 
+    /// The union's registry name (`worldgen/int_provider`), for messages.
+    @Setter
+    @Getter
+    private String name = "?";
+
+    private Function<String, Union> unknown;
+
+    private static final Logger LOGGER = LogManager.getLogger("databack|datapack");
+    private static final Set<String> WARNED = Collections.newSetFromMap(new ConcurrentHashMap<>());
+
     public TaggedUnionLoader<Union> addVariant(String name, Class<? extends Union> clazz) {
         variants.put(name, clazz);
 
@@ -44,6 +61,13 @@ public class TaggedUnionLoader<Union> implements JsonDeserializer<Union> {
     public TaggedUnionLoader<Union> setFallback(Class<? extends Union> fallback) {
         this.fallback = (json, typeOfT, context) -> context.deserialize(json, fallback);
 
+        return this;
+    }
+
+    /// What a variant of an unknown type becomes, given its type id: something that does nothing in the union's
+    /// system (no block, no feature, a zero). The type is logged once. Without it, unknown types fail the resource.
+    public TaggedUnionLoader<Union> setUnknown(Function<String, Union> unknown) {
+        this.unknown = unknown;
         return this;
     }
 
@@ -72,7 +96,15 @@ public class TaggedUnionLoader<Union> implements JsonDeserializer<Union> {
             throw new JsonParseException("Expected value of '" + tagField + "' to be a string: " + json);
         }
 
-        Class<? extends Union> clazz = variants.get(tag.getAsJsonPrimitive().getAsString());
+        String type = tag.getAsJsonPrimitive().getAsString();
+        Class<? extends Union> clazz = variants.get(type);
+
+        if (clazz == null && unknown != null) {
+            if (WARNED.add(name + " " + type)) {
+                LOGGER.warn("Unknown {} type '{}'; it is ignored, and does nothing where it is used", name, type);
+            }
+            return unknown.apply(type);
+        }
 
         if (clazz == null) {
             throw new JsonParseException("Unknown variant '" + tag.getAsJsonPrimitive().getAsString() + "' while parsing " + interfaceType.getName() + ": " + json);

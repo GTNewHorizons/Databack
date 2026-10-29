@@ -18,6 +18,7 @@ public class BuiltinTreeComponents {
     public static void init() {
         TaggedUnionLoader<ITreeTrunkPlacer> trunkPlacer = DatapackSerialization
             .createTaggedUnionLoader("worldgen/trunk_placer", ITreeTrunkPlacer.class);
+        trunkPlacer.setUnknown(type -> new ITreeTrunkPlacer() {});
 
         trunkPlacer.addVariant("minecraft:straight_trunk_placer", EmptyTrunkPlacer.class);
         trunkPlacer.addVariant("minecraft:forking_trunk_placer", EmptyTrunkPlacer.class);
@@ -31,6 +32,7 @@ public class BuiltinTreeComponents {
 
         TaggedUnionLoader<ITreeFoliagePlacer> foliagePlacer = DatapackSerialization
             .createTaggedUnionLoader("worldgen/foliage_placer", ITreeFoliagePlacer.class);
+        foliagePlacer.setUnknown(type -> new ITreeFoliagePlacer() {});
 
         foliagePlacer.addVariant("minecraft:blob_foliage_placer", HeightFoliagePlacer.class);
         foliagePlacer.addVariant("minecraft:spruce_foliage_placer", SpruceFoliagePlacer.class);
@@ -46,6 +48,7 @@ public class BuiltinTreeComponents {
 
         TaggedUnionLoader<ITreeDecorator> treeDecorator = DatapackSerialization
             .createTaggedUnionLoader("worldgen/tree_decorator", ITreeDecorator.class);
+        treeDecorator.setUnknown(type -> new ITreeDecorator() {});
 
         treeDecorator.addVariant("minecraft:trunk_vine", EmptyTreeDecorator.class);
         treeDecorator.addVariant("minecraft:leave_vine", EmptyTreeDecorator.class);
@@ -59,17 +62,20 @@ public class BuiltinTreeComponents {
 
         TaggedUnionLoader<IFeatureSize> featureSize = DatapackSerialization
             .createTaggedUnionLoader("worldgen/feature_size", IFeatureSize.class);
+        featureSize.setUnknown(type -> new IFeatureSize() {});
 
         featureSize.addVariant("minecraft:two_layers_feature_size", TwoLayersFeatureSize.class);
         featureSize.addVariant("minecraft:three_layers_feature_size", ThreeLayersFeatureSize.class);
 
         TaggedUnionLoader<IRootPlacer> rootPlacer = DatapackSerialization
             .createTaggedUnionLoader("worldgen/root_placer", IRootPlacer.class);
+        rootPlacer.setUnknown(type -> new IRootPlacer() {});
 
         rootPlacer.addVariant("minecraft:mangrove_root_placer", MangroveRootPlacer.class);
 
         TaggedUnionLoader<IFallenLogDecorator> fallenLogDecorator = DatapackSerialization
             .createTaggedUnionLoader("worldgen/fallen_log_decorator", IFallenLogDecorator.class);
+        fallenLogDecorator.setUnknown(type -> new IFallenLogDecorator() {});
 
         fallenLogDecorator.addVariant("minecraft:attached_to_logs", AttachedToLogsDecorator.class);
         fallenLogDecorator.addVariant("minecraft:trunk_vine", EmptyFallenLogDecorator.class);

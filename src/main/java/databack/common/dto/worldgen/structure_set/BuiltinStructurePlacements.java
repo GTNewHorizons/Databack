@@ -12,6 +12,7 @@ public class BuiltinStructurePlacements {
     public static void init() {
         TaggedUnionLoader<IStructurePlacement> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/structure_placement", IStructurePlacement.class);
+        loader.setUnknown(type -> new IStructurePlacement() {});
 
         loader.addVariant("minecraft:random_spread", RandomSpreadPlacement.class);
         loader.addVariant("minecraft:concentric_rings", ConcentricRingsPlacement.class);

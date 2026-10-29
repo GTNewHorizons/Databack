@@ -34,6 +34,7 @@ public class BuiltinDensityFunctions {
 
     public static void init() {
         TaggedUnionLoader<IDensityFunctionFactory> densityFunctions = DatapackSerialization.createTaggedUnionLoader("worldgen/density_function", IDensityFunctionFactory.class);
+        densityFunctions.setUnknown(type -> new ConstantFunc(0));
 
         densityFunctions.addVariant("minecraft:abs", AbsUnary.class);
         densityFunctions.addVariant("minecraft:blend_density", BlendDensityUnary.class);

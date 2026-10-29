@@ -26,6 +26,7 @@ public class BuiltinSurfaceRules {
     public static void init() {
         TaggedUnionLoader<ISurfaceRuleFactory> rules = DatapackSerialization.createTaggedUnionLoader(
             "worldgen/surface_rule", ISurfaceRuleFactory.class);
+        rules.setUnknown(type -> ctx -> surface -> null);
         rules.addVariant("minecraft:block", BlockRule.class);
         rules.addVariant("minecraft:sequence", SequenceRule.class);
         rules.addVariant("minecraft:condition", ConditionRule.class);
@@ -33,6 +34,7 @@ public class BuiltinSurfaceRules {
 
         TaggedUnionLoader<ISurfaceConditionFactory> conditions = DatapackSerialization.createTaggedUnionLoader(
             "worldgen/surface_condition", ISurfaceConditionFactory.class);
+        conditions.setUnknown(type -> ctx -> surface -> false);
         conditions.addVariant("minecraft:biome", BiomeCondition.class);
         conditions.addVariant("minecraft:noise_threshold", NoiseThresholdCondition.class);
         conditions.addVariant("minecraft:vertical_gradient", VerticalGradientCondition.class);

@@ -43,6 +43,7 @@ public class BuiltinCarvers {
     public static void init() {
         TaggedUnionLoader<IConfiguredCarver> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/configured_carver", IConfiguredCarver.class);
+        loader.setUnknown(type -> ctx -> null);
 
         loader.addVariant("minecraft:cave", CaveCarver.class);
         loader.addVariant("minecraft:nether_cave", NetherCaveCarver.class);

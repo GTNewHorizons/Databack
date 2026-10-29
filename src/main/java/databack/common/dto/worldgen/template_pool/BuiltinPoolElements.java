@@ -13,6 +13,7 @@ public class BuiltinPoolElements {
     public static void init() {
         TaggedUnionLoader<IPoolElement> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/template_pool_element", IPoolElement.class, "element_type");
+        loader.setUnknown(type -> new IPoolElement() {});
 
         loader.addVariant("minecraft:single_pool_element", SinglePoolElement.class);
         loader.addVariant("minecraft:legacy_single_pool_element", SinglePoolElement.class);

@@ -10,6 +10,7 @@ public class BuiltinFloatProviders {
 
     public static void init() {
         TaggedUnionLoader<IFloatProvider> loader = DatapackSerialization.createTaggedUnionLoader("worldgen/float_provider", IFloatProvider.class);
+        loader.setUnknown(type -> random -> 0f);
 
         loader.addVariant("minecraft:constant", ConstantFloat.class);
         loader.addVariant("minecraft:uniform", UniformFloat.class);

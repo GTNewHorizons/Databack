@@ -32,6 +32,7 @@ public class BuiltinBiomeAttributes {
             .registerTypeAdapter(DatapackBiome.BiomeMusicList.class, new BiomeMusicListDeserializer());
 
         TaggedUnionLoader<BooleanBiomeAttribute> bools = createTaggedUnionLoader("builtin/biome_attributes/bools", BooleanBiomeAttribute.class);
+        bools.setUnknown(type -> value -> value);
 
         bools.setTagField("modifier");
         bools.addVariant("override", OverrideBBA.class);
@@ -48,6 +49,7 @@ public class BuiltinBiomeAttributes {
         });
 
         TaggedUnionLoader<FloatBiomeAttribute> floats = createTaggedUnionLoader("builtin/biome_attributes/floats", FloatBiomeAttribute.class);
+        floats.setUnknown(type -> value -> value);
 
         floats.setTagField("modifier");
         floats.addVariant("override", OverrideFBA.class);
@@ -64,6 +66,7 @@ public class BuiltinBiomeAttributes {
         });
 
         TaggedUnionLoader<RGBBiomeAttribute> rgb = createTaggedUnionLoader("builtin/biome_attributes/rgb", RGBBiomeAttribute.class);
+        rgb.setUnknown(type -> color -> {});
 
         rgb.setTagField("modifier");
         rgb.addVariant("override", OverrideCBA.class);
@@ -79,6 +82,7 @@ public class BuiltinBiomeAttributes {
         });
 
         TaggedUnionLoader<RGBABiomeAttribute> rgba = createTaggedUnionLoader("builtin/biome_attributes/rgba", RGBABiomeAttribute.class);
+        rgba.setUnknown(type -> color -> {});
 
         rgba.setTagField("modifier");
         rgba.addVariant("override", OverrideCBA_RGBA.class);

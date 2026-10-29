@@ -29,6 +29,7 @@ public class BuiltinBlockPredicates {
     public static void init() {
         TaggedUnionLoader<IBlockPredicate> predicates = DatapackSerialization
             .createTaggedUnionLoader("builtin/block_predicates", IBlockPredicate.class);
+        predicates.setUnknown(type -> ctx -> null);
 
         predicates.addVariant("minecraft:all_of", AllOfPredicate.class);
         predicates.addVariant("minecraft:any_of", AnyOfPredicate.class);

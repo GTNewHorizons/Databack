@@ -16,6 +16,7 @@ public class BuiltinStructures {
     public static void init() {
         TaggedUnionLoader<IStructure> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/structure", IStructure.class);
+        loader.setUnknown(type -> new IStructure() {});
 
         // Jigsaw-based structures
         loader.addVariant("minecraft:jigsaw", JigsawStructure.class);

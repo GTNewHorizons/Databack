@@ -14,6 +14,7 @@ public class BuiltinHeightProviders {
     public static void init() {
         TaggedUnionLoader<IHeightProvider> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/height_provider", IHeightProvider.class);
+        loader.setUnknown(type -> (random, minY, height) -> minY);
 
         loader.addVariant("minecraft:constant", ConstantHeight.class);
         loader.addVariant("minecraft:uniform", UniformHeight.class);

@@ -23,6 +23,7 @@ public class BuiltinProcessors {
         // IProcessor — tagged on "processor_type"
         TaggedUnionLoader<IProcessor> processors = DatapackSerialization
             .createTaggedUnionLoader("worldgen/processor", IProcessor.class, "processor_type");
+        processors.setUnknown(type -> new IProcessor() {});
 
         processors.addVariant("minecraft:rule", RuleProcessor.class);
         processors.addVariant("minecraft:block_age", BlockAgeProcessor.class);
@@ -35,6 +36,7 @@ public class BuiltinProcessors {
         // IRuleTest — tagged on "predicate_type"
         TaggedUnionLoader<IRuleTest> ruleTests = DatapackSerialization
             .createTaggedUnionLoader("worldgen/rule_test", IRuleTest.class, "predicate_type");
+        ruleTests.setUnknown(type -> ctx -> null);
 
         ruleTests.addVariant("minecraft:always_true", AlwaysTrueTest.class);
         ruleTests.addVariant("minecraft:block_match", BlockMatchTest.class);

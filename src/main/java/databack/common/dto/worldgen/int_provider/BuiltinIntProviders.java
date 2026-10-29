@@ -11,6 +11,7 @@ public class BuiltinIntProviders {
 
     public static void init() {
         TaggedUnionLoader<IIntProvider> loader = DatapackSerialization.createTaggedUnionLoader("worldgen/int_provider", IIntProvider.class);
+        loader.setUnknown(type -> random -> 0);
 
         loader.addVariant("minecraft:constant", ConstantInt.class);
         loader.addVariant("minecraft:uniform", UniformInt.class);

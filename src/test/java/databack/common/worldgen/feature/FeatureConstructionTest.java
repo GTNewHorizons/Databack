@@ -2,6 +2,7 @@ package databack.common.worldgen.feature;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -61,6 +62,21 @@ class FeatureConstructionTest {
             "minecraft:flower_default", "minecraft:ore_dirt")) {
             assertEquals(true, built.contains(id), id + " should build; built: " + built);
         }
+    }
+
+    @Test
+    void unknownModifiersSkipTheirFeature() {
+        PlacedFeature feature = VanillaWorldgen.parse(new JsonParser().parse("{\"feature\":\"minecraft:ore_diamond\","
+            + "\"placement\":[{\"type\":\"minecraft:in_square\"},{\"type\":\"databack:no_such_modifier\"}]}"),
+            PlacedFeature.class);
+        assertNull(feature.build(context()));
+    }
+
+    @Test
+    void noOpBuilds() {
+        IConfiguredFeature feature = VanillaWorldgen.parse(new JsonParser().parse(
+            "{\"type\":\"minecraft:no_op\",\"config\":{}}"), IConfiguredFeature.class);
+        assertNotNull(feature.instantiate(context()));
     }
 
     @Test

@@ -12,10 +12,9 @@ registered DTO type exists in 26.1; these 26.1 types have no DTO yet:
 - Structure processors: `minecraft:blackstone_replace`, `minecraft:jigsaw_replacement`,
   `minecraft:lava_submerged_block`, `minecraft:nop` (`processor_list/BuiltinProcessors.java`).
 - Position rule tests: `minecraft:linear_pos`, `minecraft:axis_aligned_linear_pos`.
-- Configured feature: `minecraft:no_op`.
 
-Unknown tagged-union variants currently throw (`TaggedUnionLoader`), failing the whole resource; CLAUDE.md asks for a
-warning and a no-op instead.
+Unknown tagged-union types no longer fail their resource: each union gives a placeholder that does nothing
+(`TaggedUnionLoader.setUnknown`, set in each `Builtin*.init`), and the type is logged once.
 
 ---
 

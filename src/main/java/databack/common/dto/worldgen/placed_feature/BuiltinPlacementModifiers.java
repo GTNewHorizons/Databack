@@ -32,6 +32,7 @@ public class BuiltinPlacementModifiers {
 
         TaggedUnionLoader<IPlacementModifier> placementModifiers = DatapackSerialization
             .createTaggedUnionLoader("builtin/placement_modifiers", IPlacementModifier.class);
+        placementModifiers.setUnknown(type -> ctx -> null);
 
         placementModifiers.addVariant("minecraft:block_predicate_filter", BlockPredicateFilterMod.class);
         placementModifiers.addVariant("minecraft:rarity_filter", RarityFilterMod.class);

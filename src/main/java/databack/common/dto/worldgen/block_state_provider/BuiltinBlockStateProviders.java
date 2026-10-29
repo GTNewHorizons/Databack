@@ -25,6 +25,7 @@ public class BuiltinBlockStateProviders {
     public static void init() {
         TaggedUnionLoader<IBlockStateProvider> loader = DatapackSerialization
             .createTaggedUnionLoader("worldgen/block_state_provider", IBlockStateProvider.class);
+        loader.setUnknown(type -> ctx -> null);
 
         loader.addVariant("minecraft:simple_state_provider", SimpleStateProvider.class);
         loader.addVariant("minecraft:weighted_state_provider", WeightedStateProvider.class);
