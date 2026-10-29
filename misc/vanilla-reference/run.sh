@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Regenerates src/test/resources/vanilla_reference from the real 26.1 jar.
-# Usage: run.sh [density] [biome] [surface] [aquifer]  (no arguments: everything)
+# Usage: run.sh [density] [biome] [surface] [aquifer] [ore_vein]  (no arguments: everything)
 # Needs a Java 25 JDK (JAVA25_HOME), jq, curl and zip. The jar is the one build.gradle's
 # downloadVanillaDatapack task caches; libraries are downloaded into ~/.cache/databack-vanilla.
 set -euo pipefail

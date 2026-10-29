@@ -52,6 +52,7 @@ public final class VanillaReference {
         if (sections.isEmpty() || sections.contains("biome")) BiomeReference.write(out, lookup);
         if (sections.isEmpty() || sections.contains("surface")) SurfaceReference.write(out, lookup);
         if (sections.isEmpty() || sections.contains("aquifer")) AquiferReference.write(out, lookup);
+        if (sections.isEmpty() || sections.contains("ore_vein")) OreVeinReference.write(out, lookup);
         if (!sections.isEmpty() && !sections.contains("density")) return;
 
         long[] seeds = { 12345L, -987654321L };
@@ -211,20 +212,40 @@ public final class VanillaReference {
     static void writeChunk(Path file, NoiseGeneratorSettings settings, RandomState state, int chunkX, int chunkZ)
         throws IOException {
         NoiseSettings ns = settings.noiseSettings();
+        int minY = ns.minY();
+        double[] values = new double[ns.height() * 256];
+        walkChunk(settings, state, chunkX, chunkZ,
+            chunk -> (x, y, z) -> values[((y - minY) * 16 + z) * 16 + x] = chunk.getInterpolatedDensity());
+
+        try (DataOutputStream dos = new DataOutputStream(new GZIPOutputStream(new FileOutputStream(file.toFile())))) {
+            dos.writeInt(minY);
+            dos.writeInt(ns.height());
+            for (double v : values) dos.writeDouble(v);
+        }
+    }
+
+    /// Called at every block of a chunk walk with the chunk's local x and z and the block's y; the noise chunk is
+    /// positioned at that block.
+    interface BlockVisitor {
+        void visit(int x, int y, int z);
+    }
+
+    /// Walks a chunk's blocks in NoiseBasedChunkGenerator.doFill's order with interpolation running. `visitor` gets
+    /// the noise chunk before interpolation starts, so it can wrap the functions it will read.
+    static void walkChunk(NoiseGeneratorSettings settings, RandomState state, int chunkX, int chunkZ,
+        java.util.function.Function<NoiseChunk, BlockVisitor> visitor) {
+        NoiseSettings ns = settings.noiseSettings();
         int cellWidth = ns.getCellWidth();
         int cellHeight = ns.getCellHeight();
         int cellCountXZ = 16 / cellWidth;
-        int minY = ns.minY();
-        int height = ns.height();
-        int cellMinY = Math.floorDiv(minY, cellHeight);
-        int cellCountY = Math.floorDiv(height, cellHeight);
+        int cellMinY = Math.floorDiv(ns.minY(), cellHeight);
+        int cellCountY = Math.floorDiv(ns.height(), cellHeight);
         int minX = chunkX * 16, minZ = chunkZ * 16;
 
         Aquifer.FluidPicker picker = (x, y, z) -> new Aquifer.FluidStatus(settings.seaLevel(), Blocks.WATER.defaultBlockState());
         NoiseChunk chunk = new NoiseChunk(cellCountXZ, state, minX, minZ, ns, DensityFunctions.BeardifierMarker.INSTANCE,
             settings, picker, Blender.empty());
-
-        double[] values = new double[height * 256];
+        BlockVisitor visit = visitor.apply(chunk);
 
         chunk.initializeForFirstCellX();
         for (int cellX = 0; cellX < cellCountXZ; cellX++) {
@@ -241,8 +262,7 @@ public final class VanillaReference {
                             for (int zInCell = 0; zInCell < cellWidth; zInCell++) {
                                 int posZ = minZ + cellZ * cellWidth + zInCell;
                                 chunk.updateForZ(posZ, (double) zInCell / cellWidth);
-                                int lx = posX - minX, lz = posZ - minZ;
-                                values[((posY - minY) * 16 + lz) * 16 + lx] = chunk.getInterpolatedDensity();
+                                visit.visit(posX - minX, posY, posZ - minZ);
                             }
                         }
                     }
@@ -251,11 +271,5 @@ public final class VanillaReference {
             chunk.swapSlices();
         }
         chunk.stopInterpolation();
-
-        try (DataOutputStream dos = new DataOutputStream(new GZIPOutputStream(new FileOutputStream(file.toFile())))) {
-            dos.writeInt(minY);
-            dos.writeInt(height);
-            for (double v : values) dos.writeDouble(v);
-        }
     }
 }

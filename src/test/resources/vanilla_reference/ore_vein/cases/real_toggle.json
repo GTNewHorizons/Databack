@@ -1,0 +1,31 @@
+{
+  "seed": 12345,
+  "fields": true,
+  "router": {
+    "final_density": 1,
+    "vein_toggle": {
+      "type": "minecraft:interpolated",
+      "argument": {
+        "type": "minecraft:range_choice",
+        "input": "minecraft:y",
+        "max_exclusive": 51.0,
+        "min_inclusive": -60.0,
+        "when_in_range": {
+          "type": "minecraft:noise",
+          "noise": "minecraft:ore_veininess",
+          "xz_scale": 1.5,
+          "y_scale": 1.5
+        },
+        "when_out_of_range": 0.0
+      }
+    },
+    "vein_ridged": -1,
+    "vein_gap": 1
+  },
+  "chunks": [
+    [
+      3,
+      3
+    ]
+  ]
+}

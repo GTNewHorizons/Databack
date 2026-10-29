@@ -68,6 +68,26 @@ final class AquiferReference {
         "temperature", "vegetation", "continents", "erosion", "depth", "ridges", "preliminary_surface_level",
         "final_density", "vein_toggle", "vein_ridged", "vein_gap" };
 
+    /// The settings of a case file: `template` with the case's `router` (noise router fields as in noise settings
+    /// JSON, missing ones 0) and the given aquifer and ore vein switches.
+    static NoiseGeneratorSettings caseSettings(String name, JsonObject json, HolderLookup.Provider lookup,
+        NoiseGeneratorSettings template, boolean aquifers, boolean oreVeins) {
+        RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, lookup);
+        JsonObject routerJson = json.getAsJsonObject("router");
+
+        DensityFunction[] fields = new DensityFunction[ROUTER_FIELDS.length];
+        for (int i = 0; i < fields.length; i++) {
+            JsonElement field = routerJson.has(ROUTER_FIELDS[i]) ? routerJson.get(ROUTER_FIELDS[i]) : new JsonPrimitive(0);
+            fields[i] = DensityFunction.DIRECT_CODEC.parse(ops, field)
+                .getOrThrow(e -> new IllegalArgumentException(name + ": " + e));
+        }
+        NoiseRouter router = new NoiseRouter(fields[0], fields[1], fields[2], fields[3], fields[4], fields[5],
+            fields[6], fields[7], fields[8], fields[9], fields[10], fields[11], fields[12], fields[13], fields[14]);
+        return new NoiseGeneratorSettings(template.noiseSettings(), template.defaultBlock(), template.defaultFluid(),
+            router, template.surfaceRule(), List.of(), template.seaLevel(), false, aquifers, oreVeins,
+            template.useLegacyRandomSource());
+    }
+
     private static void writeCases(Path out, SurfaceReference.Context ctx, HolderLookup.Provider lookup,
         NoiseGeneratorSettings template) throws Exception {
         Path dir = out.resolve("cases");
@@ -77,24 +97,11 @@ final class AquiferReference {
         try (Stream<Path> s = Files.list(dir)) {
             files = s.filter(p -> p.toString().endsWith(".json")).sorted().toList();
         }
-        RegistryOps<JsonElement> ops = RegistryOps.create(JsonOps.INSTANCE, lookup);
 
         for (Path file : files) {
             String name = file.getFileName().toString().replace(".json", "");
             JsonObject json = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-            JsonObject routerJson = json.getAsJsonObject("router");
-
-            DensityFunction[] fields = new DensityFunction[ROUTER_FIELDS.length];
-            for (int i = 0; i < fields.length; i++) {
-                JsonElement field = routerJson.has(ROUTER_FIELDS[i]) ? routerJson.get(ROUTER_FIELDS[i]) : new JsonPrimitive(0);
-                fields[i] = DensityFunction.DIRECT_CODEC.parse(ops, field)
-                    .getOrThrow(e -> new IllegalArgumentException(name + ": " + e));
-            }
-            NoiseRouter router = new NoiseRouter(fields[0], fields[1], fields[2], fields[3], fields[4], fields[5],
-                fields[6], fields[7], fields[8], fields[9], fields[10], fields[11], fields[12], fields[13], fields[14]);
-            NoiseGeneratorSettings settings = new NoiseGeneratorSettings(template.noiseSettings(),
-                template.defaultBlock(), template.defaultFluid(), router, template.surfaceRule(), List.of(),
-                template.seaLevel(), false, true, false, template.useLegacyRandomSource());
+            NoiseGeneratorSettings settings = caseSettings(name, json, lookup, template, true, false);
             long seed = json.get("seed").getAsLong();
 
             for (JsonElement chunk : json.getAsJsonArray("chunks")) {

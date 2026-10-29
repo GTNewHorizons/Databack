@@ -1,0 +1,19 @@
+{
+  "seed": 12345,
+  "router": {
+    "final_density": 1,
+    "vein_toggle": 0.3,
+    "vein_ridged": -1,
+    "vein_gap": 1
+  },
+  "chunks": [
+    [
+      0,
+      0
+    ],
+    [
+      1,
+      0
+    ]
+  ]
+}
