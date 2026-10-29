@@ -11,7 +11,13 @@ import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerAboutToStartEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 
-@Mod(modid = Databack.MODID, version = Tags.VERSION, name = "Databack", acceptedMinecraftVersions = "[1.7.10]")
+@Mod(
+    modid = Databack.MODID,
+    version = Tags.VERSION,
+    name = "Databack",
+    acceptedMinecraftVersions = "[1.7.10]",
+    // Block identities name EFR's blocks in preInit, which needs them registered first
+    dependencies = "after:etfuturum")
 public class Databack {
 
     public static final String MODID = "databack";

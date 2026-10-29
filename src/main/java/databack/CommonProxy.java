@@ -50,7 +50,10 @@ import databack.common.handlers.StructureList;
 import databack.common.handlers.StructureSetList;
 import databack.common.handlers.TemplatePoolList;
 import databack.common.handlers.WorldPresetList;
+import databack.common.interop.EFRBlockIdentities;
 import databack.common.interop.VanillaBlockIdentities;
+import databack.common.interop.registry.BlockIdentityRegistry;
+import databack.common.interop.registry.BlockIdentityValidator;
 import databack.common.loader.DatapackEvent.DatapackRegisterHandlersEvent;
 import databack.common.loader.VanillaDatapackDownloader;
 import databack.common.serde.DatapackSerialization;
@@ -101,7 +104,14 @@ public class CommonProxy {
 
         ModernWorldType.init();
 
-        VanillaBlockIdentities.initVanilla();
+        VanillaBlockIdentities.init();
+
+        if (Loader.isModLoaded("etfuturum")) {
+            EFRBlockIdentities.init();
+        }
+
+        BlockIdentityRegistry.INSTANCE.claimUnrenamedVanilla();
+
         ModernBiomeLifecycle.init(event.getModConfigurationDirectory());
 
         try {
@@ -123,6 +133,7 @@ public class CommonProxy {
 
     public void postInit(FMLPostInitializationEvent event) {
         ModernBiomeLifecycle.applyAliases();
+        BlockIdentityValidator.validate();
     }
 
     public void serverStarting(FMLServerStartingEvent event) {

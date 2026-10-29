@@ -11,6 +11,7 @@ import org.apache.logging.log4j.*;
 import org.jetbrains.annotations.*;
 
 import databack.common.worldgen.aquifer.VanillaAquifer;
+import databack.common.worldgen.carver.VanillaCarvers;
 import databack.common.worldgen.biome.preset.VanillaPresetExtractor;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 
@@ -36,10 +37,20 @@ public class VanillaDatapackDownloader {
      * {@link VanillaPresetExtractor}, {@link BiomeZoom} and {@link VanillaAquifer}. Cached under
      * {@link #CLASSES_DIR_NAME}, outside {@code data/}.
      */
-    public static final List<String> VANILLA_CLASSES = Collections.unmodifiableList(Arrays.asList(
+    public static final List<String> VANILLA_CLASSES = Collections.unmodifiableList(concat(Arrays.asList(
         VanillaPresetExtractor.OVERWORLD_CLASS, VanillaPresetExtractor.NETHER_CLASS, BiomeZoom.MANAGER_CLASS,
-        BiomeZoom.LCG_CLASS, VanillaAquifer.CLASS));
+        BiomeZoom.LCG_CLASS, VanillaAquifer.CLASS), VanillaCarvers.CLASSES));
+
+    private static List<String> concat(List<String> a, List<String> b) {
+        List<String> all = new java.util.ArrayList<>(a);
+        all.addAll(b);
+        return all;
+    }
     private static final String CLASSES_DIR_NAME = "classes";
+    /// Every 26.1 block has a blockstate definition, so their names (from the JAR's index, no download needed) are the
+    /// block list.
+    private static final String BLOCKSTATES_PREFIX = "assets/minecraft/blockstates/";
+    private static final String BLOCK_LIST_NAME = "blocks.txt";
 
     // ZIP format signatures
     private static final int SIG_EOCD = 0x06054b50;
@@ -114,9 +125,16 @@ public class VanillaDatapackDownloader {
         return new File(datapackDir, CLASSES_DIR_NAME + "/" + entry);
     }
 
-    /** Caches made before {@link #VANILLA_CLASSES} existed lack the classes and are downloaded again. */
+    /// The ids of every 26.1 block (one per line), inside a datapack directory.
+    @NotNull
+    public static File getBlockListFile(@NotNull File datapackDir) {
+        return new File(datapackDir, BLOCK_LIST_NAME);
+    }
+
+    /** Caches made before {@link #VANILLA_CLASSES} or the block list existed lack them and are downloaded again. */
     private static boolean isComplete(File cacheDir) {
         if (!new File(cacheDir, ".complete").exists()) return false;
+        if (!getBlockListFile(cacheDir).isFile()) return false;
 
         for (String entry : VANILLA_CLASSES) {
             if (!getClassFile(cacheDir, entry).isFile()) return false;
@@ -182,7 +200,8 @@ public class VanillaDatapackDownloader {
         LOGGER.info("Fetching ZIP central directory ({} KB)...", cdSize / 1024);
         byte[] cd = fetchRange(jarUrl, cdOffset, cdOffset + cdSize - 1);
 
-        List<CdEntry> entries = parseCdEntries(cd);
+        List<String> blockIds = new ArrayList<>();
+        List<CdEntry> entries = parseCdEntries(cd, blockIds);
         LOGGER.info("Found {} entries to extract (data/ + pack.mcmeta + classes)", entries.size());
 
         if (entries.isEmpty()) {
@@ -191,6 +210,8 @@ public class VanillaDatapackDownloader {
 
         entries.sort(Comparator.comparingLong(e -> e.localOffset));
         downloadAndExtract(jarUrl, fileSize, entries, outDir);
+
+        writeBlockList(getBlockListFile(outDir), blockIds);
 
         // Synthesize pack.mcmeta if not present in the JAR
         File meta = new File(outDir, "pack.mcmeta");
@@ -300,7 +321,8 @@ public class VanillaDatapackDownloader {
     // Central Directory parsing
     // -------------------------------------------------------------------------
 
-    private static List<CdEntry> parseCdEntries(byte[] cd) {
+    /// @param blockIds receives the id of every block with a blockstate definition
+    private static List<CdEntry> parseCdEntries(byte[] cd, List<String> blockIds) {
         List<CdEntry> result = new ArrayList<>();
         int p = 0;
 
@@ -344,6 +366,10 @@ public class VanillaDatapackDownloader {
                 && (name.startsWith("data/") || name.equals("pack.mcmeta") || VANILLA_CLASSES.contains(name));
             if (wanted) {
                 result.add(new CdEntry(name, offset, cSize, uSize, method));
+            }
+
+            if (name.startsWith(BLOCKSTATES_PREFIX) && name.endsWith(".json")) {
+                blockIds.add("minecraft:" + name.substring(BLOCKSTATES_PREFIX.length(), name.length() - ".json".length()));
             }
 
             p += 46 + fnLen + exLen + cmLen;
@@ -458,6 +484,17 @@ public class VanillaDatapackDownloader {
     // -------------------------------------------------------------------------
     // Misc
     // -------------------------------------------------------------------------
+
+    private static void writeBlockList(File f, List<String> blockIds) throws IOException {
+        if (blockIds.isEmpty()) throw new IOException("No blockstate entries found in client JAR");
+
+        List<String> sorted = new ArrayList<>(blockIds);
+        Collections.sort(sorted);
+
+        try (Writer w = new OutputStreamWriter(new FileOutputStream(f), StandardCharsets.UTF_8)) {
+            for (String id : sorted) w.write(id + "\n");
+        }
+    }
 
     private static void synthesizePackMeta(File f) throws IOException {
         String json = "{\"pack\":{\"description\":\"Vanilla Minecraft "

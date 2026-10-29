@@ -1,5 +1,7 @@
 package databack.common.util;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
 
@@ -8,6 +10,7 @@ import net.minecraft.util.ResourceLocation;
 import org.apache.commons.lang3.mutable.MutableBoolean;
 
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
+import databack.common.interop.PropertyTranslator;
 import databack.common.interop.modern_block.BlockIdentity;
 import databack.common.interop.registry.BlockIdentityRegistry;
 import databack.common.interop.registry.ProxyBlockRegistry;
@@ -64,12 +67,21 @@ public interface BlockStatePredicate extends Predicate<BlockState> {
 
             if (spec.properties().isEmpty()) return true;
 
+            // The spec uses modern names and values; the state has GTNHLib's
+            Map<String, String> expectedProperties = new HashMap<>();
+
+            for (var e : spec.properties().entrySet()) {
+                String[] translated = PropertyTranslator.translate(state.getBlock(), e.getKey(), e.getValue());
+
+                if (translated != null) expectedProperties.put(translated[0], translated[1]);
+            }
+
             MutableBoolean valid = new MutableBoolean(true);
 
             state.forEachValue((name, propertyState, property, value) -> {
                 if (!valid.booleanValue()) return;
 
-                String expected = spec.properties().get(name);
+                String expected = expectedProperties.get(name);
 
                 if (expected == null) return;
 

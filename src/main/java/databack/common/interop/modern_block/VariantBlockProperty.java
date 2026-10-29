@@ -49,12 +49,17 @@ public class VariantBlockProperty<Variant extends Enum<Variant> & BlockVariant> 
 
     @Override
     public Variant getValue(int meta) {
-        return universe[backing.getValuePrimitive(meta)];
+        return universe[Math.floorMod(backing.getValuePrimitive(meta), universe.length)];
     }
 
     @Override
     public boolean hasTrait(BlockPropertyTrait trait) {
         return backing.hasTrait(trait);
+    }
+
+    @Override
+    public boolean needsExisting() {
+        return backing.needsExisting();
     }
 
     @Override
@@ -70,7 +75,7 @@ public class VariantBlockProperty<Variant extends Enum<Variant> & BlockVariant> 
     @Override
     public Variant parse(String text) throws InvalidPropertyTextException {
         try {
-            return Enum.valueOf(enumType, text.toUpperCase());
+            return Enum.valueOf(enumType, text);
         } catch (IllegalArgumentException e) {
             throw new InvalidPropertyTextException("Invalid enum variant '" + text + "'", e);
         }

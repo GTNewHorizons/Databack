@@ -2,8 +2,15 @@ package databack.common.interop;
 
 import static com.gtnewhorizon.gtnhlib.blockstate.registry.BlockPropertyRegistry.registerProperty;
 
+import java.util.Arrays;
+import java.util.function.IntBinaryOperator;
+import java.util.function.IntUnaryOperator;
+
 import net.minecraft.init.Blocks;
 
+import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty;
+import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty.IntegerMetaBlockProperty;
+import databack.common.interop.modern_block.FunctionalMetaProperty;
 import databack.common.interop.modern_block.BlockVariant;
 import databack.common.interop.modern_block.VariantBlockProperty;
 import databack.common.interop.registry.BlockIdentityRegistry;
@@ -54,9 +61,9 @@ public class VanillaBlockIdentities {
         sunflower,
         lilac, // aka syringa
         tall_grass,
-        fern,
-        rose,
-        paeonia;
+        large_fern,
+        rose_bush,
+        peony;
     }
 
     public enum DirtVariant implements BlockVariant {
@@ -65,7 +72,7 @@ public class VanillaBlockIdentities {
         podzol;
     }
 
-    public static void initVanilla() {
+    public static void init() {
         var blocks = BlockIdentityRegistry.INSTANCE;
         var items = ItemIdentityRegistry.INSTANCE;
 
@@ -142,5 +149,158 @@ public class VanillaBlockIdentities {
         items.rename(Blocks.web, "minecraft:cobweb");
         items.rename(Blocks.deadbush, "minecraft:dead_bush");
         items.rename(Blocks.waterlily, "minecraft:lily_pad");
+
+        initBlocks(blocks);
+    }
+
+    public static final String[] COLORS = {
+        "white", "orange", "magenta", "light_blue", "yellow", "lime", "pink", "gray",
+        "light_gray", "cyan", "purple", "blue", "brown", "green", "red", "black",
+    };
+
+    /// A variant index stored in the bits selected by `mask`.
+    public static IntegerMetaBlockProperty bits(int mask) {
+        return (IntegerMetaBlockProperty) IntegerBlockProperty.meta("variant", mask, Integer.numberOfTrailingZeros(mask));
+    }
+
+    /// A variant index for metas that don't fit a single bit range.
+    public static IntegerMetaBlockProperty lookup(IntUnaryOperator decode, IntBinaryOperator encode) {
+        return new FunctionalMetaProperty("variant", decode, encode);
+    }
+
+    /// `prefix + color + suffix` for each of the 16 dye colours, in meta order.
+    public static String[] colored(String prefix, String suffix) {
+        String[] ids = new String[COLORS.length];
+
+        for (int i = 0; i < COLORS.length; i++) {
+            ids[i] = prefix + COLORS[i] + suffix;
+        }
+
+        return ids;
+    }
+
+    /// Torches: metas 1-4 are attached to a wall, 5 (and 0) stand on the floor.
+    public static IntegerMetaBlockProperty torchPlacement() {
+        return lookup(
+            meta -> meta >= 1 && meta <= 4 ? 1 : 0,
+            (value, existing) -> value == 0 ? 5 : (existing >= 1 && existing <= 4 ? existing : 1));
+    }
+
+    private static void initBlocks(BlockIdentityRegistry blocks) {
+        // Some 1.7 names are also modern names for a different block, so the renames below must claim them
+        blocks.rename(Blocks.snow, "minecraft:snow_block");
+        blocks.rename(Blocks.snow_layer, "minecraft:snow");
+        blocks.rename(Blocks.stone_stairs, "minecraft:cobblestone_stairs");
+
+        blocks.rename(Blocks.noteblock, "minecraft:note_block");
+        blocks.rename(Blocks.bed, "minecraft:red_bed");
+        blocks.rename(Blocks.golden_rail, "minecraft:powered_rail");
+        blocks.rename(Blocks.piston_extension, "minecraft:moving_piston");
+        blocks.rename(Blocks.brick_block, "minecraft:bricks");
+        blocks.rename(Blocks.mob_spawner, "minecraft:spawner");
+        blocks.rename(Blocks.standing_sign, "minecraft:oak_sign");
+        blocks.rename(Blocks.wall_sign, "minecraft:oak_wall_sign");
+        blocks.rename(Blocks.wooden_door, "minecraft:oak_door");
+        blocks.rename(Blocks.wooden_pressure_plate, "minecraft:oak_pressure_plate");
+        blocks.rename(Blocks.wooden_button, "minecraft:oak_button");
+        blocks.rename(Blocks.fence, "minecraft:oak_fence");
+        blocks.rename(Blocks.fence_gate, "minecraft:oak_fence_gate");
+        blocks.rename(Blocks.trapdoor, "minecraft:oak_trapdoor");
+        blocks.rename(Blocks.portal, "minecraft:nether_portal");
+        blocks.rename(Blocks.nether_brick, "minecraft:nether_bricks");
+        blocks.rename(Blocks.quartz_ore, "minecraft:nether_quartz_ore");
+        blocks.rename(Blocks.hardened_clay, "minecraft:terracotta");
+        blocks.rename(Blocks.unpowered_repeater, "minecraft:repeater");
+        blocks.rename(Blocks.unpowered_comparator, "minecraft:comparator");
+
+        // States of another block in modern
+        blocks.alias(Blocks.flowing_water, "minecraft:water");
+        blocks.alias(Blocks.flowing_lava, "minecraft:lava");
+        blocks.alias(Blocks.lit_furnace, "minecraft:furnace");
+        blocks.alias(Blocks.lit_redstone_ore, "minecraft:redstone_ore");
+        blocks.alias(Blocks.lit_redstone_lamp, "minecraft:redstone_lamp");
+        blocks.alias(Blocks.powered_repeater, "minecraft:repeater");
+        blocks.alias(Blocks.powered_comparator, "minecraft:comparator");
+
+        blocks.setVariants(Blocks.torch, torchPlacement(), "minecraft:torch", "minecraft:wall_torch");
+        blocks.setVariants(Blocks.redstone_torch, torchPlacement(), "minecraft:redstone_torch", "minecraft:redstone_wall_torch");
+        blocks.aliasVariants(Blocks.unlit_redstone_torch, torchPlacement(), "minecraft:redstone_torch", "minecraft:redstone_wall_torch");
+
+        blocks.stateForm(Blocks.lit_furnace, "lit", "true");
+        blocks.stateForm(Blocks.lit_redstone_ore, "lit", "true");
+        blocks.stateForm(Blocks.lit_redstone_lamp, "lit", "true");
+        blocks.stateForm(Blocks.powered_repeater, "powered", "true");
+        blocks.stateForm(Blocks.powered_comparator, "powered", "true");
+        blocks.stateForm(Blocks.unlit_redstone_torch, "lit", "false");
+
+        blocks.setVariants(Blocks.sand, bits(0b1), "minecraft:sand", "minecraft:red_sand");
+        blocks.setVariants(Blocks.sandstone, bits(0b11), "minecraft:sandstone", "minecraft:chiseled_sandstone", "minecraft:cut_sandstone");
+        blocks.setVariants(Blocks.stonebrick, bits(0b11),
+            "minecraft:stone_bricks", "minecraft:mossy_stone_bricks", "minecraft:cracked_stone_bricks", "minecraft:chiseled_stone_bricks");
+        blocks.setVariants(Blocks.monster_egg, bits(0b111),
+            "minecraft:infested_stone", "minecraft:infested_cobblestone", "minecraft:infested_stone_bricks",
+            "minecraft:infested_mossy_stone_bricks", "minecraft:infested_cracked_stone_bricks", "minecraft:infested_chiseled_stone_bricks");
+        blocks.setVariants(Blocks.cobblestone_wall, bits(0b1), "minecraft:cobblestone_wall", "minecraft:mossy_cobblestone_wall");
+        blocks.setVariants(Blocks.anvil, bits(0b1100), "minecraft:anvil", "minecraft:chipped_anvil", "minecraft:damaged_anvil");
+
+        // 0 = plain, 1 = chiseled, 2-4 = pillar (axis)
+        blocks.setVariants(Blocks.quartz_block, lookup(
+                meta -> Math.min(meta, 2),
+                (value, existing) -> value < 2 ? value : (existing >= 2 && existing <= 4 ? existing : 2)),
+            "minecraft:quartz_block", "minecraft:chiseled_quartz_block", "minecraft:quartz_pillar");
+
+        blocks.setVariants(Blocks.wool, bits(0b1111), colored("minecraft:", "_wool"));
+        blocks.setVariants(Blocks.carpet, bits(0b1111), colored("minecraft:", "_carpet"));
+        blocks.setVariants(Blocks.stained_glass, bits(0b1111), colored("minecraft:", "_stained_glass"));
+        blocks.setVariants(Blocks.stained_glass_pane, bits(0b1111), colored("minecraft:", "_stained_glass_pane"));
+        blocks.setVariants(Blocks.stained_hardened_clay, bits(0b1111), colored("minecraft:", "_terracotta"));
+
+        // Metas 10 and 15 are the stem; the rest are cap faces
+        IntegerMetaBlockProperty mushroomStem = lookup(
+            meta -> meta == 10 || meta == 15 ? 1 : 0,
+            (value, existing) -> value == 1 ? 15 : (existing == 10 || existing == 15 ? 14 : existing));
+        blocks.setVariants(Blocks.brown_mushroom_block, mushroomStem, "minecraft:brown_mushroom_block", "minecraft:mushroom_stem");
+        blocks.setVariants(Blocks.red_mushroom_block, mushroomStem, "minecraft:red_mushroom_block", "minecraft:mushroom_stem");
+
+        // Meta is the water level
+        blocks.setVariants(Blocks.cauldron, lookup(
+                meta -> meta == 0 ? 0 : 1,
+                (value, existing) -> value == 0 ? 0 : (existing == 0 ? 1 : existing)),
+            "minecraft:cauldron", "minecraft:water_cauldron");
+
+        // The skull type lives in the tile entity; meta 1 is the floor, 2-5 are walls, bit 3 is no-drop
+        blocks.setVariants(Blocks.skull, lookup(
+                meta -> (meta & 7) <= 1 ? 0 : 1,
+                (value, existing) -> value == 0 ? (existing & 8) | 1 : ((existing & 7) >= 2 ? existing : (existing & 8) | 2)),
+            "minecraft:skeleton_skull", "minecraft:skeleton_wall_skull");
+
+        // Slabs — bits 2:0 = variant, bit 3 = top half
+        String[] stoneSlabs = {
+            "minecraft:smooth_stone_slab", "minecraft:sandstone_slab", "minecraft:petrified_oak_slab", "minecraft:cobblestone_slab",
+            "minecraft:brick_slab", "minecraft:stone_brick_slab", "minecraft:nether_brick_slab", "minecraft:quartz_slab",
+        };
+        String[] woodSlabs = {
+            "minecraft:oak_slab", "minecraft:spruce_slab", "minecraft:birch_slab",
+            "minecraft:jungle_slab", "minecraft:acacia_slab", "minecraft:dark_oak_slab",
+        };
+
+        // Double stone slab metas 8, 9 and 15 are the 'seamless' full blocks. Registered before the single slab so the
+        // single slab ends up owning the slab ids.
+        String[] doubleStoneSlabs = Arrays.copyOf(stoneSlabs, 11);
+        doubleStoneSlabs[8] = "minecraft:smooth_stone";
+        doubleStoneSlabs[9] = "minecraft:smooth_sandstone";
+        doubleStoneSlabs[10] = "minecraft:smooth_quartz";
+        blocks.setVariants(Blocks.double_stone_slab, lookup(
+                meta -> meta == 8 || meta == 9 ? meta : meta == 15 ? 10 : meta & 7,
+                (value, existing) -> value < 10 ? value : 15),
+            doubleStoneSlabs);
+        blocks.setVariants(Blocks.stone_slab, bits(0b111), stoneSlabs);
+
+        blocks.setVariants(Blocks.wooden_slab, bits(0b111), woodSlabs);
+        blocks.aliasVariants(Blocks.double_wooden_slab, bits(0b111), woodSlabs);
+
+        // After the single slabs claimed the slab ids, so only those become double forms (not smooth_stone etc)
+        blocks.stateForm(Blocks.double_stone_slab, "type", "double");
+        blocks.stateForm(Blocks.double_wooden_slab, "type", "double");
     }
 }

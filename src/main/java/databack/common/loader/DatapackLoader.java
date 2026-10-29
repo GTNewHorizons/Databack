@@ -54,7 +54,7 @@ import databack.common.handlers.DatapackHandlerRegistry;
  */
 public final class DatapackLoader {
 
-    public static final Logger LOGGER = LogManager.getLogger("gtnhlib-datapack");
+    public static final Logger LOGGER = LogManager.getLogger("datapack|loader");
 
     /**
      * The format version this loader targets. Used exclusively for overlay resolution.
