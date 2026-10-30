@@ -1,7 +1,9 @@
 package databack.common.worldgen.feature.world;
 
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraftforge.common.util.ForgeDirection;
+import net.minecraftforge.fluids.IFluidBlock;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -12,6 +14,7 @@ import databack.common.interop.heightmap.HeightmapType;
 import databack.common.worldgen.feature.standin.FtBlock;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.standin.FtBlockState;
+import databack.common.worldgen.feature.standin.FtFluid;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.standin.FtLevel;
 import databack.common.worldgen.rng.RandomSource;
@@ -124,6 +127,28 @@ public final class PopulationLevel implements FtLevel {
         Block legacy = legacyBlock(block.defaultBlockState());
         if (legacy == null || !ensureCanWrite(pos)) return;
         world.scheduleUpdate(pos.getX(), pos.getY(), pos.getZ(), legacy, delay);
+    }
+
+    /// 1.7's still water and lava never flow on their own, so the still block becomes its flowing form first, as
+    /// 1.7's own springs place it. Forge fluids tick as they are; anything else isn't a fluid, and isn't ticked.
+    @Override
+    public void scheduleTick(@NotNull VnBlockPos pos, @NotNull FtFluid fluid, int delay) {
+        if (!ensureCanWrite(pos)) return;
+
+        int x = pos.getX(), y = pos.getY(), z = pos.getZ();
+        Block block = world.getBlock(x, y, z);
+        Block flowing = flowingForm(block);
+        if (flowing == null) return;
+
+        if (flowing != block) world.setBlock(x, y, z, flowing, world.getMeta(x, y, z));
+        world.scheduleUpdate(x, y, z, flowing, delay);
+    }
+
+    @Nullable
+    private static Block flowingForm(Block block) {
+        if (block == Blocks.water || block == Blocks.flowing_water) return Blocks.flowing_water;
+        if (block == Blocks.lava || block == Blocks.flowing_lava) return Blocks.flowing_lava;
+        return block instanceof IFluidBlock ? block : null;
     }
 
     /// Blocks without a 1.7 counterpart survive nowhere.

@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import databack.common.dto.BlockStateDTO;
+import databack.common.dto.worldgen.FluidState;
 import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 import databack.common.dto.worldgen.height_provider.IHeightProvider;
 import databack.common.dto.worldgen.int_provider.IIntProvider;
@@ -24,6 +25,8 @@ import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 import databack.common.worldgen.feature.standin.FtBlock;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.standin.FtBlockState;
+import databack.common.worldgen.feature.standin.FtFluidState;
+import databack.common.worldgen.feature.standin.FtFluids;
 import databack.common.worldgen.feature.standin.FtHeightProvider;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.standin.FtHolderSet;
@@ -188,6 +191,16 @@ public final class FeatureBuildContext {
     @NotNull
     public FtTag tag(@NotNull String id) {
         return new FtTag(id.indexOf(':') < 0 ? "minecraft:" + id : id);
+    }
+
+    /// A datapack's fluid state, or null when it isn't water's or lava's source: no vanilla configuration names a
+    /// flowing one, and their levels aren't kept ([FtFluidState#createLegacyBlock]).
+    @Nullable
+    public FtFluidState fluidState(@NotNull FluidState state) {
+        String id = state.Name.indexOf(':') < 0 ? "minecraft:" + state.Name : state.Name;
+        if (id.equals(FtFluids.WATER.id)) return FtFluidState.WATER;
+        if (id.equals(FtFluids.LAVA.id)) return FtFluidState.LAVA;
+        return unsupported("Fluid state " + id);
     }
 
     /// The fluids of a fluid list, or null when it names a tag other than water's or lava's. Water's and lava's tags

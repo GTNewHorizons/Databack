@@ -19,6 +19,8 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.junit.jupiter.api.Test;
 
 import databack.common.worldgen.feature.standin.FtBiome;
+import databack.common.worldgen.feature.standin.FtBlockState;
+import databack.common.worldgen.feature.standin.FtFluidState;
 import databack.common.worldgen.feature.standin.FtInfoNoise;
 import databack.common.worldgen.feature.standin.FtIntProvider;
 import databack.common.worldgen.feature.standin.FtWeightedList;
@@ -210,6 +212,20 @@ class FeatureProbeTest {
             RandomSource r = randoms.computeIfAbsent(row[0] + " " + row[1] + " " + row[2],
                 k -> new StandardRandom(Long.parseLong(row[2])));
             assertEquals(i(row[4]), FtIntProvider.of(i(row[0]), i(row[1])).sample(r), String.join(" ", row));
+        }
+    }
+
+    /// Sources only: flowing fluid states aren't built ([FeatureBuildContext#fluidState]).
+    @Test
+    void sourceFluidStatesMatch() throws IOException {
+        for (String[] row : rows("fluid_state.tsv")) {
+            if (!row[4].equals("true")) continue;
+            FtFluidState state = row[0].equals("water") ? FtFluidState.WATER : FtFluidState.LAVA;
+            FtBlockState block = state.createLegacyBlock();
+            String at = String.join(" ", row);
+
+            assertEquals(row[2], "Block{" + block.getBlock().id + "}[level=" + block.properties().get("level") + "]", at);
+            assertEquals(row[3], state.getType().id, at);
         }
     }
 

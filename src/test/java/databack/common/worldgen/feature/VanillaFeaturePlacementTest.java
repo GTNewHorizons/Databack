@@ -1,6 +1,7 @@
 package databack.common.worldgen.feature;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
@@ -126,6 +127,30 @@ class VanillaFeaturePlacementTest {
             new VnBlockPos(16, 40, 16)));
         assertTrue(world.count(Blocks.diamond_ore) > 0);
         assertEquals(0, world.count(Blocks.stone));
+    }
+
+    /// Water set into a stone wall with one open side, made flowing so 1.7 lets it run.
+    @Test
+    void springsFlowOutOfWalls() throws ReflectiveOperationException {
+        assumeTrue(VanillaWorldgen.available(), "No extracted vanilla datapack");
+        FeatureBuildContext ctx = new FeatureBuildContext(features,
+            id -> VanillaWorldgen.definition("configured_feature", id, IConfiguredFeature.class),
+            id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
+        Object spring = ((FtHolder) ctx.configuredFeature("minecraft:spring_water")).value();
+        Method place = spring.getClass().getMethod("place", databack.common.worldgen.feature.standin.FtLevel.class,
+            FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+
+        FakeLegacyWorld world = new FakeLegacyWorld(Blocks.stone, 200, Blocks.air);
+        world.setBlock(9, 40, 8, Blocks.air, 0);
+        PopulationLevel level = level(world);
+
+        assertTrue((boolean) place.invoke(spring, level, GENERATOR, new StandardRandom(0), new VnBlockPos(8, 40, 8)));
+        assertSame(Blocks.flowing_water, world.getBlock(8, 40, 8));
+        assertEquals(0, world.getMeta(8, 40, 8));
+        assertEquals(Collections.singletonList("8 40 8 minecraft:flowing_water 0"), world.scheduled);
+
+        assertFalse((boolean) place.invoke(spring, level, GENERATOR, new StandardRandom(0), new VnBlockPos(8, 30, 8)),
+            "no open side");
     }
 
     /// A stump, and usually a log lying beside it (1.7 log metas 4 and 8 lie along x and z).

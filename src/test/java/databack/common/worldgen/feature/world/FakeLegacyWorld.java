@@ -1,6 +1,8 @@
 package databack.common.worldgen.feature.world;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import net.minecraft.block.Block;
@@ -25,6 +27,8 @@ public final class FakeLegacyWorld implements LegacyWorld {
     @NotNull
     private final ImmutableBlockMeta above;
     private final int surface;
+    /// The updates asked for, as `x y z block delay`.
+    public final List<String> scheduled = new ArrayList<>();
     /// The side last asked about.
     ForgeDirection lastSide;
 
@@ -104,5 +108,7 @@ public final class FakeLegacyWorld implements LegacyWorld {
     }
 
     @Override
-    public void scheduleUpdate(int x, int y, int z, @NotNull Block block, int delay) {}
+    public void scheduleUpdate(int x, int y, int z, @NotNull Block block, int delay) {
+        scheduled.add(x + " " + y + " " + z + " " + Block.blockRegistry.getNameForObject(block) + " " + delay);
+    }
 }

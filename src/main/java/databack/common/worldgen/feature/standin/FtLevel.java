@@ -82,6 +82,9 @@ public interface FtLevel {
     /// Asks for `block` at `pos` to be updated `delay` ticks from now.
     void scheduleTick(@NotNull VnBlockPos pos, @NotNull FtBlock block, int delay);
 
+    /// Asks for the fluid at `pos` (`fluid`) to flow `delay` ticks from now.
+    void scheduleTick(@NotNull VnBlockPos pos, @NotNull FtFluid fluid, int delay);
+
     /// Whether `state` can stay at `pos`, as placed blocks are checked.
     boolean canSurvive(@NotNull FtBlockState state, @NotNull VnBlockPos pos);
 

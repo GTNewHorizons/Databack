@@ -23,6 +23,7 @@ import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 import databack.common.worldgen.density.VanillaWorldgen;
 import databack.common.worldgen.feature.standin.FtBlock;
+import databack.common.worldgen.feature.standin.FtFluidState;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.vanilla.VanillaJar;
 
@@ -153,6 +154,49 @@ class FeatureConstructionTest {
         Object config = field(feature, "config");
         assertEquals("minecraft:ore_diamond", ((FtHolder) field(config, "featureTrue")).id);
         assertEquals("minecraft:ore_iron_upper", ((FtHolder) field(config, "featureFalse")).id);
+    }
+
+    private static Object spring(String config) {
+        Object feature = VanillaWorldgen.parse(new JsonParser().parse("{\"type\":\"minecraft:spring_feature\","
+            + "\"config\":{\"state\":{\"Name\":\"minecraft:water\"},\"valid_blocks\":\"minecraft:stone\"" + config
+            + "}}"), IConfiguredFeature.class).instantiate(context());
+        assertNotNull(feature);
+        return feature;
+    }
+
+    @Test
+    void springArgumentsLandInTheirFields() throws ReflectiveOperationException {
+        Object config = field(spring(",\"rock_count\":5,\"hole_count\":2,\"requires_block_below\":false"), "config");
+        assertEquals(5, field(config, "rockCount"));
+        assertEquals(2, field(config, "holeCount"));
+        assertEquals(false, field(config, "requiresBlockBelow"));
+        assertSame(FtFluidState.WATER, field(config, "state"));
+    }
+
+    /// `feature/probes/spring_defaults.tsv`.
+    @Test
+    void springDefaultsMatch() throws ReflectiveOperationException {
+        Object config = field(spring(""), "config");
+        assertEquals(true, field(config, "requiresBlockBelow"));
+        assertEquals(4, field(config, "rockCount"));
+        assertEquals(1, field(config, "holeCount"));
+    }
+
+    @Test
+    void flowingSpringsAreSkipped() {
+        IConfiguredFeature feature = VanillaWorldgen.parse(new JsonParser().parse("{\"type\":\"minecraft:spring_feature\","
+            + "\"config\":{\"state\":{\"Name\":\"minecraft:flowing_water\"},\"valid_blocks\":\"minecraft:stone\"}}"),
+            IConfiguredFeature.class);
+        assertNull(feature.instantiate(context()));
+    }
+
+    @Test
+    void vanillasSpringsBuild() {
+        FeatureBuildContext ctx = context();
+        for (String id : Arrays.asList("minecraft:spring_water", "minecraft:spring_lava", "minecraft:spring_lava_frozen",
+            "minecraft:spring_open", "minecraft:spring_closed", "minecraft:spring_delta")) {
+            assertNotNull(ctx.placedFeature(id), id);
+        }
     }
 
     @Test

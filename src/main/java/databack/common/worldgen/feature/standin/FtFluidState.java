@@ -1,5 +1,7 @@
 package databack.common.worldgen.feature.standin;
 
+import java.util.Collections;
+
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -52,6 +54,24 @@ public final class FtFluidState {
 
     public boolean isEmpty() {
         return fluid == null;
+    }
+
+    /// The fluid as fluid sets list it: flowing fluids are their own.
+    @NotNull
+    public FtFluid getType() {
+        if (fluid == null) return FtFluids.EMPTY;
+        if (fluid.equals(FtFluids.WATER.id)) return source ? FtFluids.WATER : FtFluids.FLOWING_WATER;
+        if (fluid.equals(FtFluids.LAVA.id)) return source ? FtFluids.LAVA : FtFluids.FLOWING_LAVA;
+        return FtFluids.EMPTY;
+    }
+
+    /// The fluid's own block: sources are level 0 whatever else they say (`feature/probes/fluid_state.tsv`), and
+    /// empty fluids are air. Flowing states don't keep their level, so they are unsupported.
+    @NotNull
+    public FtBlockState createLegacyBlock() {
+        if (fluid == null) return FtBlock.of("minecraft:air").defaultBlockState();
+        if (!source) throw new UnsupportedOperationException("The block of a flowing fluid");
+        return FtBlockState.of(FtBlock.of(fluid), Collections.singletonMap("level", "0"));
     }
 
     @Override

@@ -21,6 +21,7 @@ import databack.common.worldgen.feature.standin.FtBlock;
 import databack.common.worldgen.feature.standin.FtBlockState;
 import databack.common.worldgen.feature.standin.FtChunkGenerator;
 import databack.common.worldgen.feature.standin.FtDoublePlantBlock;
+import databack.common.worldgen.feature.standin.FtFluid;
 import databack.common.worldgen.feature.standin.FtFluidState;
 import databack.common.worldgen.feature.standin.FtFluidTags;
 import databack.common.worldgen.feature.standin.FtFluids;
@@ -233,6 +234,9 @@ class FeatureStandInTest {
 
         @Override
         public void scheduleTick(@NotNull VnBlockPos pos, @NotNull FtBlock block, int delay) {}
+
+        @Override
+        public void scheduleTick(@NotNull VnBlockPos pos, @NotNull FtFluid fluid, int delay) {}
 
         @Override
         public boolean canSurvive(@NotNull FtBlockState state, @NotNull VnBlockPos pos) {

@@ -713,13 +713,29 @@ public class BuiltinConfiguredFeatures {
     // spring_feature
     private static class SpringFeature implements IConfiguredFeature {
         public SpringConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "SPRING", config.instantiate(ctx));
+        }
     }
     private static class SpringConfig {
         public FluidState state;
-        public int rock_count;
-        public int hole_count;
-        public boolean requires_block_below;
+        public int rock_count = 4;
+        public int hole_count = 1;
+        public boolean requires_block_below = true;
         public BlockWhitelist valid_blocks;
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            Object fluid = ctx.fluidState(state);
+            if (fluid == null) return null;
+
+            // Argument order checked by FeatureConstructionTest
+            return ctx.vanilla.construct(CONFIGS + "SpringConfiguration", fluid, requires_block_below, rock_count,
+                hole_count, ctx.blocks(valid_blocks.entries));
+        }
     }
 
     // twisting_vines (since 1.18)

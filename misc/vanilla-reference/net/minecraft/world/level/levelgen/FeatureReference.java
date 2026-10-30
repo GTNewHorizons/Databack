@@ -43,6 +43,9 @@ import net.minecraft.util.valueproviders.TrapezoidInt;
  * - `climate_noise_match.tsv`: `noise seed octaves`: the legacy-random seeds (searched in -200000..200000) and octave
  *   lists for which a `PerlinSimplexNoise` gives the same values as each private noise.
  * - `frozen_modifier.tsv`: `x z temperature`: `frozen_ocean`'s (private) `getTemperature` at y 63, sea level 63.
+ * - `fluid_state.tsv`: `fluid properties legacyBlock type isSource amount`: a fluid state decoded as a datapack
+ *   writes it, then `createLegacyBlock`, `getType` and the rest.
+ * - `spring_defaults.tsv`: `field value`: a spring configuration decoded with only its fluid and valid blocks.
  * - `simplex_octaves.tsv`: `seed octaves x z value`: `getValue(x, z, false)` of a `PerlinSimplexNoise` built from a
  *   legacy random of seed `seed` with the octaves listed.
  * - `info_noise.tsv`: `source offsets x z value`: `getValue(x, z, offsets)` of `Biome.BIOME_INFO_NOISE` (source
@@ -54,7 +57,10 @@ final class FeatureReference {
 
     private FeatureReference() {}
 
+    private static HolderLookup.Provider LOOKUP;
+
     static void write(Path root, HolderLookup.Provider lookup) throws Exception {
+        LOOKUP = lookup;
         Path dir = root.resolve("feature/probes");
         Files.createDirectories(dir);
 
@@ -70,6 +76,8 @@ final class FeatureReference {
         writeClimateNoiseMatch(dir);
         writeFrozenModifier(dir, lookup);
         writeSimplexOctaves(dir);
+        writeFluidStates(dir);
+        writeSpringDefaults(dir);
         System.out.println("feature probes");
     }
 
@@ -328,6 +336,43 @@ final class FeatureReference {
                 int z = i < 2000 ? rng.nextInt(60000) - 30000 : (i - 2000) / 64 + 40;
                 w.println(x + "\t" + z + "\t" + getTemperature.invoke(biome, new BlockPos(x, 63, z), 63));
             }
+        }
+    }
+
+    private static void writeFluidStates(Path dir) throws Exception {
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("fluid_state.tsv")))) {
+            w.println("fluid\tproperties\tlegacyBlock\ttype\tisSource\tamount");
+            for (String fluid : new String[] { "water", "lava", "flowing_water", "flowing_lava" }) {
+                for (String properties : new String[] { "{}", "{\"falling\":\"true\"}", "{\"falling\":\"false\"}",
+                    "{\"level\":\"3\"}", "{\"level\":\"5\",\"falling\":\"true\"}" }) {
+                    var json = com.google.gson.JsonParser.parseString(
+                        "{\"Name\":\"minecraft:" + fluid + "\",\"Properties\":" + properties + "}");
+                    var result = net.minecraft.world.level.material.FluidState.CODEC.parse(
+                        com.mojang.serialization.JsonOps.INSTANCE, json);
+                    if (result.result().isEmpty()) {
+                        w.println(fluid + "\t" + properties + "\tinvalid\t-\t-\t-");
+                        continue;
+                    }
+                    var state = result.result().get();
+                    w.println(fluid + "\t" + properties + "\t" + state.createLegacyBlock() + "\t"
+                        + net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(state.getType()) + "\t"
+                        + state.isSource() + "\t" + state.getAmount());
+                }
+            }
+        }
+    }
+
+    private static void writeSpringDefaults(Path dir) throws Exception {
+        var json = com.google.gson.JsonParser.parseString(
+            "{\"state\":{\"Name\":\"minecraft:water\"},\"valid_blocks\":\"minecraft:stone\"}");
+        var config = net.minecraft.world.level.levelgen.feature.configurations.SpringConfiguration.CODEC.parse(
+            net.minecraft.resources.RegistryOps.create(com.mojang.serialization.JsonOps.INSTANCE, LOOKUP), json)
+            .getOrThrow();
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("spring_defaults.tsv")))) {
+            w.println("field\tvalue");
+            w.println("requires_block_below\t" + config.requiresBlockBelow);
+            w.println("rock_count\t" + config.rockCount);
+            w.println("hole_count\t" + config.holeCount);
         }
     }
 

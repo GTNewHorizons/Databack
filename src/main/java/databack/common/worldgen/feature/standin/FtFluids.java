@@ -9,6 +9,8 @@ public final class FtFluids {
     public static final FtFluid EMPTY = new FtFluid("minecraft:empty");
     public static final FtFluid WATER = new FtFluid("minecraft:water");
     public static final FtFluid LAVA = new FtFluid("minecraft:lava");
+    public static final FtFluid FLOWING_WATER = new FtFluid("minecraft:flowing_water");
+    public static final FtFluid FLOWING_LAVA = new FtFluid("minecraft:flowing_lava");
 
     private FtFluids() {}
 }
