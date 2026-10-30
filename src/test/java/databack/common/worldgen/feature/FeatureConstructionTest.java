@@ -63,7 +63,7 @@ class FeatureConstructionTest {
             "minecraft:disk_sand", "minecraft:disk_clay", "minecraft:disk_gravel", "minecraft:patch_grass_plain",
             "minecraft:flower_default", "minecraft:ore_dirt", "minecraft:ore_debris_small",
             "minecraft:ore_ancient_debris_large", "minecraft:patch_cactus", "minecraft:patch_sugar_cane",
-            "minecraft:mushroom_island_vegetation", "minecraft:dark_forest_vegetation")) {
+            "minecraft:mushroom_island_vegetation", "minecraft:dark_forest_vegetation", "minecraft:vines")) {
             assertEquals(true, built.contains(id), id + " should build; built: " + built);
         }
     }

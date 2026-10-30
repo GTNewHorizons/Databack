@@ -62,6 +62,7 @@ public final class VanillaFeatures {
         add(entries, "feature/", "LakeFeature", "LakeFeature$Configuration");
         add(entries, "feature/", "AbstractHugeMushroomFeature", "HugeRedMushroomFeature", "HugeBrownMushroomFeature",
             "configurations/HugeMushroomFeatureConfiguration");
+        add(entries, "feature/", "VinesFeature");
         add(entries, "feature/", "BlockColumnFeature", "configurations/BlockColumnConfiguration",
             "configurations/BlockColumnConfiguration$Layer");
         add(entries, "feature/", "TreeFeature", "TreeFeature$1", "configurations/TreeConfiguration",

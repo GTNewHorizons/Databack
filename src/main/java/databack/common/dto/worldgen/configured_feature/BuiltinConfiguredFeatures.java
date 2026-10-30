@@ -256,7 +256,13 @@ public class BuiltinConfiguredFeatures {
     private static class MonsterRoomFeature implements IConfiguredFeature {}
 
     // vines
-    private static class VinesFeature implements IConfiguredFeature {}
+    private static class VinesFeature implements IConfiguredFeature {
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "VINES", ctx.vanilla.construct(CONFIGS + "NoneFeatureConfiguration"));
+        }
+    }
 
     // void_start_platform
     private static class VoidStartPlatformFeature implements IConfiguredFeature {}

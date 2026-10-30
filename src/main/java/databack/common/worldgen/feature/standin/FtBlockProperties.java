@@ -5,8 +5,12 @@ import java.util.OptionalInt;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
+import databack.common.worldgen.vanilla.standin.VnBlockPos;
+import databack.common.worldgen.vanilla.standin.VnDirection;
+
 /// Stand-in for the block state property constants vanilla's feature classes name, on whichever block class names
-/// them (pillars, leaves, vines, cocoa, beehives...). Vanilla's constant names are the property names in capitals.
+/// them (pillars, leaves, vines, cocoa, beehives...), and for the vine helpers. Vanilla's constant names are the
+/// property names in capitals.
 @ApiStatus.Internal
 public final class FtBlockProperties {
 
@@ -30,5 +34,21 @@ public final class FtBlockProperties {
     public static OptionalInt getOptionalDistanceAt(@NotNull FtBlockState state) {
         Object distance = state.getValueOrElse(DISTANCE, null);
         return distance instanceof Integer ? OptionalInt.of((Integer) distance) : OptionalInt.empty();
+    }
+
+    /// A vine's side property facing `face`. Vines have no side facing down.
+    @NotNull
+    public static FtProperty getPropertyForFace(@NotNull VnDirection face) {
+        for (FtProperty side : new FtProperty[] { UP, NORTH, EAST, SOUTH, WEST }) {
+            if (side.getName().equals(face.getSerializedName())) return side;
+        }
+        throw new IllegalArgumentException("Vines have no " + face.getSerializedName() + " side");
+    }
+
+    /// Whether a vine can hang on the block at `pos`, which lies towards `face` from the vine: the block's side facing
+    /// the vine must be sturdy.
+    public static boolean isAcceptableNeighbour(@NotNull FtLevel level, @NotNull VnBlockPos pos,
+        @NotNull VnDirection face) {
+        return level.getBlockState(pos).isFaceSturdy(level, pos, face.getOpposite());
     }
 }

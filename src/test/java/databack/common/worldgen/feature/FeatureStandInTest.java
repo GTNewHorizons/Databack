@@ -148,8 +148,9 @@ class FeatureStandInTest {
         assertNull(access.getSection(new VnBlockPos(0, 320, 0)));
     }
 
+    /// The dimension's range, though the 1.7 level holds only part of it: anchors count from the dimension's bottom.
     @Test
-    void generationContextIsWhatBothHave() {
+    void generationContextIsTheGenerators() {
         FtChunkGenerator generator = new FtChunkGenerator() {
 
             @Override
@@ -172,8 +173,8 @@ class FeatureStandInTest {
         };
 
         FtGenerationContext context = new FtGenerationContext(generator, new FakeLevel(0, 256));
-        assertEquals(0, context.getMinGenY());
-        assertEquals(256, context.getGenDepth());
+        assertEquals(-64, context.getMinGenY());
+        assertEquals(384, context.getGenDepth());
     }
 
     /// Air everywhere it was not set.

@@ -10,6 +10,7 @@ import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 
 import com.gtnewhorizon.gtnhlib.blockstate.properties.BooleanBlockProperty;
+import com.gtnewhorizon.gtnhlib.blockstate.properties.DirectionBlockProperty;
 import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty;
 import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty.IntegerMetaBlockProperty;
 import databack.common.interop.modern_block.FunctionalMetaProperty;
@@ -282,6 +283,10 @@ public class VanillaBlockIdentities {
         registerProperty(Blocks.vine, BooleanBlockProperty.flag("west", 2));
         registerProperty(Blocks.vine, BooleanBlockProperty.flag("north", 4));
         registerProperty(Blocks.vine, BooleanBlockProperty.flag("east", 8));
+
+        // Bits 1:0 are the side the pod's log is on, which modern's facing points at; bits 3:2 are the age
+        registerProperty(Blocks.cocoa, DirectionBlockProperty.facing(0b11, 2, 0, 1, 3, -1, -1));
+        registerProperty(Blocks.cocoa, IntegerBlockProperty.meta("age", 0b1100, 2));
 
         // Meta is the water level
         blocks.setVariants(Blocks.cauldron, lookup(

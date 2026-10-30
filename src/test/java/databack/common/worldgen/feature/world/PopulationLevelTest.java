@@ -76,6 +76,18 @@ class PopulationLevelTest {
         assertEquals(1, cap.getBlockMeta());
     }
 
+    /// A cocoa pod's low bits are the side its log is on (0 south, 1 west, 2 north, 3 east), its high bits its age.
+    @Test
+    void cocoaKeepsItsFacing() {
+        ImmutableBlockMeta pod = states.toLegacy(FtBlockState.of(FtBlock.of("minecraft:cocoa"),
+            map("facing", "east", "age", "2")));
+        assertSame(Blocks.cocoa, pod.getBlock());
+        assertEquals(3 | 2 << 2, pod.getBlockMeta());
+        assertEquals(2, states.toLegacy(FtBlockState.of(FtBlock.of("minecraft:cocoa"), map("facing", "north")))
+            .getBlockMeta());
+        assertEquals("west", states.toModern(Blocks.cocoa, 1).properties().get("facing"));
+    }
+
     /// 1.7's fluid meta is modern's level.
     @Test
     void fluidLevelsAreMeta() {

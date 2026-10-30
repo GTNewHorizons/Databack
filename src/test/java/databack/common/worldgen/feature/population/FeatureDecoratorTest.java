@@ -1,6 +1,7 @@
 package databack.common.worldgen.feature.population;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -97,6 +98,26 @@ class FeatureDecoratorTest {
         for (Block ore : new Block[] { Blocks.coal_ore, Blocks.iron_ore, Blocks.dirt, Blocks.gravel }) {
             assertTrue(world.count(ore) > 0, ore.getUnlocalizedName() + " placed");
         }
+    }
+
+    /// Diamonds count from the dimension's bottom (y = -64), not the 1.7 world's: their veins center at y <= 16, so
+    /// none reach y = 33.
+    @Test
+    void diamondsStayDeep() {
+        int diamonds = 0;
+        for (int chunk = 0; chunk < 16; chunk++) {
+            int chunkX = chunk % 4, chunkZ = chunk / 4;
+            FakeLegacyWorld world = decorate(chunkX, chunkZ);
+            for (int x = (chunkX - 1) * 16; x < (chunkX + 2) * 16; x++) {
+                for (int z = (chunkZ - 1) * 16; z < (chunkZ + 2) * 16; z++) {
+                    for (int y = 33; y < 256; y++) {
+                        assertNotSame(Blocks.diamond_ore, world.getBlock(x, y, z), "diamond at y = " + y);
+                    }
+                }
+            }
+            diamonds += world.count(Blocks.diamond_ore);
+        }
+        assertTrue(diamonds > 0, "diamonds placed");
     }
 
     /// Et Futurum's stones stand in for granite, diorite and andesite.

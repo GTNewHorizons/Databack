@@ -28,7 +28,7 @@ class VanillaFeaturesTest {
     void runFeatureTypesAreBuilt() {
         for (String name : new String[] { "ORE", "DISK", "SIMPLE_BLOCK", "RANDOM_SELECTOR", "SIMPLE_RANDOM_SELECTOR",
             "RANDOM_BOOLEAN_SELECTOR", "NO_OP", "TREE", "SCATTERED_ORE", "FALLEN_TREE", "FREEZE_TOP_LAYER", "SPRING",
-            "LAKE" }) {
+            "LAKE", "BLOCK_COLUMN", "HUGE_RED_MUSHROOM", "HUGE_BROWN_MUSHROOM", "VINES" }) {
             assertNotNull(features.featureType(name), name);
         }
     }

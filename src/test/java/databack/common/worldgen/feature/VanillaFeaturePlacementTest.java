@@ -3,6 +3,7 @@ package databack.common.worldgen.feature;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
@@ -212,6 +213,31 @@ class VanillaFeaturePlacementTest {
             }
         }
         assertTrue(caps > 0, "cap placed");
+    }
+
+    /// A vine hangs on the side of the one block next to it, as 1.7's side bit (east is 8), and nowhere without one.
+    @Test
+    void vinesHangOnSturdySides() throws ReflectiveOperationException {
+        assumeTrue(VanillaWorldgen.available(), "No extracted vanilla datapack");
+        FeatureBuildContext ctx = new FeatureBuildContext(features,
+            id -> VanillaWorldgen.definition("configured_feature", id, IConfiguredFeature.class),
+            id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
+        Object vines = ((FtHolder) ctx.configuredFeature("minecraft:vines")).value();
+        Method place = vines.getClass().getMethod("place", databack.common.worldgen.feature.standin.FtLevel.class,
+            FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+
+        FakeLegacyWorld world = new FakeLegacyWorld(Blocks.air, 0, Blocks.air);
+        world.setBlock(17, 70, 16, Blocks.stone, 0);
+        assertTrue((boolean) place.invoke(vines, level(world), GENERATOR, new StandardRandom(0),
+            new VnBlockPos(16, 70, 16)));
+        assertSame(Blocks.vine, world.getBlock(16, 70, 16));
+        assertEquals(8, world.getMeta(16, 70, 16));
+
+        assertFalse((boolean) place.invoke(vines, level(world), GENERATOR, new StandardRandom(0),
+            new VnBlockPos(40, 70, 40)));
+        assertThrows(IllegalArgumentException.class,
+            () -> databack.common.worldgen.feature.standin.FtBlockProperties.getPropertyForFace(
+                databack.common.worldgen.vanilla.standin.VnDirection.DOWN));
     }
 
     /// A lava lake sunk into flat stone.
