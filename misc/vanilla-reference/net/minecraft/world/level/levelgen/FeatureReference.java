@@ -46,6 +46,8 @@ import net.minecraft.util.valueproviders.TrapezoidInt;
  * - `fluid_state.tsv`: `fluid properties legacyBlock type isSource amount`: a fluid state decoded as a datapack
  *   writes it, then `createLegacyBlock`, `getType` and the rest.
  * - `spring_defaults.tsv`: `field value`: a spring configuration decoded with only its fluid and valid blocks.
+ * - `gaussian.tsv`: `source seed ops draw op value`: a legacy or xoroshiro random of seed `seed` drawing the ops listed
+ *   (`g` nextGaussian, `i` nextInt, `d` nextDouble, `s` setSeed(seed + 1)), one row per draw.
  * - `simplex_octaves.tsv`: `seed octaves x z value`: `getValue(x, z, false)` of a `PerlinSimplexNoise` built from a
  *   legacy random of seed `seed` with the octaves listed.
  * - `info_noise.tsv`: `source offsets x z value`: `getValue(x, z, offsets)` of `Biome.BIOME_INFO_NOISE` (source
@@ -78,6 +80,7 @@ final class FeatureReference {
         writeSimplexOctaves(dir);
         writeFluidStates(dir);
         writeSpringDefaults(dir);
+        writeGaussians(dir);
         System.out.println("feature probes");
     }
 
@@ -373,6 +376,32 @@ final class FeatureReference {
             w.println("requires_block_below\t" + config.requiresBlockBelow);
             w.println("rock_count\t" + config.rockCount);
             w.println("hole_count\t" + config.holeCount);
+        }
+    }
+
+    private static void writeGaussians(Path dir) throws Exception {
+        String[] sequences = { "gggggggggggggggggggg", "gigigigi", "gdgdgd", "ggigg", "gsgg", "igggg" };
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("gaussian.tsv")))) {
+            w.println("source\tseed\tops\tdraw\top\tvalue");
+            for (String source : new String[] { "legacy", "xoroshiro" }) {
+                for (long seed : SEEDS) {
+                    for (String ops : sequences) {
+                        RandomSource random = source.equals("legacy") ? new LegacyRandomSource(seed)
+                            : new XoroshiroRandomSource(seed);
+                        for (int n = 0; n < ops.length(); n++) {
+                            char op = ops.charAt(n);
+                            String value;
+                            switch (op) {
+                                case 'g': value = Double.toString(random.nextGaussian()); break;
+                                case 'i': value = Integer.toString(random.nextInt()); break;
+                                case 'd': value = Double.toString(random.nextDouble()); break;
+                                default: random.setSeed(seed + 1); value = "-";
+                            }
+                            w.println(source + "\t" + seed + "\t" + ops + "\t" + n + "\t" + op + "\t" + value);
+                        }
+                    }
+                }
+            }
         }
     }
 

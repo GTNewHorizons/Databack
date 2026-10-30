@@ -6,6 +6,7 @@ import databack.common.worldgen.rng.RNGUtils.Seed128bit;
 public final class XoroshiroRandom implements RandomSource {
 
     private long x0, x1;
+    private final GaussianPair gaussians = new GaussianPair();
 
     public XoroshiroRandom(long x0, long x1) {
         this.x0 = x0;
@@ -50,6 +51,7 @@ public final class XoroshiroRandom implements RandomSource {
     public void setSeed(Seed128bit seed) {
         this.x0 = seed.seedLo();
         this.x1 = seed.seedHi();
+        gaussians.reset();
     }
 
     @Override
@@ -99,7 +101,7 @@ public final class XoroshiroRandom implements RandomSource {
 
     @Override
     public double nextGaussian() {
-        throw new UnsupportedOperationException();
+        return gaussians.next(this);
     }
 
     @Override

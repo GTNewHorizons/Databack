@@ -10,6 +10,7 @@ public class StandardRandom implements BitRandomSource {
     private static final long INCREMENT = 11L;
 
     private long seed;
+    private final GaussianPair gaussians = new GaussianPair();
 
     public StandardRandom(long seed) {
         setSeed(seed);
@@ -34,10 +35,11 @@ public class StandardRandom implements BitRandomSource {
     @Override
     public void setSeed(long seed) {
         this.seed = (seed ^ MULTIPLIER) & MODULUS_MASK;
+        gaussians.reset();
     }
 
     @Override
     public double nextGaussian() {
-        throw new UnsupportedOperationException();
+        return gaussians.next(this);
     }
 }

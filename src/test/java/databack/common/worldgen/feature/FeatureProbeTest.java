@@ -215,6 +215,31 @@ class FeatureProbeTest {
         }
     }
 
+    /// Gaussian draws, alone and between other draws and reseeds, on both randoms.
+    @Test
+    void gaussiansMatch() throws IOException {
+        RandomSource random = null;
+        for (String[] row : rows("gaussian.tsv")) {
+            long seed = Long.parseLong(row[1]);
+            if (row[3].equals("0")) random = row[0].equals("legacy") ? new StandardRandom(seed) : new XoroshiroRandom(seed);
+            String at = String.join(" ", row);
+
+            switch (row[4]) {
+                case "g":
+                    assertEquals(Double.parseDouble(row[5]), random.nextGaussian(), at);
+                    break;
+                case "i":
+                    assertEquals(Integer.parseInt(row[5]), random.nextInt(), at);
+                    break;
+                case "d":
+                    assertEquals(Double.parseDouble(row[5]), random.nextDouble(), at);
+                    break;
+                default:
+                    random.setSeed(seed + 1);
+            }
+        }
+    }
+
     /// Sources only: flowing fluid states aren't built ([FeatureBuildContext#fluidState]).
     @Test
     void sourceFluidStatesMatch() throws IOException {
