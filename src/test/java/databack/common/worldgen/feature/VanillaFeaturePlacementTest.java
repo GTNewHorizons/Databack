@@ -33,6 +33,7 @@ import databack.common.worldgen.feature.world.FeatureBiomes;
 import databack.common.worldgen.feature.world.LegacyBlockFacts;
 import databack.common.worldgen.feature.world.LegacyStates;
 import databack.common.worldgen.feature.world.PopulationLevel;
+import databack.common.worldgen.feature.world.VanillaTagFacts;
 import databack.common.worldgen.rng.RandomSource;
 import databack.common.worldgen.rng.StandardRandom;
 import databack.common.worldgen.vanilla.VanillaJar;
@@ -72,7 +73,8 @@ class VanillaFeaturePlacementTest {
                 throw new UncheckedIOException(e);
             }
         });
-        FtBlockFacts.install(new LegacyBlockFacts(states));
+        // Tags come from the vanilla pack; tests load no datapack registries
+        FtBlockFacts.install(VanillaWorldgen.available() ? new VanillaTagFacts(states) : new LegacyBlockFacts(states));
     }
 
     private static FtBlockState state(String id) {
@@ -151,6 +153,35 @@ class VanillaFeaturePlacementTest {
 
         assertFalse((boolean) place.invoke(spring, level, GENERATOR, new StandardRandom(0), new VnBlockPos(8, 30, 8)),
             "no open side");
+    }
+
+    /// Sugar cane and cactus columns of the configured heights; cactus flowers have no 1.7 block and are skipped.
+    @Test
+    void blockColumnsGrowToTheirHeight() throws ReflectiveOperationException {
+        assumeTrue(VanillaWorldgen.available(), "No extracted vanilla datapack");
+        FeatureBuildContext ctx = new FeatureBuildContext(features,
+            id -> VanillaWorldgen.definition("configured_feature", id, IConfiguredFeature.class),
+            id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
+
+        assertColumn(ctx, "minecraft:sugar_cane", Blocks.reeds, 2, 4);
+        assertColumn(ctx, "minecraft:cactus", Blocks.cactus, 1, 3);
+    }
+
+    private static void assertColumn(FeatureBuildContext ctx, String id, net.minecraft.block.Block block, int min,
+        int max) throws ReflectiveOperationException {
+        Object column = ((FtHolder) ctx.configuredFeature(id)).value();
+        Method place = column.getClass().getMethod("place", databack.common.worldgen.feature.standin.FtLevel.class,
+            FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+
+        for (int seed = 0; seed < 8; seed++) {
+            FakeLegacyWorld world = new FakeLegacyWorld(Blocks.grass, 64, Blocks.air);
+            assertTrue((boolean) place.invoke(column, level(world), GENERATOR, new StandardRandom(seed),
+                new VnBlockPos(16, 64, 16)), id + " seed " + seed);
+
+            int height = world.count(block);
+            assertTrue(height >= min && height <= max, id + " height " + height + " seed " + seed);
+            for (int y = 64; y < 64 + height; y++) assertSame(block, world.getBlock(16, y, 16), id + " at " + y);
+        }
     }
 
     /// A lava lake sunk into flat stone.

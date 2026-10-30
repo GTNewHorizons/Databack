@@ -61,7 +61,7 @@ class FeatureConstructionTest {
         for (String id : Arrays.asList("minecraft:ore_iron_upper", "minecraft:ore_diamond", "minecraft:ore_gravel",
             "minecraft:disk_sand", "minecraft:disk_clay", "minecraft:disk_gravel", "minecraft:patch_grass_plain",
             "minecraft:flower_default", "minecraft:ore_dirt", "minecraft:ore_debris_small",
-            "minecraft:ore_ancient_debris_large")) {
+            "minecraft:ore_ancient_debris_large", "minecraft:patch_cactus", "minecraft:patch_sugar_cane")) {
             assertEquals(true, built.contains(id), id + " should build; built: " + built);
         }
     }

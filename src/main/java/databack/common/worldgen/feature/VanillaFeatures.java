@@ -60,6 +60,8 @@ public final class VanillaFeatures {
         add(entries, "feature/", "FallenTreeFeature", "configurations/FallenTreeConfiguration");
         add(entries, "feature/", "SnowAndFreezeFeature", "SpringFeature", "configurations/SpringConfiguration");
         add(entries, "feature/", "LakeFeature", "LakeFeature$Configuration");
+        add(entries, "feature/", "BlockColumnFeature", "configurations/BlockColumnConfiguration",
+            "configurations/BlockColumnConfiguration$Layer");
         add(entries, "feature/", "TreeFeature", "TreeFeature$1", "configurations/TreeConfiguration",
             "configurations/TreeConfiguration$TreeConfigurationBuilder");
         add(entries, "feature/trunkplacers/", "TrunkPlacer", "StraightTrunkPlacer", "FancyTrunkPlacer",

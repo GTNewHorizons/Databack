@@ -35,6 +35,7 @@ import databack.common.serde.TaggedUnionLoader;
 import databack.common.worldgen.feature.FeatureBuildContext;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.standin.FtHolderSet;
+import databack.common.worldgen.vanilla.standin.VnDirection;
 
 @SuppressWarnings("unused")
 public class BuiltinConfiguredFeatures {
@@ -173,13 +174,39 @@ public class BuiltinConfiguredFeatures {
     // block_column (since 1.18)
     private static class BlockColumnFeature implements IConfiguredFeature {
         public BlockColumnConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "BLOCK_COLUMN", config.instantiate(ctx));
+        }
     }
     private static class BlockColumnConfig {
         public String direction;
         public IBlockPredicate allowed_placement;
         public boolean prioritize_tip;
-        /** Each layer has height (IntProvider) and provider (BlockStateProvider). */
-        public JsonElement layers;
+        public List<BlockColumnLayer> layers = new ArrayList<>();
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            VnDirection side = ctx.direction(direction);
+            Object allowed = allowed_placement.instantiate(ctx);
+            if (side == null) return ctx.unsupported("Direction " + direction);
+            if (allowed == null) return null;
+
+            List<Object> built = new ArrayList<>(layers.size());
+            for (BlockColumnLayer layer : layers) {
+                Object provider = layer.provider.instantiate(ctx);
+                if (provider == null) return null;
+                built.add(ctx.vanilla.construct(CONFIGS + "BlockColumnConfiguration$Layer", ctx.intProvider(layer.height),
+                    provider));
+            }
+            return ctx.vanilla.construct(CONFIGS + "BlockColumnConfiguration", built, side, allowed, prioritize_tip);
+        }
+    }
+    private static class BlockColumnLayer {
+        public IIntProvider height;
+        public IBlockStateProvider provider;
     }
 
     // block_pile

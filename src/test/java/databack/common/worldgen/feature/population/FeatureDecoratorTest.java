@@ -38,7 +38,7 @@ import databack.common.worldgen.vanilla.VanillaJar;
 class FeatureDecoratorTest {
 
     private static VanillaFeatures vanilla;
-    private static BiomeFeatures plains, forest, snowyPlains, frozenRiver;
+    private static BiomeFeatures plains, forest, snowyPlains, frozenRiver, desert;
     private static final LegacyStates states = new LegacyStates();
 
     @BeforeAll
@@ -63,6 +63,8 @@ class FeatureDecoratorTest {
         snowyPlains = new BiomeFeatures(ctx, Collections.singleton("minecraft:snowy_plains"),
             id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
         frozenRiver = new BiomeFeatures(ctx, Collections.singleton("minecraft:frozen_river"),
+            id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
+        desert = new BiomeFeatures(ctx, Collections.singleton("minecraft:desert"),
             id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
     }
 
@@ -142,6 +144,18 @@ class FeatureDecoratorTest {
         FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.water, 64, Blocks.air), frozenRiver,
             "minecraft:frozen_river", 0, 0);
         assertTrue(world.count(Blocks.ice) >= 200, "most columns frozen");
+    }
+
+    /// Desert cactus patches are rare (one chunk in 13), so over 32 chunks some appear.
+    @Test
+    void desertsGetCactus() {
+        int cactus = 0;
+        for (int chunk = 0; chunk < 32; chunk++) {
+            FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.sand, 64, Blocks.air), desert,
+                "minecraft:desert", chunk % 8, chunk / 8);
+            cactus += world.count(Blocks.cactus);
+        }
+        assertTrue(cactus > 0, "cactus placed");
     }
 
     @Test
