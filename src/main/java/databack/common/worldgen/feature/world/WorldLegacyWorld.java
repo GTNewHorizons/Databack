@@ -3,6 +3,8 @@ package databack.common.worldgen.feature.world;
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.NotNull;
@@ -12,9 +14,6 @@ import databack.common.interop.heightmap.WorldHeightmapExt;
 
 /// [LegacyWorld] over a 1.7 world, whose layers are `minY..minY + height`.
 public final class WorldLegacyWorld implements LegacyWorld {
-
-    /// 1.7's update flag for "send to clients", without neighbour updates.
-    private static final int SEND_TO_CLIENTS = 2;
 
     @NotNull
     private final World world;
@@ -47,9 +46,23 @@ public final class WorldLegacyWorld implements LegacyWorld {
         return world.blockExists(x, y, z) ? world.getBlockMetadata(x, y, z) : 0;
     }
 
+    /// Writes into the chunk, as 1.7's own `setBlock` does first, then does only what the write needs. Light is
+    /// updated only when the light or opacity changes (ore replacing stone changes neither), and players watching the
+    /// chunk are sent the change. Other world listeners aren't told: the block is generated, not placed.
     @Override
     public void setBlock(int x, int y, int z, @NotNull Block block, int meta) {
-        world.setBlock(x, y, z, block, meta, SEND_TO_CLIENTS);
+        if (y < 0 || y >= world.getHeight()) return;
+
+        Chunk chunk = world.getChunkFromChunkCoords(x >> 4, z >> 4);
+        Block old = chunk.getBlock(x & 15, y, z & 15);
+        // Sets the block and meta; false when both are already there
+        if (!chunk.func_150807_a(x & 15, y, z & 15, block, meta)) return;
+
+        // Updates block and sky light around the block
+        if (old.getLightValue() != block.getLightValue() || old.getLightOpacity() != block.getLightOpacity()) {
+            world.func_147451_t(x, y, z);
+        }
+        if (world instanceof WorldServer server) server.getPlayerManager().markBlockForUpdate(x, y, z);
     }
 
     @Override

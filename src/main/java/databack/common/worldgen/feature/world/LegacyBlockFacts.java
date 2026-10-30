@@ -10,6 +10,7 @@ import net.minecraft.util.ResourceLocation;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 
@@ -31,17 +32,30 @@ public final class LegacyBlockFacts implements FtBlockFacts {
     @NotNull
     private final LegacyStates states;
     private final Set<String> warned = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    /// See [#isInTag].
+    @Nullable
+    private volatile TagAnswers answers;
 
     public LegacyBlockFacts(@NotNull LegacyStates states) {
         this.states = states;
     }
 
     /// Unknown tags and blocks are in no tag, nor is anything before the tags are loaded; unknown tags are logged
-    /// once.
+    /// once. Answers are kept until the tags are reloaded.
     @Override
     public boolean isInTag(@NotNull String blockId, @NotNull String tagId) {
         TagRegistry<BlockIdentity> tags = BuiltinTagRegistries.blocks();
-        ITag<BlockIdentity> tag = tags == null ? null : tags.getTag(new ResourceLocation(tagId));
+        if (tags == null) return false;
+
+        TagAnswers answers = this.answers;
+        if (answers == null || answers.tags != tags) this.answers = answers = new TagAnswers(tags);
+
+        return answers.byTag.computeIfAbsent(tagId, k -> new ConcurrentHashMap<>())
+            .computeIfAbsent(blockId, k -> lookUp(tags, blockId, tagId));
+    }
+
+    private boolean lookUp(TagRegistry<BlockIdentity> tags, String blockId, String tagId) {
+        ITag<BlockIdentity> tag = tags.getTag(new ResourceLocation(tagId));
         if (tag == null) {
             if (warned.add(tagId)) LOGGER.warn("Unknown block tag #{} in a feature; nothing is in it", tagId);
             return false;
@@ -49,6 +63,18 @@ public final class LegacyBlockFacts implements FtBlockFacts {
 
         BlockIdentity identity = BlockIdentityRegistry.INSTANCE.getObject(new ResourceLocation(blockId));
         return identity != null && tag.includes(identity);
+    }
+
+    /// Tag membership by tag, then block, for the tags it was read from: a reload makes new tags.
+    private static final class TagAnswers {
+
+        @NotNull
+        final TagRegistry<BlockIdentity> tags;
+        final ConcurrentHashMap<String, ConcurrentHashMap<String, Boolean>> byTag = new ConcurrentHashMap<>();
+
+        TagAnswers(@NotNull TagRegistry<BlockIdentity> tags) {
+            this.tags = tags;
+        }
     }
 
     @Override

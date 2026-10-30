@@ -49,6 +49,8 @@ public final class PopulationLevel implements FtLevel {
     private final FeatureBiomes biomeDefinitions;
     @NotNull
     private final RandomSource random;
+    @NotNull
+    private final HeightCache heights;
 
     public PopulationLevel(
         @NotNull LegacyWorld world, @NotNull LegacyStates states, @NotNull ColumnArea area,
@@ -60,6 +62,7 @@ public final class PopulationLevel implements FtLevel {
         this.biomes = biomes;
         this.biomeDefinitions = biomeDefinitions;
         this.random = random;
+        this.heights = new HeightCache(world, area);
     }
 
     @Override
@@ -101,12 +104,14 @@ public final class PopulationLevel implements FtLevel {
         }
 
         world.setBlock(x, y, z, block.getBlock(), block.getBlockMeta());
+        heights.written(x, y, z);
         return true;
     }
 
+    /// Kept per column until a write could move it: features ask for heights far more often than they change them.
     @Override
     public int getHeight(@NotNull HeightmapType heightmap, int x, int z) {
-        return world.surface(heightmap, x, z);
+        return heights.surface(heightmap, x, z);
     }
 
     @NotNull
@@ -140,7 +145,10 @@ public final class PopulationLevel implements FtLevel {
         Block flowing = flowingForm(block);
         if (flowing == null) return;
 
-        if (flowing != block) world.setBlock(x, y, z, flowing, world.getMeta(x, y, z));
+        if (flowing != block) {
+            world.setBlock(x, y, z, flowing, world.getMeta(x, y, z));
+            heights.written(x, y, z);
+        }
         world.scheduleUpdate(x, y, z, flowing, delay);
     }
 

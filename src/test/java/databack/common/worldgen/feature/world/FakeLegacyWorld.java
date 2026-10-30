@@ -29,6 +29,8 @@ public final class FakeLegacyWorld implements LegacyWorld {
     private final int surface;
     /// The updates asked for, as `x y z block delay`.
     public final List<String> scheduled = new ArrayList<>();
+    /// How often [#surface] was asked.
+    public int surfaceQueries;
     /// The side last asked about.
     ForgeDirection lastSide;
 
@@ -104,6 +106,7 @@ public final class FakeLegacyWorld implements LegacyWorld {
 
     @Override
     public int surface(@NotNull HeightmapType heightmap, int x, int z) {
+        surfaceQueries++;
         return surface;
     }
 
