@@ -1,7 +1,6 @@
 package databack.common.worldgen.feature;
 
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -187,27 +186,18 @@ public final class VanillaFeatures {
     }
 
     /// Places `feature` (a vanilla placed feature) at `origin` if the biome there has it, as vanilla decorates
-    /// chunks. Whether anything was placed. Rethrows what the feature throws.
+    /// chunks. Whether anything was placed. Rethrows what the feature throws; a linkage error (the feature reaching
+    /// something the bundle lacks) becomes an [IllegalStateException].
     public boolean placeWithBiomeCheck(
         @NotNull Object feature, @NotNull FtLevel level, @NotNull FtChunkGenerator generator,
         @NotNull RandomSource random, @NotNull VnBlockPos origin
     ) {
         try {
-            if (placeWithBiomeCheck == null) {
-                placeWithBiomeCheck = vanillaClass("placement/PlacedFeature").getMethod("placeWithBiomeCheck",
-                    FtLevel.class, FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
-            }
-            return (boolean) placeWithBiomeCheck.invoke(feature, level, generator, random, origin);
-        } catch (InvocationTargetException e) {
-            if (e.getCause() instanceof RuntimeException) throw (RuntimeException) e.getCause();
-            throw new IllegalStateException(e.getCause());
-        } catch (ReflectiveOperationException e) {
-            throw new IllegalStateException("Could not place a feature", e);
+            return ((VanillaPlacedFeature) feature).placeWithBiomeCheck(level, generator, random, origin);
+        } catch (LinkageError e) {
+            throw new IllegalStateException("A feature reached something unsupported", e);
         }
     }
-
-    /// See [#placeWithBiomeCheck]; looked up on first use.
-    private volatile Method placeWithBiomeCheck;
 
     /// The feature type constant `name` of vanilla's feature class (`ORE`), or null when it could not be built
     /// (its feature is not run).

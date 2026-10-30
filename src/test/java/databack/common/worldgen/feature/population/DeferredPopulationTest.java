@@ -20,7 +20,7 @@ import org.junit.jupiter.api.Test;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 
 /// [DeferredPopulation] driven the way 1.7 drives it: each newly loaded chunk completes the 2×2 windows it is the
-/// last of, and each window is populated once.
+/// last of, each window is populated once, and the world ticks between generated chunks.
 class DeferredPopulationTest {
 
     /// 1.7's side: the generated (here: always loaded) chunks and which windows were populated.
@@ -29,8 +29,17 @@ class DeferredPopulationTest {
         final Set<Long> generated = new HashSet<>();
         final Set<Long> populatedWindows = new HashSet<>();
         final Map<Long, Integer> decorated = new HashMap<>();
-        final DeferredPopulation population = new DeferredPopulation(new LongOpenHashSet(), () -> {});
+        final DeferredPopulation population;
+        int limit = Integer.MAX_VALUE;
         int depth, maxDepth;
+
+        Simulation() {
+            this(new LongOpenHashSet());
+        }
+
+        Simulation(LongOpenHashSet pending) {
+            population = new DeferredPopulation(pending, () -> {});
+        }
 
         boolean isGenerated(int x, int z) {
             return generated.contains(DeferredPopulation.key(x, z));
@@ -40,6 +49,11 @@ class DeferredPopulationTest {
             generated.add(DeferredPopulation.key(x, z));
             population.markGenerated(x, z);
             load(x, z);
+            tick();
+        }
+
+        int tick() {
+            return population.tick(limit, this::isGenerated, this::decorate);
         }
 
         void load(int x, int z) {
@@ -50,7 +64,7 @@ class DeferredPopulationTest {
                         || !isGenerated(wx + 1, wz + 1)) continue;
 
                     populatedWindows.add(DeferredPopulation.key(wx, wz));
-                    population.onWindowComplete(wx, wz, this::isGenerated, this::decorate);
+                    population.onWindowComplete(wx, wz, this::isGenerated);
                 }
             }
         }
@@ -63,7 +77,7 @@ class DeferredPopulationTest {
             }
             decorated.merge(DeferredPopulation.key(x, z), 1, Integer::sum);
             // Decorating loads neighbours, which completes windows again.
-            population.onWindowComplete(x, z, this::isGenerated, this::decorate);
+            population.onWindowComplete(x, z, this::isGenerated);
             depth--;
         }
     }
@@ -103,6 +117,43 @@ class DeferredPopulationTest {
         for (int x = 0; x < 3; x++) sim.generate(x, 2);
         assertEquals(Integer.valueOf(1), sim.decorated.get(DeferredPopulation.key(1, 1)));
         assertFalse(sim.population.isPending(1, 1));
+    }
+
+    /// One chunk a tick: everything is still decorated, once, just later.
+    @Test
+    void theLimitSpreadsDecorationOverTicks() {
+        Simulation sim = new Simulation();
+        sim.limit = 0;
+        for (int x = 0; x < 6; x++) {
+            for (int z = 0; z < 6; z++) sim.generate(x, z);
+        }
+        assertEquals(16, sim.population.queued());
+        assertTrue(sim.decorated.isEmpty());
+
+        sim.limit = 1;
+
+        while (sim.population.queued() > 0) assertTrue(sim.tick() <= 1);
+        for (int x = 1; x < 5; x++) {
+            for (int z = 1; z < 5; z++) {
+                assertEquals(Integer.valueOf(1), sim.decorated.get(DeferredPopulation.key(x, z)), x + ", " + z);
+            }
+        }
+    }
+
+    /// Chunks queued when the world was saved are found again on the first tick.
+    @Test
+    void chunksSavedReadyAreDecoratedAfterALoad() {
+        LongOpenHashSet pending = new LongOpenHashSet();
+        pending.add(DeferredPopulation.key(1, 1));
+        pending.add(DeferredPopulation.key(5, 5));
+        Simulation sim = new Simulation(pending);
+        for (int x = 0; x < 3; x++) {
+            for (int z = 0; z < 3; z++) sim.generated.add(DeferredPopulation.key(x, z));
+        }
+
+        assertEquals(1, sim.tick());
+        assertEquals(Integer.valueOf(1), sim.decorated.get(DeferredPopulation.key(1, 1)));
+        assertTrue(sim.population.isPending(5, 5));
     }
 
     @Test

@@ -24,6 +24,12 @@ public class DatabackConfig {
     @Config.DefaultBoolean(false)
     public static boolean disableModWorldGeneration;
 
+    @Config.Comment({ "The most chunks decorated with features per world per tick. Chunks are decorated once their",
+        "neighbours exist; past this limit they wait for later ticks, which spreads the work of fast exploration." })
+    @Config.DefaultInt(2)
+    @Config.RangeInt(min = 1, max = 64)
+    public static int decorationsPerTick;
+
     @Config.Comment("Enable block/item/biome/entity tag debug mode")
     @Config.DefaultBoolean(true)
     public static boolean enableTagDebugMode;

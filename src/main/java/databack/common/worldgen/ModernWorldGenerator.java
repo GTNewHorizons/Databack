@@ -384,10 +384,19 @@ public class ModernWorldGenerator implements IChunkProvider {
     }
 
     /// 1.7 calls this once chunks `chunkX..chunkX + 1` by `chunkZ..chunkZ + 1` are loaded; features need the 3×3
-    /// around their chunk instead, so decoration is deferred until it exists.
+    /// around their chunk instead, so decoration is deferred until it exists, then queued for [#tickDecoration].
     @Override
     public void populate(IChunkProvider provider, int chunkX, int chunkZ) {
-        population().onWindowComplete(chunkX, chunkZ, (x, z) -> !needsGeneration(x, z), decorator);
+        population().onWindowComplete(chunkX, chunkZ, this::isGenerated);
+    }
+
+    /// Decorates up to `limit` of the chunks queued by [#populate]. Server thread, once per world tick.
+    public void tickDecoration(int limit) {
+        population().tick(limit, this::isGenerated, decorator);
+    }
+
+    private boolean isGenerated(int chunkX, int chunkZ) {
+        return !needsGeneration(chunkX, chunkZ);
     }
 
     /// Created on first use: the world's per-dimension storage is set up after its generator.
