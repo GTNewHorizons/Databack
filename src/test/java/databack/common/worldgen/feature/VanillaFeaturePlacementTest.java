@@ -3,6 +3,7 @@ package databack.common.worldgen.feature;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -15,6 +16,9 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
+import databack.common.dto.worldgen.placed_feature.PlacedFeature;
+import databack.common.worldgen.density.VanillaWorldgen;
 import databack.common.worldgen.feature.standin.FtBiomeFeatures;
 import databack.common.worldgen.feature.standin.FtBlock;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
@@ -114,5 +118,32 @@ class VanillaFeaturePlacementTest {
             new VnBlockPos(16, 40, 16)));
         assertTrue(world.count(Blocks.diamond_ore) > 0);
         assertEquals(0, world.count(Blocks.stone));
+    }
+
+    /// A stump, and usually a log lying beside it (1.7 log metas 4 and 8 lie along x and z).
+    @Test
+    void fallenTreesLieDown() throws ReflectiveOperationException {
+        assumeTrue(VanillaWorldgen.available(), "No extracted vanilla datapack");
+        FeatureBuildContext ctx = new FeatureBuildContext(features,
+            id -> VanillaWorldgen.definition("configured_feature", id, IConfiguredFeature.class),
+            id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
+        Object fallen = ((FtHolder) ctx.configuredFeature("minecraft:fallen_oak_tree")).value();
+        Method place = fallen.getClass().getMethod("place", databack.common.worldgen.feature.standin.FtLevel.class,
+            FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+
+        int lying = 0;
+        for (int seed = 0; seed < 8; seed++) {
+            FakeLegacyWorld world = new FakeLegacyWorld(Blocks.grass, 64, Blocks.air);
+            assertTrue((boolean) place.invoke(fallen, level(world), GENERATOR, new StandardRandom(seed),
+                new VnBlockPos(16, 64, 16)), "seed " + seed);
+            assertSame(Blocks.log, world.getBlock(16, 64, 16), "stump, seed " + seed);
+
+            for (int x = 0; x < 48; x++) {
+                for (int z = 0; z < 48; z++) {
+                    if (world.getBlock(x, 64, z) == Blocks.log && (world.getMeta(x, 64, z) & 12) != 0) lying++;
+                }
+            }
+        }
+        assertTrue(lying > 0, "logs lying down");
     }
 }

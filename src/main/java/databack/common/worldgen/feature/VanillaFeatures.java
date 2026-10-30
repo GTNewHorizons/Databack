@@ -58,6 +58,7 @@ public final class VanillaFeatures {
             "HeightRangePlacement", "InSquarePlacement", "NoiseBasedCountPlacement", "NoiseThresholdCountPlacement",
             "PlacedFeature", "PlacementContext", "PlacementFilter", "PlacementModifier", "RandomOffsetPlacement",
             "RarityFilter", "RepeatingPlacement", "SurfaceRelativeThresholdFilter", "SurfaceWaterDepthFilter");
+        add(entries, "feature/", "FallenTreeFeature", "configurations/FallenTreeConfiguration");
         add(entries, "feature/", "TreeFeature", "TreeFeature$1", "configurations/TreeConfiguration",
             "configurations/TreeConfiguration$TreeConfigurationBuilder");
         add(entries, "feature/trunkplacers/", "TrunkPlacer", "StraightTrunkPlacer", "FancyTrunkPlacer",

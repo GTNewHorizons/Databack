@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 
 import databack.common.worldgen.feature.standin.FtBlock;
+import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.standin.FtBlockState;
 import databack.common.worldgen.rng.StandardRandom;
 import databack.common.worldgen.vanilla.standin.VnBlockPos;
@@ -114,10 +115,25 @@ class PopulationLevelTest {
 
     @Test
     void facesAskTheMatchingSide() {
+        world.setBlock(1, 2, 3, Blocks.stone, 0);
         level.isFaceSturdy(state("minecraft:stone"), new VnBlockPos(1, 2, 3), VnDirection.WEST);
         assertEquals(ForgeDirection.WEST, world.lastSide);
         level.isFaceSturdy(state("minecraft:stone"), new VnBlockPos(1, 2, 3), VnDirection.DOWN);
         assertEquals(ForgeDirection.DOWN, world.lastSide);
+    }
+
+    /// Fallen trees ask about the block below with the position above it.
+    @Test
+    void facesOfStatesElsewhereComeFromTheState() {
+        FtBlockFacts.install(new LegacyBlockFacts(states));
+        world.lastSide = null;
+
+        assertTrue(level.isFaceSturdy(state("minecraft:stone"), new VnBlockPos(1, 2, 3), VnDirection.UP));
+        assertNull(world.lastSide);
+
+        world.setBlock(1, 2, 3, Blocks.stone, 0);
+        assertFalse(level.isFaceSturdy(state("minecraft:air"), new VnBlockPos(1, 2, 3), VnDirection.UP));
+        assertNull(world.lastSide);
     }
 
     @Test

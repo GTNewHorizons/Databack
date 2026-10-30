@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.jetbrains.annotations.NotNull;
@@ -20,6 +21,9 @@ public final class FakeLegacyWorld implements LegacyWorld {
     private final Map<Long, ImmutableBlockMeta> blocks = new HashMap<>();
     @NotNull
     private final ImmutableBlockMeta fill;
+    /// What's at and above the surface.
+    @NotNull
+    private final ImmutableBlockMeta above;
     private final int surface;
     /// The side last asked about.
     ForgeDirection lastSide;
@@ -30,7 +34,13 @@ public final class FakeLegacyWorld implements LegacyWorld {
     }
 
     public FakeLegacyWorld(@NotNull Block fill, int surface) {
+        this(fill, surface, fill);
+    }
+
+    /// `fill` below `surface`, `above` from it up.
+    public FakeLegacyWorld(@NotNull Block fill, int surface, @NotNull Block above) {
         this.fill = new BlockMeta(fill, 0);
+        this.above = new BlockMeta(above, 0);
         this.surface = surface;
     }
 
@@ -39,7 +49,7 @@ public final class FakeLegacyWorld implements LegacyWorld {
     }
 
     private ImmutableBlockMeta at(int x, int y, int z) {
-        return blocks.getOrDefault(key(x, y, z), fill);
+        return blocks.getOrDefault(key(x, y, z), y < surface ? fill : above);
     }
 
     /// How many positions were set to `block`.
@@ -80,7 +90,7 @@ public final class FakeLegacyWorld implements LegacyWorld {
     @Override
     public boolean isSideSolid(int x, int y, int z, @NotNull ForgeDirection side) {
         lastSide = side;
-        return true;
+        return getBlock(x, y, z) != Blocks.air;
     }
 
     @Override

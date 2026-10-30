@@ -222,6 +222,8 @@ class TreeConstructionTest {
             problems);
         verify(ITreeDecorator.class, "minecraft:attached_to_leaves", "probability=f,exclusion_radius_xz=i,"
             + "exclusion_radius_y=i,required_empty_blocks=i,block_provider=b,directions=d", problems);
+        verify(ITreeDecorator.class, "minecraft:attached_to_logs", "probability=f,block_provider=b,directions=d",
+            problems);
 
         verify(IFeatureSize.class, "minecraft:two_layers_feature_size",
             "limit=i,lower_size=i,upper_size=i,min_clipped_height=i", problems);
@@ -234,6 +236,34 @@ class TreeConstructionTest {
             + "max_root_length=i;random_skew_chance=f", problems);
 
         assertTrue(problems.isEmpty(), String.join("\n", problems));
+    }
+
+    /// Both decorator lists have the same type, so the field check can't tell them apart.
+    @Test
+    void fallenTreeStumpAndLogDecoratorsStayApart() throws ReflectiveOperationException {
+        JsonObject config = json(null, "trunk_provider=b,log_length=p");
+        JsonArray stump = new JsonArray();
+        stump.add(json("minecraft:trunk_vine", ""));
+        config.add("stump_decorators", stump);
+        config.add("log_decorators", new JsonArray());
+        JsonObject feature = new JsonObject();
+        feature.addProperty("type", "minecraft:fallen_tree");
+        feature.add("config", config);
+
+        Object built = VanillaWorldgen.parse(feature, IConfiguredFeature.class).instantiate(context());
+        assertNotNull(built);
+        Object fallen = field(built.getClass(), "config").get(built);
+        assertEquals(1, ((List<?>) field(fallen.getClass(), "stumpDecorators").get(fallen)).size());
+        assertEquals(0, ((List<?>) field(fallen.getClass(), "logDecorators").get(fallen)).size());
+    }
+
+    @Test
+    void vanillasFallenTreesBuild() {
+        FeatureBuildContext ctx = context();
+        for (String id : new String[] { "minecraft:fallen_oak_tree", "minecraft:fallen_birch_tree",
+            "minecraft:fallen_super_birch_tree", "minecraft:fallen_spruce_tree", "minecraft:fallen_jungle_tree" }) {
+            assertNotNull(ctx.configuredFeature(id), id);
+        }
     }
 
     @Test

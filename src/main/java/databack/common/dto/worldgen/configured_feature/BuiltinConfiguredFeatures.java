@@ -20,7 +20,6 @@ import databack.common.dto.worldgen.FluidState;
 import databack.common.dto.worldgen.block_predicate.IBlockPredicate;
 import databack.common.dto.worldgen.block_state_provider.IBlockStateProvider;
 import databack.common.dto.worldgen.configured_feature.tree.BuiltinTreeComponents;
-import databack.common.dto.worldgen.configured_feature.tree.IFallenLogDecorator;
 import databack.common.dto.worldgen.configured_feature.tree.IFeatureSize;
 import databack.common.dto.worldgen.configured_feature.tree.IRootPlacer;
 import databack.common.dto.worldgen.configured_feature.tree.ITreeDecorator;
@@ -323,12 +322,30 @@ public class BuiltinConfiguredFeatures {
     // fallen_tree (since 26.1)
     private static class FallenTreeFeature implements IConfiguredFeature {
         public FallenTreeConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "FALLEN_TREE", config.instantiate(ctx));
+        }
     }
     private static class FallenTreeConfig {
         public IBlockStateProvider trunk_provider;
         public IIntProvider log_length;
-        public IFallenLogDecorator[] log_decorators;
-        public IFallenLogDecorator[] stump_decorators;
+        public List<ITreeDecorator> log_decorators = new ArrayList<>();
+        public List<ITreeDecorator> stump_decorators = new ArrayList<>();
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            Object trunk = trunk_provider.instantiate(ctx);
+            List<Object> stump = BuiltinTreeComponents.decorators(ctx, stump_decorators);
+            List<Object> logs = BuiltinTreeComponents.decorators(ctx, log_decorators);
+            if (trunk == null || stump == null || logs == null) return null;
+
+            // Argument order checked by TreeConstructionTest
+            return ctx.vanilla.construct(CONFIGS + "FallenTreeConfiguration", trunk, ctx.intProvider(log_length),
+                stump, logs);
+        }
     }
 
     // fill_layer
@@ -772,12 +789,9 @@ public class BuiltinConfiguredFeatures {
                 return null;
             }
 
-            List<Object> builtDecorators = new ArrayList<>(decorators.size());
-            for (ITreeDecorator decorator : decorators) {
-                Object built = decorator.instantiate(ctx);
-                if (built == null) return null;
-                builtDecorators.add(built);
-            }
+            List<Object> builtDecorators = BuiltinTreeComponents.decorators(ctx, decorators);
+            if (builtDecorators == null) return null;
+
             return ctx.vanilla.construct(CONFIGS + "TreeConfiguration", trunkProvider, trunkPlacer, foliageProvider,
                 foliagePlacer, Optional.ofNullable(roots), size, builtDecorators, ignore_vines, belowTrunk);
         }

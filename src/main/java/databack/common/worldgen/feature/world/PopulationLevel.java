@@ -10,6 +10,7 @@ import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 
 import databack.common.interop.heightmap.HeightmapType;
 import databack.common.worldgen.feature.standin.FtBlock;
+import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.standin.FtBlockState;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.standin.FtLevel;
@@ -129,9 +130,13 @@ public final class PopulationLevel implements FtLevel {
         return legacy != null && world.canBlockStay(legacy, pos.getX(), pos.getY(), pos.getZ());
     }
 
-    /// Asks about the block in the world at `pos`, which is `state` wherever vanilla asks.
+    /// Vanilla judges `state` itself, and some callers pass a `pos` that holds another block (fallen trees ask about
+    /// the block below with the position above it). The world is asked only when `pos` holds `state`, since it
+    /// knows partial faces; otherwise full blocks are sturdy.
     @Override
     public boolean isFaceSturdy(@NotNull FtBlockState state, @NotNull VnBlockPos pos, @NotNull VnDirection face) {
+        if (!state.equals(getBlockState(pos))) return FtBlockFacts.get().isSolidRender(state);
+
         return world.isSideSolid(pos.getX(), pos.getY(), pos.getZ(), side(face));
     }
 

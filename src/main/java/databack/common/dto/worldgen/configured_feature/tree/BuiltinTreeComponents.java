@@ -59,6 +59,7 @@ public class BuiltinTreeComponents {
         treeDecorator.addVariant("minecraft:place_on_ground", PlaceOnGroundDecorator.class);
         treeDecorator.addVariant("minecraft:creaking_heart", CreakingHeartDecorator.class);
         treeDecorator.addVariant("minecraft:pale_moss", PaleMossDecorator.class);
+        treeDecorator.addVariant("minecraft:attached_to_logs", AttachedToLogsDecorator.class);
         TaggedUnionLoader<IFeatureSize> featureSize = DatapackSerialization
             .createTaggedUnionLoader("worldgen/feature_size", IFeatureSize.class);
         featureSize.setUnknown(type -> new IFeatureSize() {});
@@ -69,13 +70,6 @@ public class BuiltinTreeComponents {
         rootPlacer.setUnknown(type -> new IRootPlacer() {});
 
         rootPlacer.addVariant("minecraft:mangrove_root_placer", MangroveRootPlacer.class);
-
-        TaggedUnionLoader<IFallenLogDecorator> fallenLogDecorator = DatapackSerialization
-            .createTaggedUnionLoader("worldgen/fallen_log_decorator", IFallenLogDecorator.class);
-        fallenLogDecorator.setUnknown(type -> new IFallenLogDecorator() {});
-
-        fallenLogDecorator.addVariant("minecraft:attached_to_logs", AttachedToLogsDecorator.class);
-        fallenLogDecorator.addVariant("minecraft:trunk_vine", EmptyFallenLogDecorator.class);
     }
 
     private static final String TRUNKS = "feature/trunkplacers/", FOLIAGE = "feature/foliageplacers/",
@@ -451,6 +445,34 @@ public class BuiltinTreeComponents {
         }
     }
 
+    /// Decorates fallen trees' logs.
+    public static class AttachedToLogsDecorator implements ITreeDecorator {
+        @RangeFloat(min = 0, max = 1) public float probability;
+        public IBlockStateProvider block_provider;
+        public String[] directions;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            Object built = block_provider.instantiate(ctx);
+            List<VnDirection> sides = directions(ctx, directions);
+            if (built == null || sides == null) return null;
+            return ctx.vanilla.construct(DECORATORS + "AttachedToLogsDecorator", probability, built, sides);
+        }
+    }
+
+    /// Each of `decorators` built, or null if one cannot be.
+    @Nullable
+    public static List<Object> decorators(@NotNull FeatureBuildContext ctx, @NotNull List<ITreeDecorator> decorators) {
+        List<Object> built = new ArrayList<>(decorators.size());
+        for (ITreeDecorator decorator : decorators) {
+            Object one = decorator.instantiate(ctx);
+            if (one == null) return null;
+            built.add(one);
+        }
+        return built;
+    }
+
     // ---- Feature sizes ---------------------------------------------------------------------------------------
 
     public static class TwoLayersFeatureSize implements IFeatureSize {
@@ -529,15 +551,5 @@ public class BuiltinTreeComponents {
                 ctx.blocks(can_grow_through.entries), ctx.blocks(muddy_roots_in.entries), provider, max_root_width,
                 max_root_length, random_skew_chance);
         }
-    }
-
-    // ---- Fallen log decorators: fallen trees are not run yet --------------------------------------------------
-
-    public static class EmptyFallenLogDecorator implements IFallenLogDecorator {}
-
-    public static class AttachedToLogsDecorator implements IFallenLogDecorator {
-        @RangeFloat(min = 0, max = 1) public float probability;
-        public IBlockStateProvider block_provider;
-        public String[] directions;
     }
 }
