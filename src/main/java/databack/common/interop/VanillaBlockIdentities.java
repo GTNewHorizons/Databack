@@ -9,9 +9,11 @@ import java.util.function.IntUnaryOperator;
 import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 
+import com.gtnewhorizon.gtnhlib.blockstate.properties.BooleanBlockProperty;
 import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty;
 import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty.IntegerMetaBlockProperty;
 import databack.common.interop.modern_block.FunctionalMetaProperty;
+import databack.common.interop.modern_block.MushroomFaceProperty;
 import databack.common.interop.modern_block.BlockVariant;
 import databack.common.interop.modern_block.VariantBlockProperty;
 import databack.common.interop.registry.BlockIdentityRegistry;
@@ -271,6 +273,15 @@ public class VanillaBlockIdentities {
             (value, existing) -> value == 1 ? 15 : (existing == 10 || existing == 15 ? 14 : existing));
         blocks.setVariants(Blocks.brown_mushroom_block, mushroomStem, "minecraft:brown_mushroom_block", "minecraft:mushroom_stem");
         blocks.setVariants(Blocks.red_mushroom_block, mushroomStem, "minecraft:red_mushroom_block", "minecraft:mushroom_stem");
+        for (Block mushroom : new Block[] { Blocks.brown_mushroom_block, Blocks.red_mushroom_block }) {
+            for (MushroomFaceProperty face : MushroomFaceProperty.all()) registerProperty(mushroom, face);
+        }
+
+        // Meta is a bit per side the vine hangs on
+        registerProperty(Blocks.vine, BooleanBlockProperty.flag("south", 1));
+        registerProperty(Blocks.vine, BooleanBlockProperty.flag("west", 2));
+        registerProperty(Blocks.vine, BooleanBlockProperty.flag("north", 4));
+        registerProperty(Blocks.vine, BooleanBlockProperty.flag("east", 8));
 
         // Meta is the water level
         blocks.setVariants(Blocks.cauldron, lookup(

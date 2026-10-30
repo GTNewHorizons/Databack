@@ -61,6 +61,21 @@ class PopulationLevelTest {
         assertEquals("x", roundTrip(log).properties().get("axis"));
     }
 
+    /// 1.7 stores vine sides and mushroom faces in the meta.
+    @Test
+    void facesAreMeta() {
+        ImmutableBlockMeta vine = states.toLegacy(FtBlockState.of(FtBlock.of("minecraft:vine"),
+            map("east", "true", "north", "true", "south", "false", "west", "false", "up", "false")));
+        assertSame(Blocks.vine, vine.getBlock());
+        assertEquals(4 | 8, vine.getBlockMeta());
+        assertEquals("true", states.toModern(Blocks.vine, 8).properties().get("east"));
+
+        ImmutableBlockMeta cap = states.toLegacy(FtBlockState.of(FtBlock.of("minecraft:red_mushroom_block"),
+            map("up", "true", "down", "false", "north", "true", "west", "true", "south", "false", "east", "false")));
+        assertSame(Blocks.red_mushroom_block, cap.getBlock());
+        assertEquals(1, cap.getBlockMeta());
+    }
+
     /// 1.7's fluid meta is modern's level.
     @Test
     void fluidLevelsAreMeta() {

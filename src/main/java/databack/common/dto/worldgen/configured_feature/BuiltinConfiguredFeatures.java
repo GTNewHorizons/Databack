@@ -64,8 +64,8 @@ public class BuiltinConfiguredFeatures {
         loader.addVariant("minecraft:fossil", FossilFeature.class);
         loader.addVariant("minecraft:geode", GeodeFeature.class);
         loader.addVariant("minecraft:multiface_growth", MultifaceGrowthFeature.class);
-        loader.addVariant("minecraft:huge_brown_mushroom", HugeMushroomFeature.class);
-        loader.addVariant("minecraft:huge_red_mushroom", HugeMushroomFeature.class);
+        loader.addVariant("minecraft:huge_brown_mushroom", HugeBrownMushroomFeature.class);
+        loader.addVariant("minecraft:huge_red_mushroom", HugeRedMushroomFeature.class);
         loader.addVariant("minecraft:huge_fungus", HugeFungusFeature.class);
         loader.addVariant("minecraft:iceberg", IcebergFeature.class);
         loader.addVariant("minecraft:lake", LakeFeature.class);
@@ -452,14 +452,46 @@ public class BuiltinConfiguredFeatures {
     // growing_plant (1.17–1.18)
 
     // huge_brown_mushroom, huge_red_mushroom
-    private static class HugeMushroomFeature implements IConfiguredFeature {
+    private abstract static class HugeMushroomFeature implements IConfiguredFeature {
         public HugeMushroomConfig config;
+
+        /// The vanilla feature type constant.
+        abstract String type();
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, type(), config.instantiate(ctx));
+        }
+    }
+    private static class HugeRedMushroomFeature extends HugeMushroomFeature {
+        @Override
+        String type() {
+            return "HUGE_RED_MUSHROOM";
+        }
+    }
+    private static class HugeBrownMushroomFeature extends HugeMushroomFeature {
+        @Override
+        String type() {
+            return "HUGE_BROWN_MUSHROOM";
+        }
     }
     private static class HugeMushroomConfig {
         public IBlockStateProvider cap_provider;
         public IBlockStateProvider stem_provider;
-        public int foliage_radius;
-        @Nullable public IBlockPredicate can_place_on;
+        public int foliage_radius = 2;
+        public IBlockPredicate can_place_on;
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            Object cap = cap_provider.instantiate(ctx), stem = stem_provider.instantiate(ctx);
+            Object placeOn = can_place_on.instantiate(ctx);
+            if (cap == null || stem == null || placeOn == null) return null;
+
+            // Argument order checked by FeatureConstructionTest
+            return ctx.vanilla.construct(CONFIGS + "HugeMushroomFeatureConfiguration", cap, stem, foliage_radius,
+                placeOn);
+        }
     }
 
     // huge_fungus

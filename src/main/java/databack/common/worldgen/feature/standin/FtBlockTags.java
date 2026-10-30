@@ -13,6 +13,7 @@ public final class FtBlockTags {
     public static final FtTag CANNOT_REPLACE_BELOW_TREE_TRUNK = new FtTag("minecraft:cannot_replace_below_tree_trunk");
     public static final FtTag FEATURES_CANNOT_REPLACE = new FtTag("minecraft:features_cannot_replace");
     public static final FtTag LAVA_POOL_STONE_CANNOT_REPLACE = new FtTag("minecraft:lava_pool_stone_cannot_replace");
+    public static final FtTag REPLACEABLE_BY_MUSHROOMS = new FtTag("minecraft:replaceable_by_mushrooms");
 
     private FtBlockTags() {}
 }

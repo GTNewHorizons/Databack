@@ -184,6 +184,36 @@ class VanillaFeaturePlacementTest {
         }
     }
 
+    /// Caps show 1.7's cap layouts (1-9), not pores (0); the stem stands in the middle.
+    @Test
+    void hugeMushroomsHaveCaps() throws ReflectiveOperationException {
+        assumeTrue(VanillaWorldgen.available(), "No extracted vanilla datapack");
+        FeatureBuildContext ctx = new FeatureBuildContext(features,
+            id -> VanillaWorldgen.definition("configured_feature", id, IConfiguredFeature.class),
+            id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
+        Object mushroom = ((FtHolder) ctx.configuredFeature("minecraft:huge_red_mushroom")).value();
+        Method place = mushroom.getClass().getMethod("place", databack.common.worldgen.feature.standin.FtLevel.class,
+            FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+
+        FakeLegacyWorld world = new FakeLegacyWorld(Blocks.grass, 64, Blocks.air);
+        assertTrue((boolean) place.invoke(mushroom, level(world), GENERATOR, new StandardRandom(1),
+            new VnBlockPos(16, 64, 16)));
+
+        assertSame(Blocks.red_mushroom_block, world.getBlock(16, 64, 16), "stem");
+        int caps = 0;
+        for (int x = 12; x <= 20; x++) {
+            for (int y = 64; y < 80; y++) {
+                for (int z = 12; z <= 20; z++) {
+                    if (world.getBlock(x, y, z) != Blocks.red_mushroom_block) continue;
+                    int meta = world.getMeta(x, y, z);
+                    assertTrue(meta != 0, "no pores at " + x + ", " + y + ", " + z);
+                    if (meta >= 1 && meta <= 9) caps++;
+                }
+            }
+        }
+        assertTrue(caps > 0, "cap placed");
+    }
+
     /// A lava lake sunk into flat stone.
     @Test
     void lavaLakesFillWithLava() throws ReflectiveOperationException {

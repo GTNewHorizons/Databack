@@ -23,6 +23,7 @@ import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 import databack.common.worldgen.density.VanillaWorldgen;
 import databack.common.worldgen.feature.standin.FtBlock;
+import databack.common.worldgen.feature.standin.FtBlockState;
 import databack.common.worldgen.feature.standin.FtFluidState;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.vanilla.VanillaJar;
@@ -61,7 +62,8 @@ class FeatureConstructionTest {
         for (String id : Arrays.asList("minecraft:ore_iron_upper", "minecraft:ore_diamond", "minecraft:ore_gravel",
             "minecraft:disk_sand", "minecraft:disk_clay", "minecraft:disk_gravel", "minecraft:patch_grass_plain",
             "minecraft:flower_default", "minecraft:ore_dirt", "minecraft:ore_debris_small",
-            "minecraft:ore_ancient_debris_large", "minecraft:patch_cactus", "minecraft:patch_sugar_cane")) {
+            "minecraft:ore_ancient_debris_large", "minecraft:patch_cactus", "minecraft:patch_sugar_cane",
+            "minecraft:mushroom_island_vegetation", "minecraft:dark_forest_vegetation")) {
             assertEquals(true, built.contains(id), id + " should build; built: " + built);
         }
     }
@@ -204,6 +206,18 @@ class FeatureConstructionTest {
         assertEquals("minecraft:stone", field(field(config, "barrier"), "state").toString());
         assertNotNull(context().placedFeature("minecraft:lake_lava_surface"));
         assertNotNull(context().placedFeature("minecraft:lake_lava_underground"));
+    }
+
+    /// Cap and stem are both block state providers.
+    @Test
+    void hugeMushroomArgumentsLandInTheirFields() throws ReflectiveOperationException {
+        Object config = field(((FtHolder) context().configuredFeature("minecraft:huge_red_mushroom")).value(),
+            "config");
+        assertEquals("minecraft:red_mushroom_block", ((FtBlockState) field(field(config, "capProvider"), "state"))
+            .getBlock().id);
+        assertEquals("minecraft:mushroom_stem", ((FtBlockState) field(field(config, "stemProvider"), "state"))
+            .getBlock().id);
+        assertEquals(2, field(config, "foliageRadius"));
     }
 
     @Test
