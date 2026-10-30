@@ -94,6 +94,11 @@ public final class LegacyBlockFacts implements FtBlockFacts {
         return block != null && block.getBlock().isOpaqueCube();
     }
 
+    @Override
+    public boolean isLiquid(@NotNull FtBlockState state) {
+        return material(state).isLiquid();
+    }
+
     /// Air's for blocks without a 1.7 counterpart.
     private Material material(FtBlockState state) {
         ImmutableBlockMeta block = states.toLegacy(state);

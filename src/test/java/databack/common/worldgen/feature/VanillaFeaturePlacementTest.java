@@ -153,6 +153,26 @@ class VanillaFeaturePlacementTest {
             "no open side");
     }
 
+    /// A lava lake sunk into flat stone.
+    @Test
+    void lavaLakesFillWithLava() throws ReflectiveOperationException {
+        assumeTrue(VanillaWorldgen.available(), "No extracted vanilla datapack");
+        FeatureBuildContext ctx = new FeatureBuildContext(features,
+            id -> VanillaWorldgen.definition("configured_feature", id, IConfiguredFeature.class),
+            id -> VanillaWorldgen.definition("placed_feature", id, PlacedFeature.class));
+        Object lake = ((FtHolder) ctx.configuredFeature("minecraft:lake_lava")).value();
+        Method place = lake.getClass().getMethod("place", databack.common.worldgen.feature.standin.FtLevel.class,
+            FtChunkGenerator.class, RandomSource.class, VnBlockPos.class);
+
+        int lava = 0;
+        for (int seed = 0; seed < 4; seed++) {
+            FakeLegacyWorld world = new FakeLegacyWorld(Blocks.stone, 64, Blocks.air);
+            place.invoke(lake, level(world), GENERATOR, new StandardRandom(seed), new VnBlockPos(16, 64, 16));
+            lava += world.count(Blocks.lava) + world.count(Blocks.flowing_lava);
+        }
+        assertTrue(lava > 0, "lava placed");
+    }
+
     /// A stump, and usually a log lying beside it (1.7 log metas 4 and 8 lie along x and z).
     @Test
     void fallenTreesLieDown() throws ReflectiveOperationException {

@@ -459,14 +459,25 @@ public class BuiltinConfiguredFeatures {
     // lake
     private static class LakeFeature implements IConfiguredFeature {
         public LakeConfig config;
+
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "LAKE", config.instantiate(ctx));
+        }
     }
     private static class LakeConfig {
-        @Nullable public JsonElement state;
-        @Nullable public IBlockStateProvider fluid;
-        @Nullable public IBlockStateProvider barrier;
-        @Nullable public IBlockPredicate can_place_feature;
-        @Nullable public IBlockPredicate can_replace_with_air_or_fluid;
-        @Nullable public IBlockPredicate can_replace_with_barrier;
+        public IBlockStateProvider fluid;
+        public IBlockStateProvider barrier;
+
+        @Nullable
+        Object instantiate(FeatureBuildContext ctx) {
+            Object builtFluid = fluid.instantiate(ctx), builtBarrier = barrier.instantiate(ctx);
+            if (builtFluid == null || builtBarrier == null) return null;
+
+            // Argument order checked by FeatureConstructionTest
+            return ctx.vanilla.construct("feature/LakeFeature$Configuration", builtFluid, builtBarrier);
+        }
     }
 
     // large_dripstone (since 1.17)

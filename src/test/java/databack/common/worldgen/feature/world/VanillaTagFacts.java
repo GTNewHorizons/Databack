@@ -76,4 +76,9 @@ public final class VanillaTagFacts implements FtBlockFacts {
     public boolean isSolid(@NotNull FtBlockState state) {
         return legacy.isSolid(state);
     }
+
+    @Override
+    public boolean isLiquid(@NotNull FtBlockState state) {
+        return legacy.isLiquid(state);
+    }
 }

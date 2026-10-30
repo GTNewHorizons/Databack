@@ -92,6 +92,10 @@ public final class FtBlockState {
         return FtBlockFacts.get().isSolidRender(this);
     }
 
+    public boolean liquid() {
+        return FtBlockFacts.get().isLiquid(this);
+    }
+
     public boolean canSurvive(@NotNull FtLevel level, @NotNull VnBlockPos pos) {
         return level.canSurvive(this, pos);
     }

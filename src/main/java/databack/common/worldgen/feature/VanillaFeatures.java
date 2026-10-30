@@ -37,7 +37,7 @@ public final class VanillaFeatures {
     private static List<String> entries() {
         List<String> entries = new ArrayList<>();
         add(entries, "feature/", "ConfiguredFeature", "DiskFeature", "Feature", "FeaturePlaceContext", "NoOpFeature",
-            "OreFeature", "RandomBooleanSelectorFeature", "RandomSelectorFeature", "SimpleBlockFeature",
+            "OreFeature", "ScatteredOreFeature", "RandomBooleanSelectorFeature", "RandomSelectorFeature", "SimpleBlockFeature",
             "SimpleRandomSelectorFeature", "WeightedPlacedFeature");
         add(entries, "feature/configurations/", "DiskConfiguration", "FeatureConfiguration",
             "NoneFeatureConfiguration", "OreConfiguration", "OreConfiguration$TargetBlockState",
@@ -59,6 +59,7 @@ public final class VanillaFeatures {
             "RarityFilter", "RepeatingPlacement", "SurfaceRelativeThresholdFilter", "SurfaceWaterDepthFilter");
         add(entries, "feature/", "FallenTreeFeature", "configurations/FallenTreeConfiguration");
         add(entries, "feature/", "SnowAndFreezeFeature", "SpringFeature", "configurations/SpringConfiguration");
+        add(entries, "feature/", "LakeFeature", "LakeFeature$Configuration");
         add(entries, "feature/", "TreeFeature", "TreeFeature$1", "configurations/TreeConfiguration",
             "configurations/TreeConfiguration$TreeConfigurationBuilder");
         add(entries, "feature/trunkplacers/", "TrunkPlacer", "StraightTrunkPlacer", "FancyTrunkPlacer",

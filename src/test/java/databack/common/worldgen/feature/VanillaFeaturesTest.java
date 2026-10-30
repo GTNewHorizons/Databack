@@ -27,14 +27,15 @@ class VanillaFeaturesTest {
     @Test
     void runFeatureTypesAreBuilt() {
         for (String name : new String[] { "ORE", "DISK", "SIMPLE_BLOCK", "RANDOM_SELECTOR", "SIMPLE_RANDOM_SELECTOR",
-            "RANDOM_BOOLEAN_SELECTOR", "NO_OP", "TREE" }) {
+            "RANDOM_BOOLEAN_SELECTOR", "NO_OP", "TREE", "SCATTERED_ORE", "FALLEN_TREE", "FREEZE_TOP_LAYER", "SPRING",
+            "LAKE" }) {
             assertNotNull(features.featureType(name), name);
         }
     }
 
     @Test
     void otherFeatureTypesAreNull() {
-        assertNull(features.featureType("LAKE"));
+        assertNull(features.featureType("GEODE"));
     }
 
     @Test

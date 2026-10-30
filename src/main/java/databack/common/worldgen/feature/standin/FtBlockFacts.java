@@ -20,6 +20,9 @@ public interface FtBlockFacts {
     /// Whether the state is a full, opaque block.
     boolean isSolidRender(@NotNull FtBlockState state);
 
+    /// Whether the state is a fluid's own block (water, lava, modded fluids), not a block holding one.
+    boolean isLiquid(@NotNull FtBlockState state);
+
     /// The installed facts. Throws when none are.
     @NotNull
     static FtBlockFacts get() {

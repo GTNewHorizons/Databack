@@ -60,7 +60,8 @@ class FeatureConstructionTest {
 
         for (String id : Arrays.asList("minecraft:ore_iron_upper", "minecraft:ore_diamond", "minecraft:ore_gravel",
             "minecraft:disk_sand", "minecraft:disk_clay", "minecraft:disk_gravel", "minecraft:patch_grass_plain",
-            "minecraft:flower_default", "minecraft:ore_dirt")) {
+            "minecraft:flower_default", "minecraft:ore_dirt", "minecraft:ore_debris_small",
+            "minecraft:ore_ancient_debris_large")) {
             assertEquals(true, built.contains(id), id + " should build; built: " + built);
         }
     }
@@ -188,6 +189,21 @@ class FeatureConstructionTest {
             + "\"config\":{\"state\":{\"Name\":\"minecraft:flowing_water\"},\"valid_blocks\":\"minecraft:stone\"}}"),
             IConfiguredFeature.class);
         assertNull(feature.instantiate(context()));
+    }
+
+    @Test
+    void lakeArgumentsLandInTheirFields() throws ReflectiveOperationException {
+        Object feature = VanillaWorldgen.parse(new JsonParser().parse("{\"type\":\"minecraft:lake\",\"config\":{"
+            + "\"fluid\":{\"type\":\"minecraft:simple_state_provider\",\"state\":{\"Name\":\"minecraft:lava\"}},"
+            + "\"barrier\":{\"type\":\"minecraft:simple_state_provider\",\"state\":{\"Name\":\"minecraft:stone\"}}}}"),
+            IConfiguredFeature.class).instantiate(context());
+        assertNotNull(feature);
+
+        Object config = field(feature, "config");
+        assertEquals("minecraft:lava", field(field(config, "fluid"), "state").toString());
+        assertEquals("minecraft:stone", field(field(config, "barrier"), "state").toString());
+        assertNotNull(context().placedFeature("minecraft:lake_lava_surface"));
+        assertNotNull(context().placedFeature("minecraft:lake_lava_underground"));
     }
 
     @Test
