@@ -1,17 +1,19 @@
 package databack.common.interop.heightmap;
 
+import net.minecraft.block.Block;
 import net.minecraft.world.World;
+import net.minecraft.world.chunk.Chunk;
 
 import cpw.mods.fml.common.Optional;
 import databack.mixins.DBMods;
 
 public class CustomHeightmap implements Heightmap {
 
-    /// Whether the block at a position counts towards the heightmap.
+    /// Whether `block` (with `meta`), at a position, counts towards the heightmap.
     @FunctionalInterface
     public interface BlockTest {
 
-        boolean test(World world, int x, int y, int z);
+        boolean test(World world, Block block, int meta, int x, int y, int z);
     }
 
     private final World world;
@@ -22,19 +24,31 @@ public class CustomHeightmap implements Heightmap {
         this.predicate = predicate;
     }
 
+    /// Walks down from the column's 1.7 height; 0 when nothing counts.
     @Override
     public int getTop(int worldX, int worldY, int worldZ) {
         int baseTop = world.getHeightValue(worldX, worldZ);
+        if (DBMods.CUBIC_CHUNKS.isModLoaded()) return getTopThroughWorld(worldX, baseTop, worldZ);
 
-        while (!predicate.test(world, worldX, baseTop, worldZ)) {
-            baseTop--;
-
-            if (!DBMods.CUBIC_CHUNKS.isModLoaded() && baseTop < 0) {
-                return 0;
+        // One chunk lookup for the whole column, instead of one per block
+        Chunk chunk = world.getChunkFromBlockCoords(worldX, worldZ);
+        int x = worldX & 15, z = worldZ & 15;
+        for (int y = baseTop; y >= 0; y--) {
+            if (predicate.test(world, chunk.getBlock(x, y, z), chunk.getBlockMetadata(x, y, z), worldX, y, worldZ)) {
+                return y;
             }
         }
+        return 0;
+    }
 
-        return baseTop;
+    /// Cubic Chunks' columns have no bottom, so the walk has no floor.
+    private int getTopThroughWorld(int worldX, int baseTop, int worldZ) {
+        int y = baseTop;
+        while (!predicate.test(world, world.getBlock(worldX, y, worldZ), world.getBlockMetadata(worldX, y, worldZ),
+            worldX, y, worldZ)) {
+            y--;
+        }
+        return y;
     }
 
     @Optional.Method(modid = "cubicchunks")

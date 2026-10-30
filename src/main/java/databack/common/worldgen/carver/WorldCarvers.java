@@ -118,9 +118,13 @@ public final class WorldCarvers {
             ImmutableBlockMeta top = topMaterial.at(pos.getX(), pos.getY(), pos.getZ(), underFluid);
             return top == null ? null : pool.state(key(top));
         });
+        CvBlockState[] before = states.clone();
         system.carve(chunk, context, new CvAquifer(aquifer));
 
-        for (int i = 0; i < blocks.length; i++) blocks[i] = (ImmutableBlockMeta) pool.payload(states[i]);
+        // Only what the carvers changed: most of the chunk is untouched
+        for (int i = 0; i < blocks.length; i++) {
+            if (states[i] != before[i]) blocks[i] = (ImmutableBlockMeta) pool.payload(states[i]);
+        }
     }
 
     private static BlockMeta key(ImmutableBlockMeta block) {

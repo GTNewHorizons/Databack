@@ -2,7 +2,6 @@ package databack.mixins.early;
 
 import java.util.EnumMap;
 
-import net.minecraft.block.Block;
 import net.minecraft.profiler.Profiler;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldProvider;
@@ -48,43 +47,23 @@ public class MixinWorld_HeightmapExt implements WorldHeightmapExt {
 
         World self = (World) (Object) this;
 
-        db$heightmaps.put(HeightmapType.MOTION_BLOCKING, new CustomHeightmap(self, (world, x, y, z) -> {
-            Block block = world.getBlock(x, y, z);
-            int meta = world.getBlockMetadata(x, y, z);
+        db$heightmaps.put(HeightmapType.MOTION_BLOCKING, new CustomHeightmap(self,
+            (world, block, meta, x, y, z) -> block.canCollideCheck(meta, true)));
 
-            return block.canCollideCheck(meta, true);
-        }));
+        db$heightmaps.put(HeightmapType.MOTION_BLOCKING_NO_LEAVES, new CustomHeightmap(self,
+            (world, block, meta, x, y, z) -> !block.isLeaves(world, x, y, z) && block.canCollideCheck(meta, true)));
 
-        db$heightmaps.put(HeightmapType.MOTION_BLOCKING_NO_LEAVES, new CustomHeightmap(self, (world, x, y, z) -> {
-            Block block = world.getBlock(x, y, z);
+        db$heightmaps.put(HeightmapType.OCEAN_FLOOR, new CustomHeightmap(self,
+            (world, block, meta, x, y, z) -> block.canCollideCheck(meta, false)));
 
-            if (block.isLeaves(world, x, y, z)) return false;
+        db$heightmaps.put(HeightmapType.OCEAN_FLOOR_WG, new CustomHeightmap(self,
+            (world, block, meta, x, y, z) -> block.canCollideCheck(meta, false)));
 
-            int meta = world.getBlockMetadata(x, y, z);
-
-            return block.canCollideCheck(meta, true);
-        }));
-
-        db$heightmaps.put(HeightmapType.OCEAN_FLOOR, new CustomHeightmap(self, (world, x, y, z) -> {
-            Block block = world.getBlock(x, y, z);
-            int meta = world.getBlockMetadata(x, y, z);
-
-            return block.canCollideCheck(meta, false);
-        }));
-
-        db$heightmaps.put(HeightmapType.OCEAN_FLOOR_WG, new CustomHeightmap(self, (world, x, y, z) -> {
-            Block block = world.getBlock(x, y, z);
-            int meta = world.getBlockMetadata(x, y, z);
-
-            return block.canCollideCheck(meta, false);
-        }));
-
-        db$heightmaps.put(HeightmapType.WORLD_SURFACE, new CustomHeightmap(self, (world, x, y, z) -> {
-            return !world.isAirBlock(x, y, z);
-        }));
-        db$heightmaps.put(HeightmapType.WORLD_SURFACE_WG, new CustomHeightmap(self, (world, x, y, z) -> {
-            return !world.isAirBlock(x, y, z);
-        }));
+        // Forge's World.isAirBlock asks the block
+        db$heightmaps.put(HeightmapType.WORLD_SURFACE, new CustomHeightmap(self,
+            (world, block, meta, x, y, z) -> !block.isAir(world, x, y, z)));
+        db$heightmaps.put(HeightmapType.WORLD_SURFACE_WG, new CustomHeightmap(self,
+            (world, block, meta, x, y, z) -> !block.isAir(world, x, y, z)));
     }
 
     @SuppressWarnings("AddedMixinMembersNamePattern")

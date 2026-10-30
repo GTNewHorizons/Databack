@@ -1,5 +1,7 @@
 package databack.common.worldgen.biome;
 
+import java.util.Objects;
+
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -7,6 +9,7 @@ import com.gtnewhorizon.gtnhlib.util.CoordinatePacker;
 import databack.common.annotation.ThreadSafe;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.ZoomSource;
+import databack.common.worldgen.biome.zoom.ZoomedBiomes;
 import databack.common.worldgen.surface.BlockBiomes;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
@@ -32,8 +35,53 @@ public final class SurfaceBiomes {
     @NotNull
     public BlockBiomes forChunk() {
         CachedCells cells = new CachedCells(source);
-        if (zoom != null) return zoom.zoom(cells, zoomSeed)::biome;
+        if (zoom != null) return new ZoomedBlocks(cells, zoom.zoom(cells, zoomSeed));
         return (x, y, z) -> cells.getNoiseBiome(x >> 2, y >> 2, z >> 2);
+    }
+
+    /// The zoom picks one of the 8 corners of the quart cube at `floor((b - 2) / 4)` (docs/worldgen/biome-source.md
+    /// section 5.2), so where all 8 share a biome, every block zooming from that cube gets it; the zoom only runs where
+    /// they differ. Each cube is checked once. Not thread-safe.
+    private static final class ZoomedBlocks implements BlockBiomes {
+
+        /// Marks a cube whose corners differ; compared by identity.
+        @SuppressWarnings("StringOperationCanBeSimplified")
+        private static final String MIXED = new String("mixed");
+
+        private final CachedCells cells;
+        private final ZoomedBiomes<String> zoomed;
+        private final Long2ObjectOpenHashMap<String> cubes = new Long2ObjectOpenHashMap<>();
+
+        ZoomedBlocks(CachedCells cells, ZoomedBiomes<String> zoomed) {
+            this.cells = cells;
+            this.zoomed = zoomed;
+        }
+
+        @Nullable
+        @Override
+        public String biome(int x, int y, int z) {
+            int cubeX = x - 2 >> 2, cubeY = y - 2 >> 2, cubeZ = z - 2 >> 2;
+            long key = CoordinatePacker.pack(cubeX, cubeY, cubeZ);
+
+            String uniform = cubes.get(key);
+            if (uniform == null && !cubes.containsKey(key)) {
+                uniform = uniformBiome(cubeX, cubeY, cubeZ);
+                cubes.put(key, uniform);
+            }
+            return uniform == MIXED ? zoomed.biome(x, y, z) : uniform;
+        }
+
+        /// The corners' shared biome, or [#MIXED].
+        @Nullable
+        private String uniformBiome(int cubeX, int cubeY, int cubeZ) {
+            String first = cells.getNoiseBiome(cubeX, cubeY, cubeZ);
+            for (int corner = 1; corner < 8; corner++) {
+                String other = cells.getNoiseBiome(cubeX + (corner & 1), cubeY + (corner >> 1 & 1),
+                    cubeZ + (corner >> 2));
+                if (!Objects.equals(first, other)) return MIXED;
+            }
+            return first;
+        }
     }
 
     /// The biome id of each column of chunk `(chunkX, chunkZ)`, indexed `z * 16 + x`, at `surfaceY` (same indexing;

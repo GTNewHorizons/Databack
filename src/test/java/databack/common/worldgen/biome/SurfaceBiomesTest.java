@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.ZoomSource;
 import databack.common.worldgen.biome.zoom.ZoomedBiomes;
+import databack.common.worldgen.surface.BlockBiomes;
 import databack.common.worldgen.vanilla.VanillaJar;
 
 class SurfaceBiomesTest {
@@ -35,6 +36,30 @@ class SurfaceBiomesTest {
             for (int x = 0; x < 16; x++) {
                 int y = z * 16 + x == 17 ? 63 : surface[z * 16 + x];
                 assertEquals(direct.biome(-3 * 16 + x, y, 1250 * 16 + z), biomes[z * 16 + x], "column " + x + ", " + z);
+            }
+        }
+    }
+
+    /// Blocks where all candidate cells share a biome skip the zoom; the answers must not change. Patches of 3×2×3
+    /// cells give both uniform and mixed candidates.
+    @Test
+    void uniformCandidatesMatchTheZoom() throws IOException {
+        BiomeZoom zoom = BiomeZoom.load(VanillaJar.classFile(BiomeZoom.MANAGER_CLASS),
+            VanillaJar.classFile(BiomeZoom.LCG_CLASS));
+        long zoomSeed = zoom.zoomSeed(42);
+        ZoomSource<String> patches = (qx, qy, qz) -> Math.floorDiv(qx, 3) + "," + Math.floorDiv(qy, 2) + ","
+            + Math.floorDiv(qz, 3);
+        ZoomedBiomes<String> direct = zoom.zoom(patches, zoomSeed);
+
+        for (int[] chunk : new int[][] { { 0, 0 }, { -3, 7 }, { 1250, -40 } }) {
+            BlockBiomes blocks = new SurfaceBiomes(patches, zoom, zoomSeed).forChunk();
+            for (int y = -20; y < 40; y++) {
+                for (int z = -4; z < 20; z++) {
+                    for (int x = -4; x < 20; x++) {
+                        int bx = chunk[0] * 16 + x, bz = chunk[1] * 16 + z;
+                        assertEquals(direct.biome(bx, y, bz), blocks.biome(bx, y, bz), bx + ", " + y + ", " + bz);
+                    }
+                }
             }
         }
     }

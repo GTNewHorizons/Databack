@@ -38,8 +38,9 @@ public final class LegacyStates {
     private static final Logger LOGGER = LogManager.getLogger("databack|features");
 
     private final ConcurrentHashMap<FtBlockState, ImmutableBlockMeta> legacy = new ConcurrentHashMap<>();
-    /// By `block id << 4 | meta`.
-    private final ConcurrentHashMap<Integer, FtBlockState> modern = new ConcurrentHashMap<>();
+    /// By block (blocks compare by identity), then meta. Entries are filled in as they are asked for; a race only
+    /// computes the same interned state twice.
+    private final ConcurrentHashMap<Block, FtBlockState[]> modern = new ConcurrentHashMap<>();
 
     /// The 1.7 block and meta for `state`, as [MiscAdapters#resolveBlockState] gives it, or null when its block has
     /// no 1.7 counterpart.
@@ -72,7 +73,12 @@ public final class LegacyStates {
     /// identity keep their 1.7 registry name, without properties.
     @NotNull
     public FtBlockState toModern(@NotNull Block block, int meta) {
-        return modern.computeIfAbsent(Block.getIdFromBlock(block) << 4 | meta & 15, key -> identify(block, meta));
+        FtBlockState[] metas = modern.get(block);
+        if (metas == null) metas = modern.computeIfAbsent(block, b -> new FtBlockState[16]);
+
+        FtBlockState state = metas[meta & 15];
+        if (state == null) metas[meta & 15] = state = identify(block, meta);
+        return state;
     }
 
     private static FtBlockState identify(Block block, int meta) {
