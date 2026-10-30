@@ -1,9 +1,5 @@
 package databack.common.worldgen.biome;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Objects;
-
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -11,6 +7,7 @@ import databack.common.annotation.ThreadSafe;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.ZoomSource;
 import databack.common.worldgen.surface.BlockBiomes;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 
 /// The 2D biome of each column of a chunk: the biome at the column's surface block, as the zoom picks it from a biome
 /// source (spec section 5). Without a zoom, a block uses its own quart cell's biome, which is wrong near borders.
@@ -64,10 +61,11 @@ public final class SurfaceBiomes {
     }
 
     /// One chunk's quart cell biomes, each computed once. Neighbouring columns mostly read the same few cells.
+    /// The source's cells, each computed once. Not thread-safe.
     private static final class CachedCells implements ZoomSource<String> {
 
         private final ZoomSource<String> source;
-        private final Map<Cell, String> cells = new HashMap<>();
+        private final Long2ObjectOpenHashMap<String> cells = new Long2ObjectOpenHashMap<>();
 
         CachedCells(ZoomSource<String> source) {
             this.source = source;
@@ -75,35 +73,18 @@ public final class SurfaceBiomes {
 
         @Override
         public String getNoiseBiome(int quartX, int quartY, int quartZ) {
-            Cell key = new Cell(quartX, quartY, quartZ);
-            if (cells.containsKey(key)) return cells.get(key);
+            long key = key(quartX, quartY, quartZ);
+            String biome = cells.get(key);
+            if (biome != null || cells.containsKey(key)) return biome;
 
-            String biome = source.getNoiseBiome(quartX, quartY, quartZ);
+            biome = source.getNoiseBiome(quartX, quartY, quartZ);
             cells.put(key, biome);
             return biome;
         }
-    }
 
-    private static final class Cell {
-
-        private final int x;
-        private final int y;
-        private final int z;
-
-        Cell(int x, int y, int z) {
-            this.x = x;
-            this.y = y;
-            this.z = z;
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            return o instanceof Cell other && x == other.x && y == other.y && z == other.z;
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(x, y, z);
+        /// Distinct for quart coordinates within ±2^23 horizontally (past the world border) and ±2^15 vertically.
+        private static long key(int quartX, int quartY, int quartZ) {
+            return ((long) quartX & 0xFFFFFF) << 40 | ((long) quartY & 0xFFFF) << 24 | quartZ & 0xFFFFFFL;
         }
     }
 }

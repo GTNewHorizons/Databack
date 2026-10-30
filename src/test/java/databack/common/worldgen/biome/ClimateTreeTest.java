@@ -46,6 +46,25 @@ class ClimateTreeTest {
         }
     }
 
+    /// A query reused across targets starts from its previous answer; the answers must not depend on it.
+    @Test
+    void reusedQueriesMatchBruteForce() {
+        Random random = new Random(9);
+        for (int list = 0; list < 200; list++) {
+            List<ClimateEntry> entries = new ArrayList<>();
+            int size = 1 + random.nextInt(list < 100 ? 40 : 600);
+            for (int i = 0; i < size; i++) entries.add(coarseEntry(random, "e" + i));
+
+            ClimateTree tree = new ClimateTree(entries);
+            BruteForceBiomeSearch brute = new BruteForceBiomeSearch(entries);
+            ClimateTree.Query query = new ClimateTree.Query();
+            for (int q = 0; q < 200; q++) {
+                long[] target = coarseTarget(random);
+                assertEquals(brute.closest(target), tree.closest(target, query), "list " + list + " query " + q);
+            }
+        }
+    }
+
     /// Vanilla's brute-force answers on the harness's synthetic tie lists (`ties_*.tsv`, column `brute_force`).
     @Test
     void tieListsMatchVanillaBruteForce() throws IOException {

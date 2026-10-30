@@ -62,7 +62,9 @@ public abstract class DensityNode {
         return rewrite(f, new IdentityHashMap<>());
     }
 
-    private DensityNode rewrite(UnaryOperator<DensityNode> f, Map<DensityNode, DensityNode> done) {
+    /// As [#rewrite(UnaryOperator)], sharing `done` (original to rewritten) with other rewrites, so nodes shared
+    /// between several roots stay shared.
+    final DensityNode rewrite(UnaryOperator<DensityNode> f, Map<DensityNode, DensityNode> done) {
         DensityNode result = done.get(this);
         if (result != null) return result;
 

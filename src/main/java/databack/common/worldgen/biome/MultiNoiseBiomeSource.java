@@ -21,6 +21,8 @@ public final class MultiNoiseBiomeSource implements ZoomSource<String> {
     private final BiomeSearch search;
     @NotNull
     private final ClimateSampler sampler;
+    /// Each thread's target buffer and tree query, reused across cells.
+    private final ThreadLocal<Scratch> scratch = ThreadLocal.withInitial(Scratch::new);
 
     public MultiNoiseBiomeSource(
         @NotNull List<ClimateEntry> entries, @NotNull BiomeSearch search, @NotNull ClimateSampler sampler
@@ -41,10 +43,17 @@ public final class MultiNoiseBiomeSource implements ZoomSource<String> {
     @Nullable
     @Override
     public String getNoiseBiome(int quartX, int quartY, int quartZ) {
-        long[] target = new long[ClimateEntry.PARAMETER_COUNT];
-        sampler.sample(quartX, quartY, quartZ, target);
+        Scratch scratch = this.scratch.get();
+        sampler.sample(quartX, quartY, quartZ, scratch.target);
 
-        int index = search.closest(target);
+        int index = search instanceof ClimateTree tree ? tree.closest(scratch.target, scratch.query)
+            : search.closest(scratch.target);
         return index < 0 ? null : entries.get(index).biome();
+    }
+
+    private static final class Scratch {
+
+        final long[] target = new long[ClimateEntry.PARAMETER_COUNT];
+        final ClimateTree.Query query = new ClimateTree.Query();
     }
 }

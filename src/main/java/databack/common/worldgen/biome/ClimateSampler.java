@@ -4,6 +4,7 @@ import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.NotNull;
 
 import databack.common.annotation.ThreadSafe;
+import databack.common.worldgen.density.DensityMemo;
 import databack.common.worldgen.density.DensityNode;
 import databack.common.worldgen.density.DensityRouter;
 
@@ -14,9 +15,13 @@ public final class ClimateSampler {
     /// Indexed like [ClimateEntry]'s parameters.
     @NotNull
     private final DensityNode[] fields;
+    /// Each thread's copy of [#fields] that remembers shared subtrees and columns ([DensityMemo]): biome lookups
+    /// sample neighbouring cells, and the same columns at several heights.
+    private final ThreadLocal<DensityNode[]> memoized;
 
     private ClimateSampler(@NotNull DensityNode[] fields) {
         this.fields = fields;
+        this.memoized = ThreadLocal.withInitial(() -> DensityMemo.memoize(fields));
     }
 
     @NotNull
@@ -37,6 +42,7 @@ public final class ClimateSampler {
     /// `float` before quantizing.
     public void sample(int quartX, int quartY, int quartZ, long @NotNull [] target) {
         int x = quartX * 4, y = quartY * 4, z = quartZ * 4;
+        DensityNode[] fields = memoized.get();
         for (int i = 0; i < ClimateEntry.PARAMETER_COUNT; i++) {
             target[i] = ClimateEntry.quantize((float) fields[i].sample(x, y, z));
         }

@@ -36,10 +36,12 @@ public final class ClimateTree implements BiomeSearch {
     private final BruteForceBiomeSearch fallback;
     private final boolean safe;
 
-    /// Entries in tree order: boxes at `[i * AXES + axis]`, and each one's index in the original list.
+    /// Entries in tree order: boxes at `[i * AXES + axis]`, each one's index in the original list, and where each
+    /// original index sits in tree order.
     private final long[] entryMin;
     private final long[] entryMax;
     private final int[] entryIndex;
+    private final int[] treePosition;
 
     /// Nodes: union boxes at `[node * AXES + axis]`; children (-1 for leaves); a leaf's entry range in tree order; and
     /// the lowest original index below each node.
@@ -59,6 +61,7 @@ public final class ClimateTree implements BiomeSearch {
         this.entryMin = new long[n * AXES];
         this.entryMax = new long[n * AXES];
         this.entryIndex = new int[n];
+        this.treePosition = new int[n];
 
         Builder builder = new Builder(entries);
         builder.build();
@@ -66,6 +69,7 @@ public final class ClimateTree implements BiomeSearch {
         for (int i = 0; i < n; i++) {
             int original = builder.order[i];
             entryIndex[i] = original;
+            treePosition[original] = i;
             box(entries.get(original), entryMin, entryMax, i * AXES);
         }
 
@@ -81,48 +85,66 @@ public final class ClimateTree implements BiomeSearch {
 
     @Override
     public int closest(long @NotNull [] target) {
-        if (entryIndex.length == 0) return -1;
-        if (!safe || !isSafe(target)) return fallback.closest(target);
-
-        Best best = new Best();
-        visit(0, target, best);
-        return best.index;
+        return closest(target, new Query());
     }
 
-    private void visit(int node, long[] target, Best best) {
+    /// As [#closest(long[])], reusing `query`, and starting from the entry `query` found last: neighbouring cells
+    /// mostly share an entry, and a close first guess prunes most of the tree. The answer is the same either way.
+    public int closest(long @NotNull [] target, @NotNull Query query) {
+        if (entryIndex.length == 0) return -1;
+        if (!safe || !isSafe(target)) return query.last = fallback.closest(target);
+
+        query.distance = Long.MAX_VALUE;
+        query.index = Integer.MAX_VALUE;
+        if (query.last >= 0 && query.last < entryIndex.length) {
+            int position = treePosition[query.last];
+            query.distance = boxDistance(entryMin, entryMax, position * AXES, target, Long.MAX_VALUE);
+            query.index = query.last;
+        }
+
+        visit(0, target, query);
+        return query.last = query.index;
+    }
+
+    private void visit(int node, long[] target, Query query) {
         if (left[node] < 0) {
-            scanLeaf(node, target, best);
+            scanLeaf(node, target, query);
             return;
         }
 
         int a = left[node];
         int b = right[node];
-        long da = boxDistance(nodeMin, nodeMax, a * AXES, target);
-        long db = boxDistance(nodeMin, nodeMax, b * AXES, target);
+        long da = boxDistance(nodeMin, nodeMax, a * AXES, target, Long.MAX_VALUE);
+        long db = boxDistance(nodeMin, nodeMax, b * AXES, target, Long.MAX_VALUE);
 
         boolean aFirst = da < db || (da == db && lowestIndex[a] < lowestIndex[b]);
         int first = aFirst ? a : b;
         int second = aFirst ? b : a;
         long secondDistance = aFirst ? db : da;
 
-        if (best.mayImprove(aFirst ? da : db, lowestIndex[first])) visit(first, target, best);
-        if (best.mayImprove(secondDistance, lowestIndex[second])) visit(second, target, best);
+        if (query.mayImprove(aFirst ? da : db, lowestIndex[first])) visit(first, target, query);
+        if (query.mayImprove(secondDistance, lowestIndex[second])) visit(second, target, query);
     }
 
-    private void scanLeaf(int node, long[] target, Best best) {
+    private void scanLeaf(int node, long[] target, Query query) {
         for (int i = leafStart[node]; i < leafEnd[node]; i++) {
-            long distance = boxDistance(entryMin, entryMax, i * AXES, target);
-            best.offer(distance, entryIndex[i]);
+            long distance = boxDistance(entryMin, entryMax, i * AXES, target, query.distance);
+            query.offer(distance, entryIndex[i]);
         }
     }
 
-    /// Squared distance from `target` (with 0 on the offset axis) to the box at `base`.
-    private static long boxDistance(long[] min, long[] max, int base, long[] target) {
-        long sum = 0;
-        for (int axis = 0; axis < AXES; axis++) {
-            long value = axis == OFFSET_AXIS ? 0 : target[axis];
-            long d = ClimateEntry.axisDistance(value, min[base + axis], max[base + axis]);
+    /// Squared distance from `target` (with 0 on the offset axis) to the box at `base`, or some value above `limit`
+    /// once the partial sum passes it.
+    private static long boxDistance(long[] min, long[] max, int base, long[] target, long limit) {
+        long offset = min[base + OFFSET_AXIS] > 0 ? min[base + OFFSET_AXIS]
+            : max[base + OFFSET_AXIS] < 0 ? -max[base + OFFSET_AXIS] : 0;
+        long sum = offset * offset;
+        for (int axis = 0; axis < OFFSET_AXIS; axis++) {
+            long value = target[axis];
+            // As ClimateEntry.axisDistance, without branches
+            long d = Math.max(0, Math.max(min[base + axis] - value, value - max[base + axis]));
             sum += d * d;
+            if (sum > limit) return sum;
         }
         return sum;
     }
@@ -153,11 +175,13 @@ public final class ClimateTree implements BiomeSearch {
         return true;
     }
 
-    /// The best entry found so far in one query; lowest index wins ties.
-    private static final class Best {
+    /// One thread's search state, reused across queries: the best entry found so far (lowest index wins ties), and the
+    /// answer of the previous query. Not thread-safe.
+    public static final class Query {
 
-        private long distance = Long.MAX_VALUE;
-        private int index = Integer.MAX_VALUE;
+        private long distance;
+        private int index;
+        private int last = -1;
 
         /// Whether a subtree whose bound is `bound` and whose lowest index is `lowest` can hold a better entry.
         boolean mayImprove(long bound, int lowest) {

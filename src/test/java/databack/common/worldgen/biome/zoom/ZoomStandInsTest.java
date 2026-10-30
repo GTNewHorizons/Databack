@@ -29,7 +29,21 @@ class ZoomStandInsTest {
     }
 
     @Test
-    void floorModHasTheDivisorsSign() {
+    void floorModMatchesTheJdk() {
+        java.util.Random random = new java.util.Random(3);
+        int[] divisors = { 1, 2, 3, 4, 7, 1024, 1000, -4, -1024, Integer.MIN_VALUE, Integer.MAX_VALUE, 1 << 30 };
+        for (int i = 0; i < 20_000; i++) {
+            long value = i < 10 ? new long[] { 0, -1, 1, Long.MIN_VALUE, Long.MAX_VALUE, -1024, 1023, -1025, 4096,
+                -4097 }[i] : random.nextLong() >> random.nextInt(64);
+            for (int divisor : divisors) {
+                assertEquals((int) Math.floorMod(value, (long) divisor), ZoomMath.floorMod(value, divisor),
+                    value + " mod " + divisor);
+            }
+        }
+    }
+
+    @Test
+        void floorModHasTheDivisorsSign() {
         assertEquals(1, ZoomMath.floorMod(-7L, 4));
         assertEquals(-3, ZoomMath.floorMod(5L, -4));
         assertEquals(0, ZoomMath.floorMod(Long.MIN_VALUE, 2));

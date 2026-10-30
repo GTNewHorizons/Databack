@@ -11,9 +11,10 @@ public final class ZoomMath {
     private ZoomMath() {}
 
     /// `Math.floorMod(long, int)` (Java 9): the floor modulus, which has the sign of `divisor` and always fits an
-    /// `int`.
+    /// `int`. For a positive power of two that is the value's low bits, without a division.
     @Contract(pure = true)
     public static int floorMod(long value, int divisor) {
+        if (divisor > 0 && (divisor & divisor - 1) == 0) return (int) (value & divisor - 1);
         return (int) Math.floorMod(value, (long) divisor);
     }
 }
