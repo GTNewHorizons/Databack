@@ -158,13 +158,13 @@ class DeferredPopulationTest {
 
     @Test
     void pendingChunksAreSaved() {
-        PendingPopulationData data = new PendingPopulationData(PendingPopulationData.NAME);
+        ChunkSetData data = new ChunkSetData(ChunkSetData.PENDING_POPULATION);
         data.chunks().add(DeferredPopulation.key(-3, 7));
         data.chunks().add(DeferredPopulation.key(2_000_000, -2_000_000));
 
         NBTTagCompound tag = new NBTTagCompound();
         data.writeToNBT(tag);
-        PendingPopulationData read = new PendingPopulationData(PendingPopulationData.NAME);
+        ChunkSetData read = new ChunkSetData(ChunkSetData.PENDING_POPULATION);
         read.readFromNBT(tag);
 
         assertEquals(data.chunks(), read.chunks());

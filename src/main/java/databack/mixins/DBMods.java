@@ -8,6 +8,7 @@ import com.gtnewhorizon.gtnhlib.util.data.IMod;
 import com.gtnewhorizon.gtnhmixins.builders.ITargetMod;
 import com.gtnewhorizon.gtnhmixins.builders.TargetModBuilder;
 import cpw.mods.fml.common.Loader;
+import cpw.mods.fml.common.LoaderState;
 
 public enum DBMods implements ITargetMod, IMod {
 
@@ -35,6 +36,8 @@ public enum DBMods implements ITargetMod, IMod {
     public boolean isModLoaded() {
         if (!checkedPresence) {
             isLoaded = Loader.isModLoaded(getInternalID());
+            // Before pre-init the mod list isn't known yet, so the answer may still change
+            checkedPresence = Loader.instance().hasReachedState(LoaderState.PREINITIALIZATION);
         }
 
         return isLoaded;

@@ -20,6 +20,7 @@ import net.minecraft.world.gen.ChunkProviderServer;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import com.gtnewhorizon.gtnhlib.blockstate.core.BlockState;
@@ -66,7 +67,7 @@ import databack.common.worldgen.feature.VanillaFeatures;
 import databack.common.worldgen.feature.VanillaFeaturesCache;
 import databack.common.worldgen.feature.population.DeferredPopulation;
 import databack.common.worldgen.feature.population.FeatureDecorator;
-import databack.common.worldgen.feature.population.PendingPopulationData;
+import databack.common.worldgen.feature.population.ChunkSetData;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.world.LegacyBlockFacts;
 import databack.common.worldgen.feature.world.LegacyStates;
@@ -125,27 +126,22 @@ public class ModernWorldGenerator implements IChunkProvider {
     private final DensityRouter router;
     private final ChunkDensitySampler densitySampler;
     private final DensityPrefetcher densityPrefetcher;
+    /// Whether the world is cubic (see [#ModernWorldGenerator(World, String, boolean)]).
+    private final boolean cubic;
 
     public ModernWorldGenerator(World world, String generatorOptions) {
+        this(world, generatorOptions, false);
+    }
+
+    /// `cubic`: the world is a Cubic Chunks world, which holds the dimension's whole range instead of 1.7's
+    /// y = 0..255. Its cubes are made by [databack.common.worldgen.cubic.CubicModernGenerator] from
+    /// [#generateColumn]; this generator's own chunk methods are unused.
+    public ModernWorldGenerator(World world, String generatorOptions, boolean cubic) {
         this.world = world;
+        this.cubic = cubic;
 
-        Dimension dim = DimensionList.RT.getHandler().getDimension(getDimensionName(world.provider.dimensionId));
-
-        if (dim == null) {
-            WorldPreset preset = WorldPresetList.RT.getHandler().getWorldPreset("minecraft:normal");
-
-            if (preset != null) {
-                dim = preset.dimensions.get(getDimensionName(world.provider.dimensionId));
-            }
-
-            if (dim == null) {
-                throw new IllegalStateException("Invalid dimension: " + world.provider.dimensionId);
-            }
-        }
-
-        if (!(dim.generator instanceof NoiseDimensionGenerator noise)) {
-            throw new IllegalStateException("Non-noise dimensions are current not supported: " + world.provider.dimensionId + ", " + dim.generator);
-        }
+        Dimension dim = dimension(world);
+        NoiseDimensionGenerator noise = (NoiseDimensionGenerator) dim.generator;
 
         if (!(noise.biome_source instanceof MultiNoiseBiomes noiseBiomes)) {
             throw new IllegalStateException("Non-noise biomes are current not supported: " + world.provider.dimensionId + ", " + noise.biome_source);
@@ -167,8 +163,8 @@ public class ModernWorldGenerator implements IChunkProvider {
         // 1.7 worlds span y = 0..255, so only that part of the dimension is generated. The sampler is also given the
         // dimension's range, for trees where clipping would change values (see ChunkDensitySampler).
         NoiseGeneratorSettings.NoiseSettings ns = generatorSettings.noise;
-        int minY = Math.max(ns.min_y, 0);
-        int maxY = Math.min(ns.min_y + ns.height, 256);
+        int minY = cubic ? ns.min_y : Math.max(ns.min_y, 0);
+        int maxY = cubic ? ns.min_y + ns.height : Math.min(ns.min_y + ns.height, 256);
         this.densitySampler = new ChunkDensitySampler(
             this.router.finalDensity, ns.size_horizontal * 4, ns.size_vertical * 4, minY, maxY, ns.min_y,
             ns.min_y + ns.height, 4096, false);
@@ -213,6 +209,37 @@ public class ModernWorldGenerator implements IChunkProvider {
             blocks[block.ordinal()] = toBlockMeta(MiscAdapters.resolveBlockState(state));
         }
         return blocks;
+    }
+
+    /// The world's dimension, from the datapacks or else the default world preset.
+    @NotNull
+    private static Dimension dimension(World world) {
+        Dimension dim = DimensionList.RT.getHandler().getDimension(getDimensionName(world.provider.dimensionId));
+
+        if (dim == null) {
+            WorldPreset preset = WorldPresetList.RT.getHandler().getWorldPreset("minecraft:normal");
+
+            if (preset != null) {
+                dim = preset.dimensions.get(getDimensionName(world.provider.dimensionId));
+            }
+
+            if (dim == null) {
+                throw new IllegalStateException("Invalid dimension: " + world.provider.dimensionId);
+            }
+        }
+
+        if (!(dim.generator instanceof NoiseDimensionGenerator)) {
+            throw new IllegalStateException("Non-noise dimensions are current not supported: " + world.provider.dimensionId + ", " + dim.generator);
+        }
+
+        return dim;
+    }
+
+    /// The layers the world's dimension spans, `minY..minY + height`, as `{minY, height}`.
+    @NotNull
+    public static int[] dimensionRange(World world) {
+        NoiseGeneratorSettings.NoiseSettings ns = ((NoiseDimensionGenerator) dimension(world).generator).settings.get().noise;
+        return new int[] { ns.min_y, ns.height };
     }
 
     /// Places nothing when vanilla's feature classes are unavailable (already logged).
@@ -295,10 +322,34 @@ public class ModernWorldGenerator implements IChunkProvider {
     public Chunk provideChunk(int chunkX, int chunkZ) {
         Chunk chunk = new Chunk(world, chunkX, chunkZ);
 
-        double[] density = densityPrefetcher.get(chunkX, chunkZ, this::needsGeneration);
+        ImmutableBlockMeta[] blocks = generateColumn(chunk);
+        writeSections(chunk, blocks, minY(), height());
+        chunk.generateSkylightMap();
 
-        int minY = densitySampler.minY();
-        int layers = densitySampler.height();
+        population().markGenerated(chunkX, chunkZ);
+        return chunk;
+    }
+
+    /// The generated layers, `minY()..minY() + height()`.
+    public int minY() {
+        return densitySampler.minY();
+    }
+
+    public int height() {
+        return densitySampler.height();
+    }
+
+    /// Every block of `chunk`'s column after terrain, fluids, ore veins, surface rules and carvers, at index
+    /// `((y - minY()) * 16 + z) * 16 + x`. Writes the column's surface biomes into `chunk`, and nothing else.
+    @NotNull
+    public ImmutableBlockMeta[] generateColumn(@NotNull Chunk chunk) {
+        int chunkX = chunk.xPosition, chunkZ = chunk.zPosition;
+
+        // Cubic Chunks says which columns are coming instead (see #prefetch)
+        double[] density = densityPrefetcher.get(chunkX, chunkZ, cubic ? (x, z) -> false : this::needsGeneration);
+
+        int minY = minY();
+        int layers = height();
 
         BlockBiomes biomes = surfaceBiomes.forChunk();
         fillBiomes(chunk, biomes, density, minY);
@@ -310,12 +361,17 @@ public class ModernWorldGenerator implements IChunkProvider {
                 (x, y, z, underFluid) -> surfaceSystem == null ? null
                     : surfaceSystem.topMaterial(x, y, z, biomes, underFluid));
         }
+        return blocks;
+    }
 
-        writeSections(chunk, blocks, minY, layers);
-        chunk.generateSkylightMap();
+    /// Starts computing a column's densities on a background thread, for a column about to be generated. Thread-safe.
+    public void prefetch(int chunkX, int chunkZ) {
+        densityPrefetcher.prefetch(chunkX, chunkZ);
+    }
 
-        population().markGenerated(chunkX, chunkZ);
-        return chunk;
+    /// Places the features of chunk `(chunkX, chunkZ)` now. Assumption: the 3×3 chunks around it are generated.
+    public void decorate(int chunkX, int chunkZ) {
+        decorator.decorate(chunkX, chunkZ);
     }
 
     /// Every block of the chunk after terrain, fluids, ore veins and surface rules, at index
@@ -421,7 +477,7 @@ public class ModernWorldGenerator implements IChunkProvider {
     /// Created on first use: the world's per-dimension storage is set up after its generator.
     private DeferredPopulation population() {
         if (population == null) {
-            PendingPopulationData pending = PendingPopulationData.get(world);
+            ChunkSetData pending = ChunkSetData.get(world, ChunkSetData.PENDING_POPULATION);
             population = new DeferredPopulation(pending.chunks(), pending::markDirty);
         }
         return population;

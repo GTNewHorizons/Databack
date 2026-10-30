@@ -11,6 +11,7 @@ import org.jetbrains.annotations.NotNull;
 
 import databack.common.interop.heightmap.HeightmapType;
 import databack.common.interop.heightmap.WorldHeightmapExt;
+import databack.mixins.DBMods;
 
 /// [LegacyWorld] over a 1.7 world, whose layers are `minY..minY + height`.
 public final class WorldLegacyWorld implements LegacyWorld {
@@ -49,8 +50,16 @@ public final class WorldLegacyWorld implements LegacyWorld {
     /// Writes into the chunk, as 1.7's own `setBlock` does first, then does only what the write needs. Light is
     /// updated only when the light or opacity changes (ore replacing stone changes neither), and players watching the
     /// chunk are sent the change. Other world listeners aren't told: the block is generated, not placed.
+    ///
+    /// With Cubic Chunks, blocks live in cubes rather than the column's sections, so writes go through the world
+    /// instead (with the same flags: players are told, neighbours aren't).
     @Override
     public void setBlock(int x, int y, int z, @NotNull Block block, int meta) {
+        if (DBMods.CUBIC_CHUNKS.isModLoaded()) {
+            world.setBlock(x, y, z, block, meta, 2);
+            return;
+        }
+
         if (y < 0 || y >= world.getHeight()) return;
 
         Chunk chunk = world.getChunkFromChunkCoords(x >> 4, z >> 4);

@@ -9,26 +9,28 @@ import org.jetbrains.annotations.NotNull;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
-/// The chunks of a dimension waiting for decoration ([DeferredPopulation]), saved with the dimension.
-public final class PendingPopulationData extends WorldSavedData {
+/// A set of a dimension's chunks, saved with the dimension under a name.
+public final class ChunkSetData extends WorldSavedData {
 
-    public static final String NAME = "databack_pending_population";
+    /// The chunks waiting for decoration ([DeferredPopulation]).
+    public static final String PENDING_POPULATION = "databack_pending_population";
+    /// The columns of a Cubic Chunks world whose features are placed.
+    public static final String DECORATED_COLUMNS = "databack_decorated_columns";
 
     private final LongOpenHashSet chunks = new LongOpenHashSet();
 
     /// Called by [net.minecraft.world.storage.MapStorage] when loading.
-    public PendingPopulationData(String name) {
+    public ChunkSetData(String name) {
         super(name);
     }
 
-    /// The dimension's data, created if it has none.
+    /// The dimension's set called `name`, created if it has none.
     @NotNull
-    public static PendingPopulationData get(@NotNull World world) {
-        PendingPopulationData data = (PendingPopulationData) world.perWorldStorage.loadData(PendingPopulationData.class,
-            NAME);
+    public static ChunkSetData get(@NotNull World world, @NotNull String name) {
+        ChunkSetData data = (ChunkSetData) world.perWorldStorage.loadData(ChunkSetData.class, name);
         if (data == null) {
-            data = new PendingPopulationData(NAME);
-            world.perWorldStorage.setData(NAME, data);
+            data = new ChunkSetData(name);
+            world.perWorldStorage.setData(name, data);
         }
         return data;
     }

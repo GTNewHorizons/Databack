@@ -108,37 +108,44 @@ public final class DensityPrefetcher {
     }
 
     private void prefetchAround(int chunkX, int chunkZ, BiPredicate<Integer, Integer> needsGeneration) {
-        ExecutorService pool = pool();
-
         for (int dz = -radius; dz <= radius; dz++) {
             for (int dx = -radius; dx <= radius; dx++) {
                 if (dx == 0 && dz == 0) continue;
 
                 int x = chunkX + dx, z = chunkZ + dz;
-                long key = key(x, z);
+                if (needsGeneration.test(x, z)) prefetch(x, z);
+            }
+        }
+    }
 
-                synchronized (pending) {
-                    if (pending.containsKey(key)) continue;
-                }
+    /// Queues a chunk's densities unless they're already queued, for a caller that knows the chunk is coming (e.g.
+    /// Cubic Chunks, which says which columns aren't saved). Thread-safe; does nothing when prefetching is disabled.
+    public void prefetch(int chunkX, int chunkZ) {
+        if (THREADS <= 0) return;
 
-                if (!needsGeneration.test(x, z)) continue;
+        long key = key(chunkX, chunkZ);
+        synchronized (pending) {
+            if (pending.containsKey(key)) return;
+        }
 
-                Future<double[]> future = pool.submit(() -> {
-                    double[] out = sampler.newBuffer();
-                    sampler.sample(x, z, out);
-                    return out;
-                });
+        Future<double[]> future = pool().submit(() -> {
+            double[] out = sampler.newBuffer();
+            sampler.sample(chunkX, chunkZ, out);
+            return out;
+        });
 
-                synchronized (pending) {
-                    pending.put(key, future);
+        synchronized (pending) {
+            // Another thread may have queued it meanwhile; keep theirs
+            if (pending.putIfAbsent(key, future) != null) {
+                future.cancel(false);
+                return;
+            }
 
-                    // Drop the oldest entries; they're the furthest from where generation is happening now.
-                    Iterator<Future<double[]>> iter = pending.values().iterator();
-                    while (pending.size() > capacity && iter.hasNext()) {
-                        iter.next().cancel(false);
-                        iter.remove();
-                    }
-                }
+            // Drop the oldest entries; they're the furthest from where generation is happening now.
+            Iterator<Future<double[]>> iter = pending.values().iterator();
+            while (pending.size() > capacity && iter.hasNext()) {
+                iter.next().cancel(false);
+                iter.remove();
             }
         }
     }

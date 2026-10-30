@@ -4,6 +4,8 @@ import net.minecraft.block.Block;
 import net.minecraft.world.World;
 import net.minecraft.world.chunk.Chunk;
 
+import com.cardinalstar.cubicchunks.world.ICubicWorld;
+
 import cpw.mods.fml.common.Optional;
 import databack.mixins.DBMods;
 
@@ -24,11 +26,13 @@ public class CustomHeightmap implements Heightmap {
         this.predicate = predicate;
     }
 
-    /// Walks down from the column's 1.7 height; 0 when nothing counts.
+    /// Walks down from the column's 1.7 height; 0 when nothing counts. With Cubic Chunks, walks down from `worldY`
+    /// instead, to the world's lowest generated layer, and gives the layer below it when nothing counts.
     @Override
     public int getTop(int worldX, int worldY, int worldZ) {
+        if (DBMods.CUBIC_CHUNKS.isModLoaded()) return getTopCC(worldX, worldY, worldZ);
+
         int baseTop = world.getHeightValue(worldX, worldZ);
-        if (DBMods.CUBIC_CHUNKS.isModLoaded()) return getTopThroughWorld(worldX, baseTop, worldZ);
 
         // One chunk lookup for the whole column, instead of one per block
         Chunk chunk = world.getChunkFromBlockCoords(worldX, worldZ);
@@ -41,18 +45,16 @@ public class CustomHeightmap implements Heightmap {
         return 0;
     }
 
-    /// Cubic Chunks' columns have no bottom, so the walk has no floor.
-    private int getTopThroughWorld(int worldX, int baseTop, int worldZ) {
-        int y = baseTop;
-        while (!predicate.test(world, world.getBlock(worldX, y, worldZ), world.getBlockMetadata(worldX, y, worldZ),
-            worldX, y, worldZ)) {
-            y--;
-        }
-        return y;
-    }
-
+    /// Cubic Chunks' columns have no fixed bottom or 1.7 height.
     @Optional.Method(modid = "cubicchunks")
     private int getTopCC(int worldX, int worldY, int worldZ) {
-        throw new UnsupportedOperationException("not yet implemented");
+        int bottom = ((ICubicWorld) world).getMinGenerationHeight();
+        for (int y = worldY; y >= bottom; y--) {
+            if (predicate.test(world, world.getBlock(worldX, y, worldZ), world.getBlockMetadata(worldX, y, worldZ),
+                worldX, y, worldZ)) {
+                return y;
+            }
+        }
+        return bottom - 1;
     }
 }
