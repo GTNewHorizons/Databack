@@ -196,8 +196,8 @@ public final class ClimateTree implements BiomeSearch {
         }
     }
 
-    /// Builds the tree top-down: a node with more than [#LEAF_SIZE] entries is split at the median of its entries'
-    /// box centres along the axis where those centres are most spread out.
+    /// Builds the tree top-down: a node with more than [#LEAF_SIZE] entries is split where [Builder#split] finds the
+    /// halves' boxes smallest for their size.
     private static final class Builder {
 
         private final long[] min;
@@ -242,8 +242,7 @@ public final class ClimateTree implements BiomeSearch {
                 return node;
             }
 
-            sortByCentre(start, end, widestAxis(start, end));
-            int middle = (start + end) >>> 1;
+            int middle = split(start, end);
 
             int a = buildNode(start, middle);
             int b = buildNode(middle, end);
@@ -272,24 +271,50 @@ public final class ClimateTree implements BiomeSearch {
             lowestIndex[node] = lowest;
         }
 
-        private int widestAxis(int start, int end) {
-            int widest = 0;
-            long widestSpread = -1;
+        /// Orders `order[start, end)` along the best axis and returns where to split it: the axis and position whose two
+        /// halves have the smallest boxes for their size (each half's entry count times its box's summed extents), so
+        /// queries can skip more of them.
+        private int split(int start, int end) {
+            int bestAxis = 0, bestMiddle = (start + end) >>> 1;
+            double bestCost = Double.POSITIVE_INFINITY;
 
             for (int axis = 0; axis < AXES; axis++) {
-                long lo = Long.MAX_VALUE, hi = Long.MIN_VALUE;
-                for (int i = start; i < end; i++) {
-                    long centre = centre2(order[i], axis);
-                    lo = Math.min(lo, centre);
-                    hi = Math.max(hi, centre);
-                }
-                if (hi - lo > widestSpread) {
-                    widest = axis;
-                    widestSpread = hi - lo;
+                sortByCentre(start, end, axis);
+                double[] prefix = extents(start, end, true);
+                double[] suffix = extents(start, end, false);
+                for (int middle = start + 1; middle < end; middle++) {
+                    double cost = (middle - start) * prefix[middle - start - 1] + (end - middle) * suffix[middle - start];
+                    if (cost < bestCost) {
+                        bestCost = cost;
+                        bestAxis = axis;
+                        bestMiddle = middle;
+                    }
                 }
             }
 
-            return widest;
+            sortByCentre(start, end, bestAxis);
+            return bestMiddle;
+        }
+
+        /// The summed extents of the boxes of `order[start, start + i]` (`forward`) or `order[start + i, end)`, by `i`.
+        private double[] extents(int start, int end, boolean forward) {
+            long[] lo = new long[AXES], hi = new long[AXES];
+            Arrays.fill(lo, Long.MAX_VALUE);
+            Arrays.fill(hi, Long.MIN_VALUE);
+            double[] result = new double[end - start];
+
+            for (int step = 0; step < end - start; step++) {
+                int i = forward ? start + step : end - 1 - step;
+                int entry = order[i];
+                double sum = 0;
+                for (int axis = 0; axis < AXES; axis++) {
+                    lo[axis] = Math.min(lo[axis], min[entry * AXES + axis]);
+                    hi[axis] = Math.max(hi[axis], max[entry * AXES + axis]);
+                    sum += hi[axis] - lo[axis];
+                }
+                result[i - start] = sum;
+            }
+            return result;
         }
 
         /// Sorts `order[start, end)` by box centre on `axis`, then by original index, so builds are deterministic.

@@ -3,6 +3,7 @@ package databack.common.worldgen.biome;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import com.gtnewhorizon.gtnhlib.util.CoordinatePacker;
 import databack.common.annotation.ThreadSafe;
 import databack.common.worldgen.biome.zoom.BiomeZoom;
 import databack.common.worldgen.biome.zoom.ZoomSource;
@@ -73,18 +74,13 @@ public final class SurfaceBiomes {
 
         @Override
         public String getNoiseBiome(int quartX, int quartY, int quartZ) {
-            long key = key(quartX, quartY, quartZ);
+            long key = CoordinatePacker.pack(quartX, quartY, quartZ);
             String biome = cells.get(key);
             if (biome != null || cells.containsKey(key)) return biome;
 
             biome = source.getNoiseBiome(quartX, quartY, quartZ);
             cells.put(key, biome);
             return biome;
-        }
-
-        /// Distinct for quart coordinates within ±2^23 horizontally (past the world border) and ±2^15 vertically.
-        private static long key(int quartX, int quartY, int quartZ) {
-            return ((long) quartX & 0xFFFFFF) << 40 | ((long) quartY & 0xFFFF) << 24 | quartZ & 0xFFFFFFL;
         }
     }
 }

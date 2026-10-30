@@ -47,6 +47,7 @@ import databack.common.interop.registry.BlockIdentityRegistry;
 import databack.common.worldgen.aquifer.AquiferSystem;
 import databack.common.worldgen.aquifer.VanillaAquifer;
 import databack.common.worldgen.aquifer.VanillaAquifers;
+import databack.common.worldgen.biome.CachedBiomeSource;
 import databack.common.worldgen.biome.ClimateSampler;
 import databack.common.worldgen.biome.MultiNoiseBiomeSource;
 import databack.common.worldgen.biome.ClimateEntry;
@@ -179,11 +180,12 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         String dimensionName = getDimensionName(world.provider.dimensionId);
         List<ClimateEntry> climate = MultiNoiseParameters.resolve(noiseBiomes, dimensionName);
-        MultiNoiseBiomeSource biomeSource = MultiNoiseBiomeSource.create(climate, ClimateSampler.of(this.router));
+        CachedBiomeSource biomeSource = new CachedBiomeSource(
+            MultiNoiseBiomeSource.create(climate, ClimateSampler.of(this.router)));
         BiomeZoom zoom = VanillaBiomeZoom.get();
         this.surfaceBiomes = new SurfaceBiomes(biomeSource, zoom, zoom == null ? 0 : zoom.zoomSeed(world.getSeed()));
         this.surfaceSystem = createSurfaceSystem(build, ns, world.getSeed());
-        this.decorator = createDecorator(climate, ns);
+        this.decorator = createDecorator(climate, biomeSource, ns);
         VanillaAquifer aquifer = generatorSettings.aquifers_enabled ? VanillaAquifers.get() : null;
         this.aquiferSystem = aquifer == null ? AquiferSystem.disabled(generatorSettings.sea_level)
             : AquiferSystem.enabled(generatorSettings.sea_level, aquifer, this.router, rng);
@@ -215,7 +217,7 @@ public class ModernWorldGenerator implements IChunkProvider {
 
     /// Places nothing when vanilla's feature classes are unavailable (already logged).
     private DeferredPopulation.Decorator createDecorator(
-        List<ClimateEntry> climate, NoiseGeneratorSettings.NoiseSettings ns
+        List<ClimateEntry> climate, CachedBiomeSource biomeSource, NoiseGeneratorSettings.NoiseSettings ns
     ) {
         VanillaFeatures vanilla = VanillaFeaturesCache.get();
         if (vanilla == null) return (chunkX, chunkZ) -> {};
@@ -234,10 +236,27 @@ public class ModernWorldGenerator implements IChunkProvider {
         LegacyWorld legacy = new WorldLegacyWorld(world, densitySampler.minY(), densitySampler.height());
         RandomSource worldRandom = new StandardRandom(world.getSeed());
         FeatureBiomes biomeDefinitions = new FeatureBiomes(BiomeList.RT.getHandler()::getBiome);
+        int minQuartY = densitySampler.minY() >> 2;
+        int maxQuartY = (densitySampler.minY() + densitySampler.height() - 1) >> 2;
         return new FeatureDecorator(world::getChunkFromChunkCoords,
             area -> new PopulationLevel(legacy, states, area, surfaceBiomes.forChunk()::biome, biomeDefinitions,
                 worldRandom),
+            (chunkX, chunkZ, into) -> storedBiomes(biomeSource, chunkX, chunkZ, minQuartY, maxQuartY, into),
             vanilla, features, world.getSeed());
+    }
+
+    /// The biomes a chunk stores, as vanilla decorates by them: its quart cells' biomes, unzoomed.
+    private static void storedBiomes(
+        CachedBiomeSource biomeSource, int chunkX, int chunkZ, int minQuartY, int maxQuartY, Set<String> into
+    ) {
+        for (int quartY = minQuartY; quartY <= maxQuartY; quartY++) {
+            for (int quartX = chunkX << 2; quartX < (chunkX + 1) << 2; quartX++) {
+                for (int quartZ = chunkZ << 2; quartZ < (chunkZ + 1) << 2; quartZ++) {
+                    String biome = biomeSource.getNoiseBiome(quartX, quartY, quartZ);
+                    if (biome != null) into.add(biome);
+                }
+            }
+        }
     }
 
     /// Null when the noise settings have no surface rule.

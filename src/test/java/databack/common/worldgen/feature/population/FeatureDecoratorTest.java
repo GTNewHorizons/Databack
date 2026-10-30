@@ -82,7 +82,7 @@ class FeatureDecoratorTest {
             area -> new PopulationLevel(world, states, area, (x, y, z) -> biome,
                 new FeatureBiomes(id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class)),
                 new StandardRandom(0)),
-            vanilla, features, 1234L);
+            (x, z, into) -> into.add(biome), vanilla, features, 1234L);
 
         decorator.decorate(chunkX, chunkZ);
         assertEquals(9, loaded.size());

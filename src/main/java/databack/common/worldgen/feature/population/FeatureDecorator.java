@@ -33,10 +33,19 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
         void load(int chunkX, int chunkZ);
     }
 
+    /// The biomes a chunk stores, which pick the features it gets.
+    @FunctionalInterface
+    public interface ChunkBiomes {
+
+        void collect(int chunkX, int chunkZ, @NotNull Set<String> into);
+    }
+
     @NotNull
     private final ChunkLoader chunks;
     @NotNull
     private final Function<ColumnArea, PopulationLevel> levels;
+    @NotNull
+    private final ChunkBiomes biomes;
     @NotNull
     private final VanillaFeatures vanilla;
     @NotNull
@@ -47,10 +56,11 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
     /// `levels` gives the level features see, limited to an area; `seed` is the world's.
     public FeatureDecorator(
         @NotNull ChunkLoader chunks, @NotNull Function<ColumnArea, PopulationLevel> levels,
-        @NotNull VanillaFeatures vanilla, @NotNull BiomeFeatures features, long seed
+        @NotNull ChunkBiomes biomes, @NotNull VanillaFeatures vanilla, @NotNull BiomeFeatures features, long seed
     ) {
         this.chunks = chunks;
         this.levels = levels;
+        this.biomes = biomes;
         this.vanilla = vanilla;
         this.features = features;
         this.seed = seed;
@@ -63,7 +73,8 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
         }
 
         PopulationLevel level = levels.apply(ColumnArea.ofChunks(chunkX - 1, chunkZ - 1, chunkX + 1, chunkZ + 1));
-        Set<String> biomes = biomesIn(level, chunkX, chunkZ);
+        Set<String> biomes = new HashSet<>();
+        this.biomes.collect(chunkX, chunkZ, biomes);
         VnBlockPos origin = new VnBlockPos(chunkX << 4, level.getMinY(), chunkZ << 4);
 
         RandomSource random = new SourceBits(new XoroshiroRandom(0));
@@ -79,20 +90,6 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
                 index++;
             }
         }
-    }
-
-    /// The biomes of the chunk's columns, sampled every 4 blocks as biomes are stored.
-    private static Set<String> biomesIn(PopulationLevel level, int chunkX, int chunkZ) {
-        Set<String> biomes = new HashSet<>();
-        VnBlockPos pos = new VnBlockPos();
-        for (int y = level.getMinY(); y < level.getMinY() + level.getHeight(); y += 4) {
-            for (int x = 0; x < 16; x += 4) {
-                for (int z = 0; z < 16; z += 4) {
-                    biomes.add(level.getBiome(pos.set((chunkX << 4) + x, y, (chunkZ << 4) + z)).id);
-                }
-            }
-        }
-        return biomes;
     }
 
     private boolean isInAny(Set<String> biomes, int step, FtHolder feature) {
