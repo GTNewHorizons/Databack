@@ -190,20 +190,22 @@ public final class FeatureBuildContext {
         return new FtTag(id.indexOf(':') < 0 ? "minecraft:" + id : id);
     }
 
-    /// The fluids of a fluid list, or null when it names a tag other than water's or lava's: there are no fluid tags,
-    /// and fluid states do not tell still and flowing fluids apart ([FtFluidState]).
+    /// The fluids of a fluid list, or null when it names a tag other than water's or lava's. Water's and lava's tags
+    /// hold both forms of their fluid ([FtFluidState]).
     @Nullable
     public FtHolderSet fluids(@NotNull List<String> entries) {
         Set<String> fluids = new HashSet<>();
         for (String entry : entries) {
-            String id = entry.startsWith("#") ? entry.substring(1) : entry;
+            boolean tag = entry.startsWith("#");
+            String id = tag ? entry.substring(1) : entry;
             if (id.indexOf(':') < 0) id = "minecraft:" + id;
 
-            if (id.equals("minecraft:water") || id.equals("minecraft:flowing_water")) {
-                fluids.add("minecraft:water");
-            } else if (id.equals("minecraft:lava") || id.equals("minecraft:flowing_lava")) {
-                fluids.add("minecraft:lava");
-            } else if (entry.startsWith("#")) {
+            if (!tag) {
+                fluids.add(id);
+            } else if (id.equals("minecraft:water") || id.equals("minecraft:lava")) {
+                fluids.add(id);
+                fluids.add(id.replace(":", ":flowing_"));
+            } else {
                 return unsupported("Fluid tag " + entry);
             }
         }

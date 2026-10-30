@@ -22,6 +22,8 @@ import databack.common.worldgen.feature.standin.FtBlockState;
 import databack.common.worldgen.feature.standin.FtChunkGenerator;
 import databack.common.worldgen.feature.standin.FtDoublePlantBlock;
 import databack.common.worldgen.feature.standin.FtFluidState;
+import databack.common.worldgen.feature.standin.FtFluidTags;
+import databack.common.worldgen.feature.standin.FtFluids;
 import databack.common.worldgen.feature.standin.FtGenerationContext;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.standin.FtHolderSet;
@@ -81,6 +83,20 @@ class FeatureStandInTest {
         assertFalse(state("minecraft:oak_stairs", "waterlogged", "false").getFluidState().is(water));
         assertSame(FtFluidState.LAVA, state("minecraft:lava").getFluidState());
         assertTrue(state("minecraft:stone").getFluidState().isEmpty());
+    }
+
+    /// As in modern, flowing water is its own fluid in fluid sets, while water's tag holds both.
+    @Test
+    void flowingFluidsAreNotSources() {
+        FtHolderSet water = FtHolderSet.of(Collections.singletonList(new FtHolder("minecraft:water", "water")));
+        FtFluidState flowing = state("minecraft:water", "level", "3").getFluidState();
+
+        assertFalse(flowing.isSource());
+        assertFalse(flowing.isSourceOfType(FtFluids.WATER));
+        assertFalse(flowing.is(water));
+        assertTrue(flowing.is(FtFluidTags.WATER));
+        assertTrue(state("minecraft:water", "level", "0").getFluidState().isSourceOfType(FtFluids.WATER));
+        assertSame(FtFluidState.FLOWING_LAVA, state("minecraft:lava", "level", "9").getFluidState());
     }
 
     @Test

@@ -43,16 +43,19 @@ public final class PopulationLevel implements FtLevel {
     @NotNull
     private final BiomeLookup biomes;
     @NotNull
+    private final FeatureBiomes biomeDefinitions;
+    @NotNull
     private final RandomSource random;
 
     public PopulationLevel(
         @NotNull LegacyWorld world, @NotNull LegacyStates states, @NotNull ColumnArea area,
-        @NotNull BiomeLookup biomes, @NotNull RandomSource random
+        @NotNull BiomeLookup biomes, @NotNull FeatureBiomes biomeDefinitions, @NotNull RandomSource random
     ) {
         this.world = world;
         this.states = states;
         this.area = area;
         this.biomes = biomes;
+        this.biomeDefinitions = biomeDefinitions;
         this.random = random;
     }
 
@@ -107,7 +110,7 @@ public final class PopulationLevel implements FtLevel {
     @Override
     public FtHolder getBiome(@NotNull VnBlockPos pos) {
         String id = biomes.at(pos.getX(), pos.getY(), pos.getZ());
-        return new FtHolder(id, id);
+        return new FtHolder(id, biomeDefinitions.get(id));
     }
 
     @NotNull

@@ -36,6 +36,15 @@ import net.minecraft.util.valueproviders.TrapezoidInt;
  *   `getRandomDirection` on a legacy random.
  * - `shuffle.tsv`: `fn seed size result` for `Util.shuffle` and `Util.shuffledCopy` of `0..size-1` on a legacy random.
  * - `uniform_int.tsv`: `min max seed draw value` for `UniformInt.of(min, max).sample`.
+ * - `climate.tsv`: `biome x y z seaLevel temperature cold warm` for a vanilla biome's (private) `getTemperature`,
+ *   `coldEnoughToSnow` and `warmEnoughToRain`.
+ * - `climate_noise.tsv`: `noise x z value`: `getValue(x, z, false)` of the biome's private `TEMPERATURE_NOISE`
+ *   (`temperature`) and `FROZEN_TEMPERATURE_NOISE` (`frozen`).
+ * - `climate_noise_match.tsv`: `noise seed octaves`: the legacy-random seeds (searched in -200000..200000) and octave
+ *   lists for which a `PerlinSimplexNoise` gives the same values as each private noise.
+ * - `frozen_modifier.tsv`: `x z temperature`: `frozen_ocean`'s (private) `getTemperature` at y 63, sea level 63.
+ * - `simplex_octaves.tsv`: `seed octaves x z value`: `getValue(x, z, false)` of a `PerlinSimplexNoise` built from a
+ *   legacy random of seed `seed` with the octaves listed.
  * - `info_noise.tsv`: `source offsets x z value`: `getValue(x, z, offsets)` of `Biome.BIOME_INFO_NOISE` (source
  *   `biome`), and of a `PerlinSimplexNoise` with octave 0 built from a legacy random of seed `s` (source `seed:s`).
  */
@@ -57,6 +66,10 @@ final class FeatureReference {
         writeDecorationSeeds(dir);
         writeInfoNoise(dir);
         writeTreeHelpers(dir);
+        writeClimate(dir, lookup);
+        writeClimateNoiseMatch(dir);
+        writeFrozenModifier(dir, lookup);
+        writeSimplexOctaves(dir);
         System.out.println("feature probes");
     }
 
@@ -213,6 +226,126 @@ final class FeatureReference {
         for (boolean offsets : new boolean[] { false, true }) {
             for (double[] p : points) {
                 w.println(source + "\t" + offsets + "\t" + p[0] + "\t" + p[1] + "\t" + noise.getValue(p[0], p[1], offsets));
+            }
+        }
+    }
+
+    private static final String[] CLIMATE_BIOMES = { "plains", "desert", "snowy_plains", "ice_spikes", "taiga",
+        "snowy_taiga", "frozen_ocean", "deep_frozen_ocean", "frozen_river", "river", "ocean", "cold_ocean",
+        "jagged_peaks", "windswept_hills", "snowy_slopes", "grove", "meadow", "stony_shore" };
+
+    private static final int[] CLIMATE_YS = { -64, 0, 40, 62, 63, 64, 70, 79, 80, 81, 82, 90, 100, 120, 150, 200, 255,
+        320 };
+
+    private static void writeClimate(Path dir, HolderLookup.Provider lookup) throws Exception {
+        var biomes = lookup.lookupOrThrow(net.minecraft.core.registries.Registries.BIOME);
+        var getTemperature = net.minecraft.world.level.biome.Biome.class.getDeclaredMethod("getTemperature",
+            BlockPos.class, int.class);
+        getTemperature.setAccessible(true);
+
+        java.util.Random rng = new java.util.Random(13);
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("climate.tsv")))) {
+            w.println("biome\tx\ty\tz\tseaLevel\ttemperature\tcold\twarm");
+            for (String name : CLIMATE_BIOMES) {
+                var biome = biomes.getOrThrow(net.minecraft.resources.ResourceKey.create(
+                    net.minecraft.core.registries.Registries.BIOME,
+                    net.minecraft.resources.Identifier.withDefaultNamespace(name))).value();
+                for (int i = 0; i < 60; i++) {
+                    int x = i < 20 ? i * 3 : rng.nextInt(60000) - 30000, z = i < 20 ? 7 : rng.nextInt(60000) - 30000;
+                    for (int seaLevel : new int[] { 63, -10 }) {
+                        for (int y : CLIMATE_YS) {
+                            // A fresh position each time: the temperature is cached per position
+                            BlockPos pos = new BlockPos(x, y, z);
+                            w.println(name + "\t" + x + "\t" + y + "\t" + z + "\t" + seaLevel + "\t"
+                                + getTemperature.invoke(biome, pos, seaLevel) + "\t"
+                                + biome.coldEnoughToSnow(pos, seaLevel) + "\t" + biome.warmEnoughToRain(pos, seaLevel));
+                        }
+                    }
+                }
+            }
+        }
+
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("climate_noise.tsv")))) {
+            w.println("noise\tx\tz\tvalue");
+            for (String field : new String[] { "TEMPERATURE_NOISE", "FROZEN_TEMPERATURE_NOISE" }) {
+                var f = net.minecraft.world.level.biome.Biome.class.getDeclaredField(field);
+                f.setAccessible(true);
+                var noise = (net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise) f.get(null);
+                String label = field.startsWith("FROZEN") ? "frozen" : "temperature";
+                java.util.Random points = new java.util.Random(17);
+                for (int i = 0; i < 300; i++) {
+                    double scale = i < 100 ? 1 : i < 200 ? 0.05 : 0.2;
+                    double x = Math.floor((points.nextDouble() - 0.5) * 60000) * scale;
+                    double z = Math.floor((points.nextDouble() - 0.5) * 60000) * scale;
+                    w.println(label + "\t" + x + "\t" + z + "\t" + noise.getValue(x, z, false));
+                }
+            }
+        }
+    }
+
+    private static final List<List<Integer>> OCTAVE_LISTS = List.of(List.of(0), List.of(-1, 0), List.of(-2, -1, 0),
+        List.of(-3, -2, -1, 0), List.of(0, 1), List.of(-1), List.of(-2, 0), List.of(-3, -1, 0), List.of(1),
+        List.of(-2), List.of(-1, 0, 1), List.of(-2, -1));
+
+    private static void writeClimateNoiseMatch(Path dir) throws Exception {
+        double[][] points = { { 12.5, -7.25 }, { 1003.0, 77.5 }, { -5000.5, 2400.0 } };
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("climate_noise_match.tsv")))) {
+            w.println("noise\tseed\toctaves");
+            for (String field : new String[] { "TEMPERATURE_NOISE", "FROZEN_TEMPERATURE_NOISE" }) {
+                var f = net.minecraft.world.level.biome.Biome.class.getDeclaredField(field);
+                f.setAccessible(true);
+                var target = (net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise) f.get(null);
+                double[] expected = new double[points.length];
+                for (int i = 0; i < points.length; i++) expected[i] = target.getValue(points[i][0], points[i][1], false);
+                for (List<Integer> octaves : OCTAVE_LISTS) {
+                    for (long seed = -200000; seed <= 200000; seed++) {
+                        var noise = new net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise(
+                            new WorldgenRandom(new LegacyRandomSource(seed)), octaves);
+                        boolean same = true;
+                        for (int i = 0; i < points.length && same; i++) {
+                            same = noise.getValue(points[i][0], points[i][1], false) == expected[i];
+                        }
+                        if (same) w.println(field + "\t" + seed + "\t" + octaves);
+                    }
+                }
+            }
+        }
+    }
+
+    private static void writeFrozenModifier(Path dir, HolderLookup.Provider lookup) throws Exception {
+        var biome = lookup.lookupOrThrow(net.minecraft.core.registries.Registries.BIOME).getOrThrow(
+            net.minecraft.resources.ResourceKey.create(net.minecraft.core.registries.Registries.BIOME,
+                net.minecraft.resources.Identifier.withDefaultNamespace("frozen_ocean"))).value();
+        var getTemperature = net.minecraft.world.level.biome.Biome.class.getDeclaredMethod("getTemperature",
+            BlockPos.class, int.class);
+        getTemperature.setAccessible(true);
+
+        java.util.Random rng = new java.util.Random(23);
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("frozen_modifier.tsv")))) {
+            w.println("x\tz\ttemperature");
+            for (int i = 0; i < 4000; i++) {
+                int x = i < 2000 ? rng.nextInt(60000) - 30000 : (i - 2000) % 64 - 100;
+                int z = i < 2000 ? rng.nextInt(60000) - 30000 : (i - 2000) / 64 + 40;
+                w.println(x + "\t" + z + "\t" + getTemperature.invoke(biome, new BlockPos(x, 63, z), 63));
+            }
+        }
+    }
+
+    private static void writeSimplexOctaves(Path dir) throws Exception {
+        try (PrintWriter w = new PrintWriter(Files.newBufferedWriter(dir.resolve("simplex_octaves.tsv")))) {
+            w.println("seed\toctaves\tx\tz\tvalue");
+            java.util.Random rng = new java.util.Random(19);
+            for (long seed : new long[] { 0L, 1L, 99L, -4242L }) {
+                for (List<Integer> octaves : OCTAVE_LISTS) {
+                    var noise = new net.minecraft.world.level.levelgen.synth.PerlinSimplexNoise(
+                        new WorldgenRandom(new LegacyRandomSource(seed)), octaves);
+                    for (int i = 0; i < 40; i++) {
+                        double x = (rng.nextDouble() - 0.5) * (i < 20 ? 40 : 20000);
+                        double z = (rng.nextDouble() - 0.5) * (i < 20 ? 40 : 20000);
+                        w.println(seed + "\t" + octaves.toString().replace(" ", "") + "\t" + x + "\t" + z + "\t"
+                            + noise.getValue(x, z, false));
+                    }
+                }
             }
         }
     }

@@ -6,6 +6,7 @@ import java.util.Arrays;
 import java.util.function.IntBinaryOperator;
 import java.util.function.IntUnaryOperator;
 
+import net.minecraft.block.Block;
 import net.minecraft.init.Blocks;
 
 import com.gtnewhorizon.gtnhlib.blockstate.properties.IntegerBlockProperty;
@@ -216,6 +217,11 @@ public class VanillaBlockIdentities {
         // Modern's other airs: cave air only marks carved space, void air lies outside the world
         blocks.redirect("minecraft:cave_air", Blocks.air);
         blocks.redirect("minecraft:void_air", Blocks.air);
+
+        // Meta is the fluid level, as in modern: 0 is a source, 1-7 flow, 8 and up fall
+        for (Block fluid : new Block[] { Blocks.water, Blocks.flowing_water, Blocks.lava, Blocks.flowing_lava }) {
+            registerProperty(fluid, IntegerBlockProperty.meta("level", 0b1111, 0));
+        }
 
         // States of another block in modern
         blocks.alias(Blocks.flowing_water, "minecraft:water");

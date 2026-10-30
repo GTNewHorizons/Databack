@@ -211,7 +211,13 @@ public class BuiltinConfiguredFeatures {
     private static class EndPlatformFeature implements IConfiguredFeature {}
 
     // freeze_top_layer
-    private static class FreezeTopLayerFeature implements IConfiguredFeature {}
+    private static class FreezeTopLayerFeature implements IConfiguredFeature {
+        @Nullable
+        @Override
+        public Object instantiate(@NotNull FeatureBuildContext ctx) {
+            return configured(ctx, "FREEZE_TOP_LAYER", ctx.vanilla.construct(CONFIGS + "NoneFeatureConfiguration"));
+        }
+    }
 
     // glowstone_blob
     private static class GlowstoneBlobFeature implements IConfiguredFeature {}

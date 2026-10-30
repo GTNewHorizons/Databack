@@ -20,6 +20,7 @@ public final class FtBlockProperties {
     public static final FtProperty EAST = FtProperty.bool("east");
     public static final FtProperty SOUTH = FtProperty.bool("south");
     public static final FtProperty WEST = FtProperty.bool("west");
+    public static final FtProperty SNOWY = FtProperty.bool("snowy");
 
     private FtBlockProperties() {}
 

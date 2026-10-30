@@ -16,6 +16,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
+import databack.common.dto.worldgen.biome.DatapackBiome;
 import databack.common.dto.worldgen.configured_feature.IConfiguredFeature;
 import databack.common.dto.worldgen.placed_feature.PlacedFeature;
 import databack.common.worldgen.density.VanillaWorldgen;
@@ -27,6 +28,7 @@ import databack.common.worldgen.feature.standin.FtChunkGenerator;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.world.ColumnArea;
 import databack.common.worldgen.feature.world.FakeLegacyWorld;
+import databack.common.worldgen.feature.world.FeatureBiomes;
 import databack.common.worldgen.feature.world.LegacyBlockFacts;
 import databack.common.worldgen.feature.world.LegacyStates;
 import databack.common.worldgen.feature.world.PopulationLevel;
@@ -77,7 +79,13 @@ class VanillaFeaturePlacementTest {
     }
 
     private static PopulationLevel level(FakeLegacyWorld world) {
-        return new PopulationLevel(world, states, ColumnArea.ofChunks(0, 0, 1, 1), (x, y, z) -> "minecraft:plains",
+        return level(world, "minecraft:plains");
+    }
+
+    private static PopulationLevel level(FakeLegacyWorld world, String biome) {
+        return new PopulationLevel(world, states, ColumnArea.ofChunks(0, 0, 1, 1), (x, y, z) -> biome,
+            new FeatureBiomes(id -> VanillaWorldgen.available()
+                ? VanillaWorldgen.definition("biome", id, DatapackBiome.class) : null),
             new StandardRandom(0));
     }
 

@@ -70,6 +70,7 @@ import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.world.LegacyBlockFacts;
 import databack.common.worldgen.feature.world.LegacyStates;
 import databack.common.worldgen.feature.world.LegacyWorld;
+import databack.common.worldgen.feature.world.FeatureBiomes;
 import databack.common.worldgen.feature.world.PopulationLevel;
 import databack.common.worldgen.feature.world.WorldLegacyWorld;
 import databack.common.worldgen.orevein.OreVeinSystem;
@@ -232,8 +233,10 @@ public class ModernWorldGenerator implements IChunkProvider {
 
         LegacyWorld legacy = new WorldLegacyWorld(world, densitySampler.minY(), densitySampler.height());
         RandomSource worldRandom = new StandardRandom(world.getSeed());
+        FeatureBiomes biomeDefinitions = new FeatureBiomes(BiomeList.RT.getHandler()::getBiome);
         return new FeatureDecorator(world::getChunkFromChunkCoords,
-            area -> new PopulationLevel(legacy, states, area, surfaceBiomes.forChunk()::biome, worldRandom),
+            area -> new PopulationLevel(legacy, states, area, surfaceBiomes.forChunk()::biome, biomeDefinitions,
+                worldRandom),
             vanilla, features, world.getSeed());
     }
 

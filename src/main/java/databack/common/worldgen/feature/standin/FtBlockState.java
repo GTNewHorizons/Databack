@@ -100,13 +100,16 @@ public final class FtBlockState {
         return level.isFaceSturdy(this, pos, face);
     }
 
-    /// Water for water and waterlogged states, lava for lava, and empty otherwise.
+    /// Water for water and waterlogged states, lava for lava, and empty otherwise. Fluid blocks are sources at level
+    /// 0 (or with no level); waterlogged blocks always are.
     @NotNull
     public FtFluidState getFluidState() {
-        if (block.id.equals("minecraft:water") || "true".equals(properties.get("waterlogged"))) {
-            return FtFluidState.WATER;
-        }
-        return block.id.equals("minecraft:lava") ? FtFluidState.LAVA : FtFluidState.EMPTY;
+        if ("true".equals(properties.get("waterlogged"))) return FtFluidState.WATER;
+
+        boolean source = "0".equals(properties.getOrDefault("level", "0"));
+        if (block.id.equals("minecraft:water")) return source ? FtFluidState.WATER : FtFluidState.FLOWING_WATER;
+        if (block.id.equals("minecraft:lava")) return source ? FtFluidState.LAVA : FtFluidState.FLOWING_LAVA;
+        return FtFluidState.EMPTY;
     }
 
     @NotNull

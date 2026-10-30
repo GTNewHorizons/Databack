@@ -27,6 +27,7 @@ import databack.common.worldgen.feature.FeatureBuildContext;
 import databack.common.worldgen.feature.VanillaFeatures;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.world.FakeLegacyWorld;
+import databack.common.worldgen.feature.world.FeatureBiomes;
 import databack.common.worldgen.feature.world.VanillaTagFacts;
 import databack.common.worldgen.feature.world.LegacyStates;
 import databack.common.worldgen.feature.world.PopulationLevel;
@@ -37,7 +38,7 @@ import databack.common.worldgen.vanilla.VanillaJar;
 class FeatureDecoratorTest {
 
     private static VanillaFeatures vanilla;
-    private static BiomeFeatures plains, forest;
+    private static BiomeFeatures plains, forest, snowyPlains, frozenRiver;
     private static final LegacyStates states = new LegacyStates();
 
     @BeforeAll
@@ -59,6 +60,10 @@ class FeatureDecoratorTest {
             id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
         forest = new BiomeFeatures(ctx, Collections.singleton("minecraft:forest"),
             id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
+        snowyPlains = new BiomeFeatures(ctx, Collections.singleton("minecraft:snowy_plains"),
+            id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
+        frozenRiver = new BiomeFeatures(ctx, Collections.singleton("minecraft:frozen_river"),
+            id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class), -64, 384);
     }
 
     /// Solid to the top: ores only form below the surface.
@@ -74,7 +79,9 @@ class FeatureDecoratorTest {
         int chunkZ) {
         List<long[]> loaded = new ArrayList<>();
         FeatureDecorator decorator = new FeatureDecorator((x, z) -> loaded.add(new long[] { x, z }),
-            area -> new PopulationLevel(world, states, area, (x, y, z) -> biome, new StandardRandom(0)),
+            area -> new PopulationLevel(world, states, area, (x, y, z) -> biome,
+                new FeatureBiomes(id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class)),
+                new StandardRandom(0)),
             vanilla, features, 1234L);
 
         decorator.decorate(chunkX, chunkZ);
@@ -121,6 +128,28 @@ class FeatureDecoratorTest {
         FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.air, 64), forest, "minecraft:forest", 0, 0);
         assertTrue(world.count(Blocks.log) > 0, "oak and birch logs placed");
         assertTrue(world.count(Blocks.leaves) > 0, "oak and birch leaves placed");
+    }
+
+    @Test
+    void snowyPlainsGetSnow() {
+        FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.grass, 64, Blocks.air), snowyPlains,
+            "minecraft:snowy_plains", 0, 0);
+        assertTrue(world.count(Blocks.snow_layer) >= 200, "most columns snowed on");
+    }
+
+    @Test
+    void frozenRiversFreeze() {
+        FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.water, 64, Blocks.air), frozenRiver,
+            "minecraft:frozen_river", 0, 0);
+        assertTrue(world.count(Blocks.ice) >= 200, "most columns frozen");
+    }
+
+    @Test
+    void plainsStayUnfrozen() {
+        FakeLegacyWorld world = decorate(new FakeLegacyWorld(Blocks.water, 64, Blocks.air), plains,
+            "minecraft:plains", 0, 0);
+        assertEquals(0, world.count(Blocks.ice));
+        assertEquals(0, world.count(Blocks.snow_layer));
     }
 
     @Test

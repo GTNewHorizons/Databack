@@ -113,6 +113,7 @@ final class FeatureMappings {
         .mapClass(BLOCK + "VineBlock", FtBlockProperties.class)
         .mapClass(BLOCK + "CocoaBlock", FtBlockProperties.class)
         .mapClass(BLOCK + "BeehiveBlock", FtBlockProperties.class)
+        .mapClass(BLOCK + "SnowyBlock", FtBlockProperties.class)
         .mapClass(BLOCK + "state/properties/BlockStateProperties", FtBlockProperties.class)
         .mapClass(BLOCK + "state/BlockState", FtBlockState.class)
         .mapClass(BLOCK + "state/BlockBehaviour$BlockStateBase", FtBlockState.class)

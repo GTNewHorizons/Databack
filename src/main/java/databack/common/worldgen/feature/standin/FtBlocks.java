@@ -15,6 +15,8 @@ public final class FtBlocks {
     public static final FtBlock BEE_NEST = FtBlock.of("minecraft:bee_nest");
     public static final FtBlock CREAKING_HEART = FtBlock.of("minecraft:creaking_heart");
     public static final FtBlock PALE_HANGING_MOSS = FtBlock.of("minecraft:pale_hanging_moss");
+    public static final FtBlock ICE = FtBlock.of("minecraft:ice");
+    public static final FtBlock SNOW = FtBlock.of("minecraft:snow");
 
     private FtBlocks() {}
 }

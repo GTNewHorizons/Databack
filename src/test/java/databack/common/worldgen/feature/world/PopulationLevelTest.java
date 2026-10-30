@@ -2,6 +2,7 @@ package databack.common.worldgen.feature.world;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import com.gtnewhorizon.gtnhlib.util.data.ImmutableBlockMeta;
 
+import databack.common.worldgen.feature.standin.FtBiome;
 import databack.common.worldgen.feature.standin.FtBlock;
 import databack.common.worldgen.feature.standin.FtBlockFacts;
 import databack.common.worldgen.feature.standin.FtBlockState;
@@ -26,7 +28,8 @@ class PopulationLevelTest {
     private final LegacyStates states = new LegacyStates();
     private final FakeLegacyWorld world = new FakeLegacyWorld(Blocks.air);
     private final PopulationLevel level = new PopulationLevel(world, states, ColumnArea.ofChunks(0, 0, 1, 1),
-        (x, y, z) -> y < 0 ? "minecraft:deep_dark" : "minecraft:plains", new StandardRandom(1));
+        (x, y, z) -> y < 0 ? "minecraft:deep_dark" : "minecraft:plains", new FeatureBiomes(id -> null),
+        new StandardRandom(1));
 
     private static FtBlockState state(String id) {
         return FtBlock.of(id).defaultBlockState();
@@ -56,6 +59,16 @@ class PopulationLevelTest {
 
         FtBlockState log = FtBlockState.of(FtBlock.of("minecraft:oak_log"), map("axis", "x"));
         assertEquals("x", roundTrip(log).properties().get("axis"));
+    }
+
+    /// 1.7's fluid meta is modern's level.
+    @Test
+    void fluidLevelsAreMeta() {
+        assertEquals("3", states.toModern(Blocks.water, 3).properties().get("level"));
+        assertEquals("0", states.toModern(Blocks.lava, 0).properties().get("level"));
+
+        ImmutableBlockMeta flowing = states.toLegacy(FtBlockState.of(FtBlock.of("minecraft:water"), map("level", "5")));
+        assertEquals(5, flowing.getBlockMeta());
     }
 
     @Test
@@ -110,7 +123,8 @@ class PopulationLevelTest {
     @Test
     void biomesComeFromTheLookup() {
         assertEquals("minecraft:deep_dark", level.getBiome(new VnBlockPos(0, -10, 0)).id);
-        assertEquals("minecraft:plains", level.getBiome(new VnBlockPos(0, 70, 0)).value());
+        assertEquals("minecraft:plains", level.getBiome(new VnBlockPos(0, 70, 0)).id);
+        assertInstanceOf(FtBiome.class, level.getBiome(new VnBlockPos(0, 70, 0)).value());
     }
 
     @Test
