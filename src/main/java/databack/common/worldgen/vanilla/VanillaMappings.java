@@ -317,7 +317,8 @@ public final class VanillaMappings {
         }
 
         /// Calls to the instance methods `owner.name` (every descriptor) go to the static method of the same name on
-        /// `target`, which takes the receiver (as `owner`, mapped) first. For JDK methods newer than the runtime.
+        /// `target`, which takes the receiver (as `owner`, mapped) first. As for [#redirectStatic], vanilla classes
+        /// (the receiver too) are [Object] to `target`. For JDK methods newer than the runtime, and for hooks.
         @NotNull
         @Contract("_, _, _ -> this")
         public Builder redirectInstance(@NotNull String owner, @NotNull String name, @NotNull Class<?> target) {

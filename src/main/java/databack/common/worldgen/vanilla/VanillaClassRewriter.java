@@ -423,9 +423,10 @@ public final class VanillaClassRewriter {
             String instanceRedirect = opcode == Opcodes.INVOKESTATIC ? null : mappings.instanceRedirect(owner, name);
 
             if (instanceRedirect != null) {
-                String receiver = "L" + mappings.mapName(owner) + ";";
+                String receiver = bundle.contains(owner) ? "Ljava/lang/Object;" : "L" + mappings.mapName(owner) + ";";
                 super.visitMethodInsn(Opcodes.INVOKESTATIC, instanceRedirect, name,
-                    "(" + receiver + mappings.mapDesc(desc).substring(1), false);
+                    "(" + receiver + mappings.mapDesc(mappings.eraseBundle(bundle, desc)).substring(1), false);
+                castBundled(Type.getReturnType(desc));
             } else if (redirect == null && isInertCall(owner, name, desc)) {
                 Type[] arguments = Type.getArgumentTypes(desc);
                 for (int i = arguments.length - 1; i >= 0; i--) pop(arguments[i]);

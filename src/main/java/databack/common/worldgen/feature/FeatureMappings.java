@@ -148,6 +148,8 @@ final class FeatureMappings {
         .mapClass(LEVEL + "chunk/ChunkGenerator", FtChunkGenerator.class)
         .mapClass(LEVEL + "biome/Biome", FtBiome.class)
         .addInterface(LEVELGEN + "placement/PlacedFeature", VanillaPlacedFeature.class)
+        .addInterface(LEVELGEN + "feature/ConfiguredFeature", VanillaConfiguredFeature.class)
+        .redirectInstance(LEVELGEN + "feature/ConfiguredFeature", "place", FeatureBand.class)
         .mapClass(LEVEL + "biome/BiomeGenerationSettings", FtBiomeFeatures.class)
         .mapClass(LEVELGEN + "Heightmap$Types", HeightmapType.class)
         .mapClass(LEVELGEN + "WorldGenerationContext", FtGenerationContext.class)

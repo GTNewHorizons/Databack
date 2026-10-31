@@ -2,17 +2,18 @@ package databack.common.worldgen.feature.population;
 
 import java.util.HashSet;
 import java.util.Set;
-import java.util.function.Function;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import databack.common.worldgen.feature.BiomeFeatures;
+import databack.common.worldgen.feature.FeatureBand;
 import databack.common.worldgen.feature.FeatureSeeds;
 import databack.common.worldgen.feature.VanillaFeatures;
 import databack.common.worldgen.feature.standin.FtHolder;
 import databack.common.worldgen.feature.world.ColumnArea;
+import databack.common.worldgen.feature.world.LegacyWorld;
 import databack.common.worldgen.feature.world.PopulationLevel;
 import databack.common.worldgen.rng.RandomSource;
 import databack.common.worldgen.rng.SourceBits;
@@ -33,6 +34,14 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
         void load(int chunkX, int chunkZ);
     }
 
+    /// The level features see over a world, limited to an area.
+    @FunctionalInterface
+    public interface Levels {
+
+        @NotNull
+        PopulationLevel create(@NotNull LegacyWorld world, @NotNull ColumnArea area);
+    }
+
     /// The biomes a chunk stores, which pick the features it gets.
     @FunctionalInterface
     public interface ChunkBiomes {
@@ -43,7 +52,9 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
     @NotNull
     private final ChunkLoader chunks;
     @NotNull
-    private final Function<ColumnArea, PopulationLevel> levels;
+    private final Levels levels;
+    @NotNull
+    private final LegacyWorld world;
     @NotNull
     private final ChunkBiomes biomes;
     @NotNull
@@ -53,13 +64,14 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
     private final long seed;
     private final Set<String> failed = new HashSet<>();
 
-    /// `levels` gives the level features see, limited to an area; `seed` is the world's.
+    /// [#decorate] places features into `world`; `seed` is the world's.
     public FeatureDecorator(
-        @NotNull ChunkLoader chunks, @NotNull Function<ColumnArea, PopulationLevel> levels,
-        @NotNull ChunkBiomes biomes, @NotNull VanillaFeatures vanilla, @NotNull BiomeFeatures features, long seed
+        @NotNull ChunkLoader chunks, @NotNull Levels levels, @NotNull LegacyWorld world, @NotNull ChunkBiomes biomes,
+        @NotNull VanillaFeatures vanilla, @NotNull BiomeFeatures features, long seed
     ) {
         this.chunks = chunks;
         this.levels = levels;
+        this.world = world;
         this.biomes = biomes;
         this.vanilla = vanilla;
         this.features = features;
@@ -68,11 +80,22 @@ public final class FeatureDecorator implements DeferredPopulation.Decorator {
 
     @Override
     public void decorate(int chunkX, int chunkZ) {
+        decorate(chunkX, chunkZ, world);
+    }
+
+    /// Places the chunk's features positioned in layers `minY..maxY` ([FeatureBand]) into `world`, as [#decorate]
+    /// places them all. Features may write outside the band.
+    public void decorateBand(int chunkX, int chunkZ, int minY, int maxY, @NotNull LegacyWorld world) {
+        FeatureBand.within(minY, maxY, () -> decorate(chunkX, chunkZ, world));
+    }
+
+    private void decorate(int chunkX, int chunkZ, LegacyWorld world) {
         for (int x = chunkX - 1; x <= chunkX + 1; x++) {
             for (int z = chunkZ - 1; z <= chunkZ + 1; z++) chunks.load(x, z);
         }
 
-        PopulationLevel level = levels.apply(ColumnArea.ofChunks(chunkX - 1, chunkZ - 1, chunkX + 1, chunkZ + 1));
+        PopulationLevel level = levels.create(world,
+            ColumnArea.ofChunks(chunkX - 1, chunkZ - 1, chunkX + 1, chunkZ + 1));
         Set<String> biomes = new HashSet<>();
         this.biomes.collect(chunkX, chunkZ, biomes);
         VnBlockPos origin = new VnBlockPos(chunkX << 4, level.getMinY(), chunkZ << 4);

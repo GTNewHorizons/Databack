@@ -118,7 +118,9 @@ public class ModernWorldGenerator implements IChunkProvider {
     /// Null when carvers are unavailable (no vanilla classes).
     @Nullable
     private final WorldCarvers carvers;
-    private final DeferredPopulation.Decorator decorator;
+    /// Null when vanilla's feature classes are unavailable (already logged): nothing is placed.
+    @Nullable
+    private final FeatureDecorator decorator;
     /// See [#population()].
     private DeferredPopulation population;
     private final ProxyBiomeResolver biomeResolver = new ProxyBiomeResolver(BiomeGenBase.plains);
@@ -242,12 +244,12 @@ public class ModernWorldGenerator implements IChunkProvider {
         return new int[] { ns.min_y, ns.height };
     }
 
-    /// Places nothing when vanilla's feature classes are unavailable (already logged).
-    private DeferredPopulation.Decorator createDecorator(
+    @Nullable
+    private FeatureDecorator createDecorator(
         List<ClimateEntry> climate, CachedBiomeSource biomeSource, NoiseGeneratorSettings.NoiseSettings ns
     ) {
         VanillaFeatures vanilla = VanillaFeaturesCache.get();
-        if (vanilla == null) return (chunkX, chunkZ) -> {};
+        if (vanilla == null) return null;
 
         LegacyStates states = new LegacyStates();
         FtBlockFacts.install(new LegacyBlockFacts(states));
@@ -266,8 +268,9 @@ public class ModernWorldGenerator implements IChunkProvider {
         int minQuartY = densitySampler.minY() >> 2;
         int maxQuartY = (densitySampler.minY() + densitySampler.height() - 1) >> 2;
         return new FeatureDecorator(world::getChunkFromChunkCoords,
-            area -> new PopulationLevel(legacy, states, area, surfaceBiomes.forChunk()::biome, biomeDefinitions,
-                worldRandom),
+            (target, area) -> new PopulationLevel(target, states, area, surfaceBiomes.forChunk()::biome,
+                biomeDefinitions, worldRandom),
+            legacy,
             (chunkX, chunkZ, into) -> storedBiomes(biomeSource, chunkX, chunkZ, minQuartY, maxQuartY, into),
             vanilla, features, world.getSeed());
     }
@@ -369,9 +372,10 @@ public class ModernWorldGenerator implements IChunkProvider {
         densityPrefetcher.prefetch(chunkX, chunkZ);
     }
 
-    /// Places the features of chunk `(chunkX, chunkZ)` now. Assumption: the 3×3 chunks around it are generated.
-    public void decorate(int chunkX, int chunkZ) {
-        decorator.decorate(chunkX, chunkZ);
+    /// Places the features of chunk `(chunkX, chunkZ)` positioned in layers `minY..maxY` into `world` now
+    /// ([FeatureDecorator#decorateBand]).
+    public void decorateBand(int chunkX, int chunkZ, int minY, int maxY, @NotNull LegacyWorld world) {
+        if (decorator != null) decorator.decorateBand(chunkX, chunkZ, minY, maxY, world);
     }
 
     /// Every block of the chunk after terrain, fluids, ore veins and surface rules, at index
@@ -467,7 +471,7 @@ public class ModernWorldGenerator implements IChunkProvider {
 
     /// Decorates up to `limit` of the chunks queued by [#populate]. Server thread, once per world tick.
     public void tickDecoration(int limit) {
-        population().tick(limit, this::isGenerated, decorator);
+        population().tick(limit, this::isGenerated, decorator != null ? decorator : (chunkX, chunkZ) -> {});
     }
 
     private boolean isGenerated(int chunkX, int chunkZ) {

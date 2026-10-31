@@ -81,15 +81,55 @@ class FeatureDecoratorTest {
     private static FakeLegacyWorld decorate(FakeLegacyWorld world, BiomeFeatures features, String biome, int chunkX,
         int chunkZ) {
         List<long[]> loaded = new ArrayList<>();
-        FeatureDecorator decorator = new FeatureDecorator((x, z) -> loaded.add(new long[] { x, z }),
-            area -> new PopulationLevel(world, states, area, (x, y, z) -> biome,
-                new FeatureBiomes(id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class)),
-                new StandardRandom(0)),
-            (x, z, into) -> into.add(biome), vanilla, features, 1234L);
-
-        decorator.decorate(chunkX, chunkZ);
+        decorator(world, features, biome, loaded).decorate(chunkX, chunkZ);
         assertEquals(9, loaded.size());
         return world;
+    }
+
+    private static FeatureDecorator decorator(FakeLegacyWorld world, BiomeFeatures features, String biome,
+        List<long[]> loaded) {
+        return new FeatureDecorator((x, z) -> loaded.add(new long[] { x, z }),
+            (legacy, area) -> new PopulationLevel(legacy, states, area, (x, y, z) -> biome,
+                new FeatureBiomes(id -> VanillaWorldgen.definition("biome", id, DatapackBiome.class)),
+                new StandardRandom(0)),
+            world, (x, z, into) -> into.add(biome), vanilla, features, 1234L);
+    }
+
+    /// A band gets only the features positioned in it; their blobs reach a few blocks out of it.
+    @Test
+    void bandsPlaceOnlyTheirFeatures() {
+        FakeLegacyWorld world = new FakeLegacyWorld(Blocks.stone, 256);
+        decorator(world, plains, "minecraft:plains", new ArrayList<>()).decorateBand(0, 0, 32, 47, world);
+
+        int placed = 0;
+        for (int x = -16; x < 32; x++) {
+            for (int z = -16; z < 32; z++) {
+                for (int y = 0; y < 256; y++) {
+                    if (world.getBlock(x, y, z) == Blocks.stone) continue;
+
+                    placed++;
+                    assertTrue(y >= 32 - 16 && y <= 47 + 16, "placed at y = " + y);
+                }
+            }
+        }
+        assertTrue(placed > 0, "something placed");
+    }
+
+    /// Decorated a band at a time, chunks get about the ores they get all at once.
+    @Test
+    void bandsTogetherPlaceAboutTheWhole() {
+        int whole = 0, banded = 0;
+        for (int chunkX = 0; chunkX < 4; chunkX++) {
+            whole += decorate(chunkX, 0).count(Blocks.coal_ore);
+
+            FakeLegacyWorld world = new FakeLegacyWorld(Blocks.stone, 256);
+            FeatureDecorator decorator = decorator(world, plains, "minecraft:plains", new ArrayList<>());
+            for (int minY = -64; minY < 320; minY += 16) decorator.decorateBand(chunkX, 0, minY, minY + 15, world);
+            banded += world.count(Blocks.coal_ore);
+        }
+
+        assertTrue(whole > 0);
+        assertEquals(whole, banded, whole * 0.25, "coal placed a band at a time");
     }
 
     @Test

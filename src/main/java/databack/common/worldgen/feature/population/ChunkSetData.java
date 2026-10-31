@@ -9,13 +9,14 @@ import org.jetbrains.annotations.NotNull;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import it.unimi.dsi.fastutil.longs.LongSet;
 
-/// A set of a dimension's chunks, saved with the dimension under a name.
+/// A set of a dimension's chunks (or other keys packed in a long), saved with the dimension under a name.
 public final class ChunkSetData extends WorldSavedData {
 
     /// The chunks waiting for decoration ([DeferredPopulation]).
     public static final String PENDING_POPULATION = "databack_pending_population";
-    /// The columns of a Cubic Chunks world whose features are placed.
-    public static final String DECORATED_COLUMNS = "databack_decorated_columns";
+    /// The cube layers of a Cubic Chunks world's columns whose features are placed, by
+    /// `databack.common.worldgen.cubic.CubicModernGenerator#bandKey`.
+    public static final String DECORATED_BANDS = "databack_decorated_bands";
 
     private final LongOpenHashSet chunks = new LongOpenHashSet();
 

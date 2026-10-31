@@ -45,6 +45,11 @@ public class CustomHeightmap implements Heightmap {
         return 0;
     }
 
+    @Override
+    public boolean counts(Block block, int meta, int x, int y, int z) {
+        return predicate.test(world, block, meta, x, y, z);
+    }
+
     /// Cubic Chunks' columns have no fixed bottom or 1.7 height.
     @Optional.Method(modid = "cubicchunks")
     private int getTopCC(int worldX, int worldY, int worldZ) {
