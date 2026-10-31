@@ -30,9 +30,9 @@ import databack.common.loader.ResourceId;
 /**
  * Integration tests for the full datapack loading pipeline.
  *
- * <p>Tests that require the vanilla datapack are skipped automatically when
- * {@code misc/test-packs/minecraft} is absent. To enable them, copy (or symlink)
- * the vanilla {@code minecraft} datapack folder there.
+ * <p>The loader always injects the vanilla datapack first; the test task points it at
+ * {@code misc/test-packs/minecraft} ({@code databack.vanillaDatapack}). Tests that need it are skipped
+ * when that folder is absent.
  */
 class DatapackPipelineTest {
 
@@ -75,43 +75,46 @@ class DatapackPipelineTest {
     // ---- Discovery ----------------------------------------------------------
 
     @Test
-    void testDiscovery_noDatapacksDir_returnsEmpty() {
+    void testDiscovery_noDatapacksDir_findsOnlyVanilla() {
         List<File> candidates = DatapackLoader.discoverCandidates(tempWorldDir.toFile());
-        assertTrue(candidates.isEmpty());
+        assertEquals(Arrays.asList(VANILLA_PACK.getAbsoluteFile()), candidates);
     }
 
     @Test
-    void testDiscovery_emptyDatapacksDir_returnsEmpty() throws IOException {
+    void testDiscovery_emptyDatapacksDir_findsOnlyVanilla() throws IOException {
         Files.createDirectories(tempWorldDir.resolve("datapacks"));
         List<File> candidates = DatapackLoader.discoverCandidates(tempWorldDir.toFile());
-        assertTrue(candidates.isEmpty());
+        assertEquals(Arrays.asList(VANILLA_PACK.getAbsoluteFile()), candidates);
     }
 
     @Test
-    void testDiscovery_vanillaPack_findsOnePack() throws IOException {
-        assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
-
+    void testDiscovery_worldPack_comesAfterVanilla() throws IOException {
         Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
+        Path worldPack = Files.createDirectories(datapacksDir.resolve("extra"));
 
         List<File> candidates = DatapackLoader.discoverCandidates(tempWorldDir.toFile());
 
-        assertEquals(1, candidates.size());
-        assertEquals("minecraft", candidates.get(0).getName());
+        assertEquals(Arrays.asList(VANILLA_PACK.getAbsoluteFile(), worldPack.toFile()), candidates);
     }
 
     // ---- Candidate loading --------------------------------------------------
 
     @Test
     void testLoadDatapacks_packWithoutMeta_skippedSilently() throws IOException {
+        assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
+
         Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
         Files.createDirectories(datapacksDir.resolve("no-meta"));
 
         List<File> candidates = DatapackLoader.discoverCandidates(tempWorldDir.toFile());
         List<Datapack> packs = DatapackLoader.loadDatapacks(candidates);
 
-        assertTrue(packs.isEmpty());
-        closePacks(packs);
+        try {
+            assertEquals(1, packs.size());
+            assertEquals("minecraft", packs.get(0).getName());
+        } finally {
+            closePacks(packs);
+        }
     }
 
     @Test
@@ -129,9 +132,6 @@ class DatapackPipelineTest {
     void testLoadDatapacks_vanillaPack_parsesName() throws IOException {
         assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
 
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
-
         List<File> candidates = DatapackLoader.discoverCandidates(tempWorldDir.toFile());
         List<Datapack> packs = DatapackLoader.loadDatapacks(candidates);
 
@@ -147,24 +147,25 @@ class DatapackPipelineTest {
     // ---- Full pipeline -------------------------------------------------------
 
     @Test
-    void testFullPipeline_noDatapacksDir_noOp() {
+    void testFullPipeline_noDatapacksDir_loadsVanilla() {
+        assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
+
         assertDoesNotThrow(() -> DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo()));
-        assertFalse(biomeHandler.started, "onLoadStart should not fire when no packs are found");
+        assertTrue(biomeHandler.started, "The vanilla pack should load without world packs");
     }
 
     @Test
-    void testFullPipeline_emptyDatapacksDir_noOp() throws IOException {
+    void testFullPipeline_emptyDatapacksDir_loadsVanilla() throws IOException {
+        assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
+
         Files.createDirectories(tempWorldDir.resolve("datapacks"));
         assertDoesNotThrow(() -> DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo()));
-        assertFalse(biomeHandler.started);
+        assertTrue(biomeHandler.started, "The vanilla pack should load without world packs");
     }
 
     @Test
     void testFullPipeline_vanillaPack_noExceptions() throws IOException {
         assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
-
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
 
         assertDoesNotThrow(() -> DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo()));
     }
@@ -172,9 +173,6 @@ class DatapackPipelineTest {
     @Test
     void testFullPipeline_vanillaPack_dispatchesKnownTypes() throws IOException {
         assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
-
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
 
         DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
 
@@ -191,9 +189,6 @@ class DatapackPipelineTest {
     void testFullPipeline_vanillaPack_containsKnownBiome() throws IOException {
         assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
 
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
-
         DatapackLoader.load(tempWorldDir.toFile(), new TestDatapackWorldInfo());
 
         assertTrue(
@@ -204,9 +199,6 @@ class DatapackPipelineTest {
     @Test
     void testFullPipeline_handlerLifecycleOrder() throws IOException {
         assumeTrue(VANILLA_PACK.exists(), "Vanilla pack absent; copy it to misc/test-packs/minecraft");
-
-        Path datapacksDir = Files.createDirectories(tempWorldDir.resolve("datapacks"));
-        Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toAbsolutePath());
 
         List<String> events = new ArrayList<>();
         IDatapackTypeHandler ordered = new IDatapackTypeHandler() {

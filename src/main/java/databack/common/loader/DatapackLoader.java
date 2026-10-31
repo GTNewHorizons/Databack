@@ -90,8 +90,6 @@ public final class DatapackLoader {
             candidates.addAll(discover(datapacksDir));
         }
 
-        candidates.add(worldSaveDir.toPath().resolve("..").resolve("..").resolve("..").resolve("..").resolve("misc/test-packs/minecraft").toFile());
-
         MinecraftForge.EVENT_BUS.post(new DatapackGatherEvent(candidates));
 
         return candidates;

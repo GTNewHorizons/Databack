@@ -92,6 +92,12 @@ public class VanillaDatapackDownloader {
 
     private VanillaDatapackDownloader() {}
 
+    /**
+     * A datapack directory to use as-is instead of downloading one, e.g. so tests never touch the network. It's
+     * trusted to be complete; without the cached classes and block list, the code that needs them warns and no-ops.
+     */
+    public static final String OVERRIDE_PROPERTY = "databack.vanillaDatapack";
+
     /** Cached result from a previous successful call; avoids redundant I/O on world load. */
     private static volatile File cachedDir = null;
 
@@ -106,6 +112,12 @@ public class VanillaDatapackDownloader {
      */
     public static File getOrDownload(File gameDir) throws IOException {
         if (cachedDir != null) return cachedDir;
+
+        String override = System.getProperty(OVERRIDE_PROPERTY);
+        if (override != null) {
+            cachedDir = new File(override);
+            return cachedDir;
+        }
 
         File cacheDir = new File(gameDir, "databack/" + CACHE_DIR_NAME);
         if (isComplete(cacheDir)) {

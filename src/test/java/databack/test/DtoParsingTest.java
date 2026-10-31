@@ -47,6 +47,7 @@ import databack.common.dto.worldgen.multi_noise_biome_source.MultiNoiseBiomeSour
 import databack.common.dto.worldgen.processor_list.ProcessorList;
 import databack.common.dto.worldgen.structure.IStructure;
 import databack.common.dto.worldgen.structure_set.StructureSet;
+import databack.common.dto.worldgen.surface_rule.BuiltinSurfaceRules;
 import databack.common.dto.worldgen.template_pool.TemplatePool;
 import databack.common.dto.worldgen.world_preset.WorldPreset;
 import databack.common.handlers.BiomeList;
@@ -119,6 +120,7 @@ class DtoParsingTest {
         BuiltinStructures.init();
         BuiltinStructurePlacements.init();
         NoiseGeneratorSettings.init();
+        BuiltinSurfaceRules.init();
         BuiltinDimensionGenerators.init();
         DatapackSerialization.finish();
 
@@ -152,17 +154,11 @@ class DtoParsingTest {
         DatapackHandlerRegistry.registerTypeHandler("worldgen/structure_set", () -> structureSetList);
         DatapackHandlerRegistry.registerTypeHandler("worldgen/world_preset", () -> worldPresetList);
 
-        // Create temp world dir, symlink pack in, load, then clean up.
+        // The loader injects the vanilla pack (databack.vanillaDatapack) into any world, so an empty one will do.
         Path tempDir = Files.createTempDirectory("databack-dto-test");
         try {
-            Path datapacksDir = Files.createDirectories(tempDir.resolve("datapacks"));
-            Files.createSymbolicLink(datapacksDir.resolve("minecraft"), VANILLA_PACK.toPath().toRealPath());
             DatapackLoader.load(tempDir.toFile(), new TestDatapackWorldInfo());
         } finally {
-            // Remove only the symlink and the datapacks dir — not the vanilla pack.
-            File symlink = tempDir.resolve("datapacks/minecraft").toFile();
-            symlink.delete();
-            tempDir.resolve("datapacks").toFile().delete();
             tempDir.toFile().delete();
         }
     }

@@ -9,6 +9,8 @@ tasks.test.configure {
     // The 26.1 client jar addon.gradle's downloadVanillaDatapack caches; biome preset tests read classes from it.
     systemProperty("databack.vanillaJar",
         gradle.gradleUserHomeDir.resolve("caches/minecraft-client-jars/minecraft-26.1-client.jar").absolutePath)
+    // Stands in for VanillaDatapackDownloader's download, so world loads in tests don't reach Mojang.
+    systemProperty("databack.vanillaDatapack", file("misc/test-packs/minecraft").absolutePath)
     testLogging {
         events("passed", "skipped", "failed")
     }
