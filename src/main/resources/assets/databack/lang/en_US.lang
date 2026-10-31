@@ -18,3 +18,5 @@ databack.debug.biome_id.desc=Adds a readout for the current biome's autogenerate
 
 databack.debug.biome_tags.title=Biome Tags
 databack.debug.biome_tags.desc=Adds a readout for the current biome's tags.
+
+generator.modern=Modern (26.1)
